@@ -1,0 +1,31 @@
+# Global Parameters
+Version                     1
+Geometry                   /project/majello/astrohe/yong/COSI/MassModel/massmodel-cosi-smex-v12/COSISMEX.geo.setup
+
+
+# Physics list
+PhysicsListEM               LivermorePol
+
+# Output formats
+StoreSimulationInfo         init-only
+
+# Turn off shield vetoes
+PreTriggerMode EveryEventWithHits
+
+# Run and source parameters
+Run                         GRBSim
+GRBSim.FileName             GRB100100020_6
+GRBSim.OrientationSky       Galactic File NoLoop /project/majello/astrohe/yong/COSI/DC2_data/ml_grb.ori
+GRBSim.Time                 1835487301.0
+GRBSim.Source               GRB1001000206
+GRB1001000206.ParticleType   1
+GRB1001000206.Beam           FarFieldPointSource 0 0
+GRB1001000206.Orientation    Galactic Fixed -21.6 44.6
+
+
+# Band Spectrum parameters: Flux integration min and max energies, alpha, beta, ebreak. change to John's values
+GRB1001000206.Spectrum       Band 100.0 10000.0 -0.5 -2.3 490
+
+# Average photon flux, in photon/cm2/s, for a Band function law fit to a single spectrum over the duration of the burst.
+GRB1001000206.Flux           20.6
+
