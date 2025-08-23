@@ -27,7 +27,7 @@ class Source():
             self._source = {f"{self._run_name}.Source" : source_name, 
                            f"{source_name}.ParticleType" : particle_type,
                            f"{source_name}.Beam" : beam, 
-                           f"{source_name}.orientation" : orientation, 
+                           f"{source_name}.Orientation" : orientation, 
                            f"{source_name}.Flux" : flux}
         else:
             self._source = param_dict
@@ -107,5 +107,22 @@ class Source():
                 values[-1] = coord.l.deg.astype(str)
                 values[-2] = coord.b.deg.astype(str)
                 self._source[f"{self._source_name}.Orientation"] = " ".join(values)
+
+    def set_flux(self, flux):
+
+        """
+        Set the flux of the source.
+
+        Parameters
+        ----------
+        flux : float
+            The flux in value photon/cm2/s.
+
+        Returns
+        -------
+        None
+        """
+
+        self._source[f"{self._source_name}.Flux"] = flux
             
         

@@ -69,6 +69,23 @@ class MEGAlibSource():
 
         self.source.set_coordinate(coord = coord)
 
+    def set_flux(self, flux):
+
+        """
+        Set the coordinate for the source.
+
+        Parameters
+        ----------
+        flux : float
+            The flux in value photon/cm2/s.
+
+        Returns
+        -------
+        None
+        """
+
+        self.source.set_flux(flux=flux)
+
     def save_source_file(self, file_path, should_print = False):
 
         """
