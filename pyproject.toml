@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "megalibpy"
+version = "0.1"
+description = "Python tools for working with MEGAlib source files."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Yong Sheng", email = "sheng2@clemson.edu" }]
+dependencies = ["astropy", "tabulate"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["megalibpy", "megalibpy.*"]
+
+[tool.setuptools.package-data]
+"megalibpy.test_data" = ["*.source"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+markers = ["smoke: fast checks of package installation and basic usage"]
+
+[tool.ruff]
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E9", "F"]

@@ -1,0 +1,19 @@
+name: megalibpy
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - astropy-base
+  - tabulate
+  - pip
+  - setuptools>=68
+  - wheel
+  - pytest
+  - pytest-cov
+  - ruff
+  - pre-commit
+  - sphinx>=8.2,<9
+  - sphinx_rtd_theme>=3,<4
+  - nbsphinx>=0.9,<1
+  - pandoc

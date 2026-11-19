@@ -1,23 +1,18 @@
 from .base_params import BaseParams
 from .run import Run
-from .source import Source
 from tabulate import tabulate
 
 class MEGAlibSource():
+    """Read and edit a Cosima source file with one run and one source."""
 
     def __init__(self, file_path):
 
-        """
-        Initialize the instance by a MEGAlib source file."
+        """Load the global, run, and source parameters from a file.
 
         Parameters
         ----------
-        file_path : str or pathlib.Path; the path to the source file.
-
-        Returns
-        -------
-        MEGAlibSource
-            The instance.
+        file_path : str or pathlib.Path
+            Path to the input Cosima ``.source`` file.
         """
 
         self._base = BaseParams.read_from_file(file_path)
@@ -25,15 +20,37 @@ class MEGAlibSource():
 
 
     def list_base_params(self, return_table = False, should_print = True):
+        """Display the global simulation parameters.
+
+        Set ``return_table=True`` to return a list of ``[key, value]`` rows
+        and ``should_print=False`` to skip printing the table.
+        """
         return self._base.list_parameters(return_table = return_table, should_print = should_print)
 
     def list_run_params(self, source_detail = True, return_table = False, should_print = True):
+        """Display the run parameters and, by default, the source parameters.
+
+        Set ``source_detail=False`` to show the source as a single
+        :class:`Source` object in the run table. Set ``return_table=True``
+        to return a list of ``[key, value]`` rows and ``should_print=False``
+        to skip printing the table.
+        """
         return self._run.list_parameters(source_detail = source_detail, return_table = return_table, should_print = should_print)
 
     def list_source_params(self, return_table = False, should_print = True):
+        """Display the parameters for the run's source.
+
+        Set ``return_table=True`` to return a list of ``[key, value]`` rows
+        and ``should_print=False`` to skip printing the table.
+        """
         return self._run.source.list_parameters(return_table = return_table, should_print = should_print)
 
     def list_all_params(self, return_table = False, should_print = True):
+        """Display the global, run, and source parameters in one table.
+
+        Set ``return_table=True`` to return a list of ``[key, value]`` rows
+        and ``should_print=False`` to skip printing the table.
+        """
 
         # first get the base parameter table
         table_data = self.list_base_params(return_table = True, should_print = False)
@@ -51,20 +68,23 @@ class MEGAlibSource():
 
     @property
     def run(self):
+        """The parsed :class:`Run` for the file."""
         return self._run
 
     @property
     def source(self):
+        """The parsed :class:`Source` associated with the run."""
         return self._run.source
 
     def set_coordinate(self, coord):
 
         """
-        Set the coordinate for the source.
+        Set the Galactic coordinate of the source.
 
         Parameters
         ----------
-        coord : astropy.coordinates. SkyCoord; the new coordinate.
+        coord : astropy.coordinates.SkyCoord
+            The new coordinate in the Galactic frame.
         """
 
         self.source.set_coordinate(coord = coord)
@@ -72,28 +92,26 @@ class MEGAlibSource():
     def set_flux(self, flux):
 
         """
-        Set the coordinate for the source.
+        Set the photon flux of the source.
 
         Parameters
         ----------
         flux : float
-            The flux in value photon/cm2/s.
-
-        Returns
-        -------
-        None
+            Photon flux in photons per square centimeter per second.
         """
 
         self.source.set_flux(flux=flux)
 
     def save_source_file(self, file_path, should_print = False):
 
-        """
-        Save the MEGAlibSource object to a text file.
+        """Write the stored parameters to a Cosima source file.
 
         Parameters
         ----------
-        file_path : str or pathlib.Path; the file to be saved.
+        file_path : str or pathlib.Path
+            Output path. An existing file at this path is overwritten.
+        should_print : bool, optional
+            Print the parameter table when true. Defaults to false.
         """
 
         table_data = self.list_all_params(return_table = True, should_print = should_print)

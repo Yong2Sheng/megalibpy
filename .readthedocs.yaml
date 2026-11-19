@@ -1,0 +1,16 @@
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: miniforge3-25.11
+  jobs:
+    pre_build:
+      - python -m pip install --no-deps --no-build-isolation .
+
+conda:
+  environment: environment.yml
+
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: true
