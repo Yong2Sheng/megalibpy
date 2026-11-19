@@ -3,6 +3,8 @@
 Python tools for reading, inspecting, and editing MEGAlib/Cosima `.source` files.
 The current parser supports one run with one source per file.
 
+[Read the documentation](https://yong2sheng.github.io/megalibpy/)
+
 ## Installation
 
 Conda manages the dependencies and development tools. Pip installs
@@ -88,10 +90,15 @@ to enable Codecov uploads.
 
 ## Documentation
 
-The [documentation source](docs/index.rst) includes installation instructions,
-the tutorial notebook, and an API reference generated from the Python package.
-Build it from the repository root with the Conda environment activated and
-`megalibpy` installed.
+Read the [online documentation](https://yong2sheng.github.io/megalibpy/) for
+installation instructions, the tutorial notebook, and the API reference.
+GitHub Actions builds and publishes the documentation after successful checks
+on `main`; no local installation is needed to read it.
+
+### Build documentation locally
+
+To contribute to the [documentation source](docs/index.rst), build it from the
+repository root with the Conda environment activated and `megalibpy` installed.
 
 ```bash
 sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html
@@ -99,6 +106,7 @@ sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html
 
 Open `docs/_build/html/index.html` to browse the result. GitHub Actions checks
 the build and publishes the HTML as a downloadable workflow artifact.
-To publish the site, import the GitHub repository into
-[Read the Docs](https://app.readthedocs.org/), which uses
-[`.readthedocs.yaml`](.readthedocs.yaml) to build the docs.
+Maintainers can enable hosting under **Settings → Pages → Build and deployment
+→ Source → GitHub Actions**. Pull requests build the documentation for validation
+without deploying it. The [Read the Docs configuration](.readthedocs.yaml) is
+also available if a separate Read the Docs project is configured.
