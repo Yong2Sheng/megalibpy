@@ -4,9 +4,9 @@ API reference
 .. currentmodule:: megalibpy
 
 Import these classes directly from ``megalibpy``. Start with
-:class:`MEGAlibSource` to load and edit a source file. Its :attr:`~MEGAlibSource.run`
+:class:`MEGAlibSource` to load and edit a source file. Its :attr:`~MEGAlibSource.run_config`
 and :attr:`~MEGAlibSource.source` properties give you access to the parsed
-:class:`Run` and :class:`Source` objects.
+:class:`RunConfig` and :class:`Source` objects.
 
 Source file
 -----------
@@ -20,10 +20,14 @@ Global parameters
 .. autoclass:: BaseParams
    :members:
 
-Simulation run
---------------
+Cosima run configuration
+------------------------
 
-.. autoclass:: Run
+This object describes a ``Run`` block in a source file; it does not execute
+Cosima. ``Run`` remains a compatibility alias for ``RunConfig``, and
+``MEGAlibSource.run`` remains an alias for ``MEGAlibSource.run_config``.
+
+.. autoclass:: RunConfig
    :members:
 
 Source parameters
