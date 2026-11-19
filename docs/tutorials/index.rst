@@ -10,7 +10,7 @@ an updated copy. The example uses a GRB template included with the package.
    from megalibpy import MEGAlibSource, test_data
 
    config = MEGAlibSource(test_data / "GRB_ml_template.source")
-   print(config.run.run_name)
+   print(config.run_config.run_name)
    print(config.source.coordinate)
 
    config.set_coordinate(SkyCoord(l=241.5, b=2.4, unit="deg", frame="galactic"))

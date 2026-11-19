@@ -1,5 +1,5 @@
 from .base_params import BaseParams
-from .run import Run
+from .run_config import RunConfig
 from tabulate import tabulate
 
 class MEGAlibSource():
@@ -16,7 +16,7 @@ class MEGAlibSource():
         """
 
         self._base = BaseParams.read_from_file(file_path)
-        self._run  = Run.read_from_file(file_path)
+        self._run  = RunConfig.read_from_file(file_path)
 
 
     def list_base_params(self, return_table = False, should_print = True):
@@ -67,9 +67,14 @@ class MEGAlibSource():
             return table_data
 
     @property
-    def run(self):
-        """The parsed :class:`Run` for the file."""
+    def run_config(self):
+        """The parsed :class:`RunConfig`; accessing it does not execute Cosima."""
         return self._run
+
+    @property
+    def run(self):
+        """Compatibility alias for :attr:`run_config`."""
+        return self.run_config
 
     @property
     def source(self):

@@ -61,6 +61,11 @@ for more examples. To run it locally, install JupyterLab with
 `conda install -c conda-forge jupyterlab`, then launch `jupyter lab` from the
 activated environment.
 
+`config.run_config` exposes the parameters of the source file's `Run` block;
+it does not execute a simulation. The earlier `Run` class name and `config.run`
+property remain available as compatibility aliases for `RunConfig` and
+`config.run_config`.
+
 Reading and editing source files works with the Python environment alone.
 Running the saved file in Cosima requires a separate MEGAlib installation
 and local paths for the geometry and orientation files referenced in the template.

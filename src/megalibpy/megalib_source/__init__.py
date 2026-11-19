@@ -8,7 +8,7 @@ Created on Sat Nov 30 21:03:36 2024
 
 from .megalib_source import MEGAlibSource
 from .base_params import BaseParams
-from .run import Run
+from .run import Run, RunConfig
 from .source import Source
 
-__all__ = ["BaseParams", "MEGAlibSource", "Run", "Source"]
+__all__ = ["BaseParams", "MEGAlibSource", "RunConfig", "Run", "Source"]
