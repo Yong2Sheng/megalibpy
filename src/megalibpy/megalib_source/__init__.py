@@ -10,3 +10,5 @@ from .megalib_source import MEGAlibSource
 from .base_params import BaseParams
 from .run import Run
 from .source import Source
+
+__all__ = ["BaseParams", "MEGAlibSource", "Run", "Source"]

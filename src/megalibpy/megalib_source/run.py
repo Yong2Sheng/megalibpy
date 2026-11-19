@@ -3,17 +3,27 @@ from ..convenient_functions import extract_value
 from tabulate import tabulate
 
 class Run():
+    """A Cosima simulation run and its associated source."""
 
     def __init__(self, param_dict = None, run_name = None, file_name = None, orientation_sky = None, time = None, source = None):
 
-        """
-        Initialize the run. It only supports a single source so far.
+        """Create a run from a mapping or individual values.
 
+        Parameters
+        ----------
+        param_dict : dict, optional
+            A dictionary keyed by Cosima directives. If given, it supplies
+            all the parameter values.
         run_name : str
+            Name declared in the ``Run`` directive.
         file_name : str
+            Output name specified by the run's ``FileName`` directive.
         orientation_sky : str
-        time : float
-        source : Source object
+            Sky orientation specification from ``OrientationSky``.
+        time : str or float
+            Value of the run's ``Time`` directive.
+        source : Source
+            The source associated with this run.
         """
 
         if param_dict is None:
@@ -29,12 +39,12 @@ class Run():
     @classmethod
     def read_from_file(cls, file_path):
         
-        """
-        Read a run that contains only one source from file. Mutiple runs and sources can be supported, but it can be implemented when needed.
+        """Read a run and its single source from a Cosima source file.
         
         Parameters
         ----------
-        file_path : str or pathlib.Path; the source file path
+        file_path : str or pathlib.Path
+            Path to the input ``.source`` file.
         
         Returns
         -------
@@ -81,25 +91,36 @@ class Run():
 
     @property
     def run_name(self):
+        """The name declared in the ``Run`` directive."""
         return self._run["Run"]
 
     @property
     def file_name(self):
+        """The output name specified by the run's ``FileName`` directive."""
         return self._run[f"{self.run_name}.FileName"]
 
     @property
     def orientation_sky(self):
+        """The raw ``OrientationSky`` specification for the run."""
         return self._run[f"{self.run_name}.OrientationSky"]
 
     @property
     def time(self):
+        """The value of the run's ``Time`` directive, read from file as text."""
         return self._run[f"{self.run_name}.Time"]
 
     @property
     def source(self):
+        """The :class:`Source` associated with this run."""
         return self._run[f"{self.run_name}.Source"]
     
     def list_parameters(self, source_detail = False, return_table = False, should_print = True):
+        """Display the run directives and their values.
+
+        Set ``source_detail=True`` to expand the source object into its
+        individual directives. Set ``return_table=True`` to return a list of
+        ``[key, value]`` rows and ``should_print=False`` to skip printing.
+        """
         # Prepare data for tabulate
         #table_data = [[key, value] if not isinstance(value, Source) else [key, value.source_name] for key, value in self._run.items()]
         table_data = [[key, value] for key, value in self._run.items()]
@@ -118,4 +139,5 @@ class Run():
         
     @property
     def run_dict(self):
+        """The underlying dictionary of run directives and their values."""
         return self._run

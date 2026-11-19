@@ -49,6 +49,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.ruff_cache/
 cover/
 
 # Translations
@@ -164,7 +165,5 @@ cython_debug/
 *checkpoints
 *egg_info/*
 .gitingore
-photozpy.egg-info/
 *__pycache__
 *.DS_Store*
-tests/

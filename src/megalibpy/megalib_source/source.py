@@ -2,22 +2,32 @@ from tabulate import tabulate
 from astropy.coordinates import SkyCoord
 
 class Source():
+    """Particle, beam, orientation, spectrum, and flux for one Cosima source."""
 
     def __init__(self, run_name, param_dict = None, source_name = None, particle_type = None, beam = None, orientation = None, spectrum = None, flux = None):
 
-        """
-        Initialize a source. 
-        Note that many parameters are only input as a string like `orientation = "Galactic Fixed -21.6 44.6"`. The current code doesn't further interpret it.
+        """Create a source from a mapping or individual values.
 
         Parameters
         ----------
-        run_name : str; the name of the run of the source
-        source_name : str; the source name
-        particle_type : int
+        run_name : str
+            Name of the run that references this source.
+        param_dict : dict, optional
+            A dictionary keyed by Cosima directives. If given, it supplies
+            all the parameter values.
+        source_name : str
+            Name assigned to the source in the run's ``Source`` directive.
+        particle_type : int or str
+            Cosima particle type code.
         beam : str
+            Beam model and its arguments, as used in the ``Beam`` directive.
         orientation : str
+            Orientation specification, such as ``Galactic Fixed -21.6 44.6``.
         spectrum : str
-        flux : float
+            For direct construction, supply the ``<source>.Spectrum``
+            entry in ``param_dict`` to store the spectral specification.
+        flux : float or str
+            Photon flux in photons per square centimeter per second.
         """
         
         self._run_name = run_name
@@ -36,37 +46,57 @@ class Source():
 
     @property
     def source_name(self):
+        """The name assigned to the source in the run's ``Source`` directive."""
         return self._source[f"{self._run_name}.Source"]
 
     @property
     def particle_type(self):
+        """The Cosima particle type code, read from file as text."""
         return self._source[f"{self._source_name}.ParticleType"]
 
     @property
     def beam(self):
+        """The beam model and parameters as specified in the source file."""
         return self._source[f"{self._source_name}.Beam"]
 
     @property
     def orientation(self):
+        """The raw orientation specification for this source."""
         return self._source[f"{self._source_name}.Orientation"]
 
     @property
     def spectrum(self):
+        """The spectral model and its arguments as specified in the source file."""
         return self._source[f"{self._source_name}.Spectrum"]
 
     @property
     def flux(self):
+        """Photon flux in photons per square centimeter per second.
+
+        A parsed flux is a string. After :meth:`set_flux`, this property
+        returns the value supplied to the setter.
+        """
         return self._source[f"{self._source_name}.Flux"]
     
     @property
     def coordinate(self):
-        
+        """The source position as an ``astropy.coordinates.SkyCoord``.
+
+        This property reads the last two orientation values as Galactic
+        latitude and longitude, in that order and in degrees.
+        """
+
         lon = float(self.orientation.split()[-1])
         lat = float(self.orientation.split()[-2])
         
         return SkyCoord(l = lon, b = lat, unit = "deg", frame = "galactic")
 
     def list_parameters(self, return_table = False, should_print = True):
+        """Display the source directives and their values.
+
+        Set ``return_table=True`` to return a list of ``[key, value]`` rows
+        and ``should_print=False`` to skip printing the table.
+        """
         # Prepare data for tabulate
         table_data = [[key, value] for key, value in self._source.items()]
         #table_data = [[key, value] for key, value in self._run.items()]
@@ -80,20 +110,18 @@ class Source():
         
     @property
     def source_dict(self):
+        """The underlying dictionary of source directives and their values."""
         return self._source
     
     def set_coordinate(self, coord):
         
-        """
-        Set the galactic coordinate of the source.
+        """Replace latitude and longitude in the existing orientation string.
         
         Parameters
         ----------
         coord : astropy.coordinates.SkyCoord
-        
-        Returns
-        -------
-        None
+            A single position in the Galactic frame. The latitude and
+            longitude are written in degrees.
         """
         
         if not isinstance(self.orientation, str):
@@ -116,13 +144,7 @@ class Source():
         Parameters
         ----------
         flux : float
-            The flux in value photon/cm2/s.
-
-        Returns
-        -------
-        None
+            Photon flux in photons per square centimeter per second.
         """
 
         self._source[f"{self._source_name}.Flux"] = flux
-            
-        
