@@ -6,6 +6,33 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class ExecutionInput:
+    """Select an upstream execution's product group for a tool adapter.
+
+    Parameters
+    ----------
+    manifest_path : pathlib.Path
+        Path to a successful upstream manifest, including legacy records without
+        an execution ID. The executor archives this record before launching.
+    output_group : str
+        Explicit product group to consume, such as ``"sim"`` or ``"tra"``.
+    execution_id : str or None, optional
+        Expected upstream identity. Results supply their ID automatically;
+        ``None`` allows references to legacy records without an ID.
+
+    Notes
+    -----
+    This reference records lineage; the tool adapter must also pass these files
+    to the native command. Products are referenced, not copied or fully hashed.
+    Multiple downstream plans may reference the same upstream execution.
+    """
+
+    manifest_path: Path
+    output_group: str
+    execution_id: str | None = None
+
+
+@dataclass(frozen=True)
 class ExecutionPlan:
     """Describe a command for the shared executor without starting a process.
 
@@ -24,8 +51,12 @@ class ExecutionPlan:
         ``{"sim": "events*.sim.gz"}``.
     metadata : dict of str to object, optional
         JSON-serializable tool-specific fields merged into the manifest.
-        Defaults to an empty dictionary. Internal callers must avoid reserved
-        execution-record keys such as ``status`` or ``returncode``.
+        Defaults to an empty dictionary. Reserved execution-record keys such
+        as ``status``, ``execution_id`` and ``upstream`` are rejected.
+    upstream : tuple of ExecutionInput, optional
+        Explicit upstream product selections, defaulting to no parents. Multiple
+        inputs and multiple consumers are allowed; no linear stage order is
+        imposed. Each upstream manifest is validated and snapshotted.
 
     Notes
     -----
@@ -38,6 +69,7 @@ class ExecutionPlan:
     cwd: Path
     output_patterns: dict[str, str]
     metadata: dict[str, Any] = field(default_factory=dict)
+    upstream: tuple[ExecutionInput, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -60,6 +92,10 @@ class ExecutionResult:
     returncode : int, optional
         Process return code, zero for results returned by the executor.
         Defaults to zero. Failed attempts raise ``ExecutionError`` instead.
+    execution_id : str or None, optional
+        Persistent UUID identifying this execution attempt independently of its
+        directory name. ``None`` supports manually constructed legacy results.
+        This is not a task ID: reruns receive different execution IDs.
 
     Attributes
     ----------
@@ -75,6 +111,8 @@ class ExecutionResult:
         Standard-error log, streamed directly to disk.
     returncode : int
         Zero when returned after successful execution and output checks.
+    execution_id : str or None
+        Execution identity stored in the manifest, or ``None`` for legacy objects.
 
     Notes
     -----
@@ -89,3 +127,27 @@ class ExecutionResult:
     stdout_path: Path
     stderr_path: Path
     returncode: int = 0
+    execution_id: str | None = None
+
+    def as_input(self, output_group):
+        """Select a product group for a downstream execution plan.
+
+        Parameters
+        ----------
+        output_group : str
+            Product group present in :attr:`outputs`, for example ``"sim"``.
+
+        Returns
+        -------
+        ExecutionInput
+            Reference to this manifest and the selected product group. The
+            executor validates the persisted record when consuming it.
+
+        Raises
+        ------
+        KeyError
+            The requested group is absent from this result.
+        """
+        if output_group not in self.outputs:
+            raise KeyError(output_group)
+        return ExecutionInput(self.manifest_path, output_group, self.execution_id)

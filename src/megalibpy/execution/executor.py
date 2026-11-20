@@ -8,10 +8,11 @@ import platform
 import signal
 import subprocess
 import time
+from uuid import uuid4
 
 from .errors import ExecutionError
 from .models import ExecutionResult
-from .provenance import file_record, write_manifest
+from .provenance import capture_upstream, file_record, write_manifest
 from .workspace import Workspace
 
 
@@ -119,7 +120,8 @@ class Executor:
         workspace = Workspace.create(output_dir)
         root = workspace.root
         manifest = {
-            "schema_version": 1, "tool": tool, "status": "preparing",
+            "schema_version": 2, "execution_id": str(uuid4()),
+            "tool": tool, "status": "preparing", "upstream": [],
             "started_at": _now(), "finished_at": None, "returncode": None,
             "software": {"megalibpy": version("megalibpy"),
                          "python": platform.python_version(), "platform": platform.platform(),
@@ -147,6 +149,13 @@ class Executor:
                 # Execute the original location: scripts may use BASH_SOURCE to
                 # locate installation files. The snapshot is an audit artifact.
             plan = prepare(workspace)
+            reserved = set(manifest) | {
+                "command", "cwd", "output_patterns", "launch_command", "validation",
+                "error", "duration_seconds",
+            }
+            if reserved.intersection(plan.metadata):
+                raise ValueError("Tool metadata cannot override reserved execution fields")
+            manifest["upstream"] = capture_upstream(workspace, plan.upstream)
             manifest.update(command=list(plan.command), cwd=str(plan.cwd),
                             output_patterns=plan.output_patterns, **plan.metadata)
             command, env = self.runtime.launch(plan.command, executable_record)
@@ -206,4 +215,5 @@ class Executor:
             manifest["finished_at"] = _now()
             manifest["duration_seconds"] = time.monotonic() - started
             write_manifest(workspace.manifest_path, manifest)
-        return ExecutionResult(root, outputs, workspace.manifest_path, stdout_path, stderr_path)
+        return ExecutionResult(root, outputs, workspace.manifest_path, stdout_path, stderr_path,
+                               execution_id=manifest["execution_id"])

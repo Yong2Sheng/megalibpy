@@ -83,3 +83,6 @@ Cosima calls.
 
 .. autoclass:: megalibpy.execution.ExecutionPlan
    :members:
+
+.. autoclass:: megalibpy.execution.ExecutionInput
+   :members:

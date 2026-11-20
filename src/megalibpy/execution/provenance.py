@@ -5,6 +5,45 @@ import json
 from pathlib import Path
 
 
+def capture_upstream(workspace, references):
+    """Validate selected upstream groups and archive their exact manifests.
+
+    Internal adapter support; this does not infer inputs from directory names,
+    copy products, or verify their scientific content.
+    """
+    records = []
+    for index, reference in enumerate(references):
+        path = Path(reference.manifest_path).expanduser().resolve(strict=True)
+        content = path.read_bytes()
+        upstream = json.loads(content)
+        if upstream.get("schema_version") not in (1, 2):
+            raise ValueError("Unsupported upstream manifest schema")
+        if upstream.get("status") != "succeeded":
+            raise ValueError("Upstream execution must have succeeded")
+        if reference.execution_id is not None and reference.execution_id != upstream.get("execution_id"):
+            raise ValueError("Upstream execution identity changed")
+        group = reference.output_group
+        products = upstream.get("outputs", {}).get(group)
+        if not isinstance(products, list) or not products:
+            raise ValueError(f"Missing upstream product group: {group!r}")
+        paths = []
+        for product in products:
+            selected = (path.parent / product).resolve(strict=True)
+            if not selected.is_relative_to(path.parent) or not selected.is_file():
+                raise ValueError("Upstream products must be files within their execution directory")
+            paths.append(str(selected))
+        snapshot = workspace.root / "inputs" / f"upstream-{index:04d}.json"
+        snapshot.write_bytes(content)
+        records.append({
+            "execution_id": upstream.get("execution_id"),
+            "manifest_path": str(path),
+            "manifest_snapshot": str(snapshot.relative_to(workspace.root)),
+            "manifest_sha256": hashlib.sha256(content).hexdigest(),
+            "output_group": group, "paths": paths,
+        })
+    return records
+
+
 def sha256(path: Path) -> str:
     """Return a file's hexadecimal SHA-256 checksum using bounded read buffers.
 

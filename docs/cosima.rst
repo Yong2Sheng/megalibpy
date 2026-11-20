@@ -191,3 +191,31 @@ repository root with a short source file and a new output path:
      --timeout 300
 
 Add ``--setup-script ~/initialize-megalib.sh`` for the separate-runtime mode.
+
+Execution identity and upstream records
+---------------------------------------
+
+New manifests use schema version 2. Each execution, including failed attempts,
+has an ``execution_id`` (UUID); successful results also expose
+``result.execution_id``. This identifies an execution independently of the
+output directory name. Repeating a command produces a new identity.
+
+A Cosima simulation has an empty ``upstream`` list. Tool adapters can declare
+explicit input selections using ``ExecutionPlan.upstream`` and
+``result.as_input("sim")``. Before launching, the executor checks the upstream
+record's successful status and selected product group, archives its exact JSON
+in ``inputs/upstream-NNNN.json``, and records the manifest checksum, execution
+ID, and selected file paths. It does not copy or read the product contents.
+The adapter remains responsible for passing those selected files to its native
+command; declaring lineage alone does not change that command.
+
+Multiple consumers may reference the same upstream execution, and a plan can
+reference multiple upstreams. The executor does not select a globally latest
+result or impose a stage order. Legacy schema-1 manifests can be referenced
+without modification: their identity field is null and their manifest path,
+snapshot, checksum, and explicit product selection are retained.
+
+These are execution-record interfaces, not a workspace scheduler. The current
+Cosima interface still requires a new ``output_dir`` for each execution; it does
+not allocate task directories, enforce one simulation per experiment, or render
+workflow graphs.
