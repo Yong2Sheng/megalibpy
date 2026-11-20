@@ -110,7 +110,9 @@ class MEGAlibRuntime:
         executable_record : pathlib.Path
             Destination for the resolved executable path. Its parent directory
             must exist. Direct mode writes it immediately; setup-script mode
-            writes it from the Bash child just before ``exec``.
+            writes it from the Bash child just before ``exec``. Setup mode also
+            saves the fixed bootstrap program to ``launch.sh`` beside this file,
+            avoiding multiline commands in the shell's argument list.
 
         Returns
         -------
@@ -159,8 +161,10 @@ class MEGAlibRuntime:
             "MEGALIB",
         ):
             env.pop(key, None)
-        # Fixed shell program: paths and tool arguments are positional parameters,
-        # never interpolated into shell syntax. Script stdout stays in stdout.log.
+        # Use a real script rather than a multiline `bash -c` argument. ROOT
+        # 6.40.04 inspects /proc/$$/cmdline with line-oriented cut; newlines in
+        # argv can make its shell detector consume our bootstrap commands.
+        # Paths and tool arguments remain separate positional parameters.
         program = '''source "$1"
 setup_status=$?
 if [ "$setup_status" -ne 0 ]; then
@@ -173,5 +177,7 @@ shift
 command -v -- "$1" > "$record" || exit 127
 exec "$@"
 '''
-        return [bash, "--noprofile", "--norc", "-c", program, "megalibpy",
+        bootstrap = executable_record.parent / "launch.sh"
+        bootstrap.write_text(program, encoding="utf-8")
+        return [bash, "--noprofile", "--norc", str(bootstrap),
                 str(self.setup_script), str(executable_record), *command], env

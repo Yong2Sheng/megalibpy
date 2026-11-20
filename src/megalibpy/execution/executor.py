@@ -150,6 +150,11 @@ class Executor:
             manifest.update(command=list(plan.command), cwd=str(plan.cwd),
                             output_patterns=plan.output_patterns, **plan.metadata)
             command, env = self.runtime.launch(plan.command, executable_record)
+            bootstrap = root / "logs/launch.sh"
+            if self.runtime.setup_script and bootstrap.is_file():
+                manifest["runtime"]["bootstrap"] = {
+                    "snapshot": "logs/launch.sh", **file_record(bootstrap),
+                }
             manifest.update(status="running", launch_command=command)
             write_manifest(workspace.manifest_path, manifest)
             with stdout_path.open("wb") as out, stderr_path.open("wb") as err:

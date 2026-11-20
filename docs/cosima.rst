@@ -63,7 +63,9 @@ loading it executes its Bash commands.
 
 Both modes launch external processes. In setup-script mode, initialization and
 ``exec cosima`` occur in the same child process. The parent Python environment
-and working directory are unchanged. Common inherited Python and library
+and working directory are unchanged. The bootstrap is saved as ``logs/launch.sh``
+and executed as a script file, avoiding multiline ``bash -c`` arguments that can
+confuse shell detection in some ROOT initialization scripts. Common inherited Python and library
 search-path variables are removed before sourcing the script, but this is not
 a container or a guarantee of a hermetic environment. The script must fully
 initialize the intended runtime. Do not source it into the analysis shell
@@ -84,6 +86,7 @@ Each call requires a new output directory and creates:
    │   └── dependency-0000.setup # small discovered/declared dependency snapshots
    ├── logs/
    │   ├── executable.txt
+   │   ├── launch.sh             # setup-script mode bootstrap
    │   ├── stdout.log
    │   └── stderr.log
    ├── products/
@@ -165,7 +168,10 @@ Failures and timeouts
        print(error.returncode)
 
 Preparation errors, nonzero exit status, missing output, and timeouts are
-recorded in the manifest. On timeout or keyboard interruption the process group
+recorded in the manifest. A setup script must return a nonzero status when its
+initialization fails; a final successful ``echo`` can otherwise hide an earlier
+failure. The wrapper does not treat every stderr message as fatal. Inspect
+initialization logs as well as the manifest when validating a new runtime. On timeout or keyboard interruption the process group
 is terminated, including ordinary child processes. A forcibly killed Python
 process can leave ``preparing`` or ``running`` in its manifest; these states
 must never be treated as completed executions.

@@ -3,6 +3,7 @@
 import gzip
 import json
 import os
+import subprocess
 from pathlib import Path
 import sys
 import time
@@ -226,3 +227,48 @@ def test_source_include_rejected_without_running(inputs, tmp_path):
     with pytest.raises(ExecutionError, match="Included source"):
         Cosima(executable=executable).simulate(source, output_dir=tmp_path / "run")
     assert not list((tmp_path / "run/products").iterdir())
+
+
+def test_setup_uses_script_file_not_multiline_shell_argument(inputs, tmp_path):
+    source, executable = inputs
+    setup = tmp_path / "setup.sh"
+    setup.write_text("export COSIMA_SETUP_MARKER=child\n")
+    result = Cosima(MEGAlibRuntime.from_setup_script(setup), executable=executable).simulate(
+        source, output_dir=tmp_path / "run"
+    )
+    record = manifest(result)
+    argv = record["launch_command"]
+    assert "-c" not in argv
+    assert all("\n" not in argument for argument in argv)
+    bootstrap = result.output_dir / "logs/launch.sh"
+    assert bootstrap.is_file()
+    assert str(bootstrap) in argv
+    assert 'source "$1"' in bootstrap.read_text()
+    assert "marker=child" in result.stdout_path.read_text()
+
+
+@pytest.mark.skipif(not Path("/proc/self/cmdline").exists(), reason="Linux /proc regression")
+def test_root_64004_style_shell_detection(inputs, tmp_path):
+    source, executable = inputs
+    setup = tmp_path / "root-style-setup.sh"
+    setup.write_text('''# Reproduce ROOT 6.40.04's shell-name discovery on Linux.
+trueExe=$(cut -d '' -f1 /proc/$$/cmdline)
+name=$(basename "$trueExe")
+if [ "$name" != "bash" ]; then
+    printf 'Unexpected shell: %s\\n' "$name" >&2
+    return 37
+fi
+''')
+    # Multiline -c argv reproduces the old ROOT detector's bad shell name.
+    old = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-c",
+         'source "$1"\nstatus=$?\nif [ "$status" -ne 0 ]; then exit "$status"; fi\n',
+         "megalibpy-test", str(setup)],
+        capture_output=True, text=True,
+    )
+    assert old.returncode == 37
+    result = Cosima(MEGAlibRuntime.from_setup_script(setup), executable=executable).simulate(
+        source, output_dir=tmp_path / "run"
+    )
+    assert result.returncode == 0
+    assert result.stderr_path.read_text().strip() == "diagnostic stderr"
