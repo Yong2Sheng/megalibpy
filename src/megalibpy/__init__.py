@@ -8,9 +8,14 @@ Created on Sat Nov 30 20:47:47 2024
 
 from importlib.metadata import version
 
+from .cosima import Cosima
+from .execution import ExecutionError, ExecutionResult, MEGAlibRuntime
 from .megalib_source import BaseParams, MEGAlibSource, Run, RunConfig, Source
 from .test_data import test_data_path as test_data
 
 __version__ = version("megalibpy")
 
-__all__ = ["BaseParams", "MEGAlibSource", "RunConfig", "Run", "Source", "test_data"]
+__all__ = [
+    "BaseParams", "MEGAlibSource", "RunConfig", "Run", "Source", "test_data",
+    "Cosima", "MEGAlibRuntime", "ExecutionResult", "ExecutionError",
+]

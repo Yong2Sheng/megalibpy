@@ -35,3 +35,17 @@ Source parameters
 
 .. autoclass:: Source
    :members:
+
+Cosima execution
+----------------
+
+.. autoclass:: Cosima
+   :members:
+
+.. autoclass:: MEGAlibRuntime
+   :members:
+
+.. autoclass:: ExecutionResult
+   :members:
+
+.. autoexception:: ExecutionError

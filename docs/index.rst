@@ -14,4 +14,5 @@ The source code is available on `GitHub <https://github.com/Yong2Sheng/megalibpy
 
    install
    tutorials/index
+   cosima
    api/index
