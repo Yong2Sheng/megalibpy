@@ -70,6 +70,33 @@ Reading and editing source files works with the Python environment alone.
 Running the saved file in Cosima requires a separate MEGAlib installation
 and local paths for the geometry and orientation files referenced in the template.
 
+## Running Cosima
+
+Run MEGAlib's external Cosima simulator from Python, either in an already
+initialized environment or through a trusted Bash initialization script:
+
+```python
+from megalibpy import Cosima, MEGAlibRuntime
+
+runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
+# Use MEGAlibRuntime.direct() when the current environment already runs Cosima.
+result = Cosima(runtime).simulate(
+    "small.source", output_dir="experiment/cosima-001", seed=12345, timeout=300
+)
+print(result.outputs["sim"])
+print(result.manifest_path)
+```
+
+MEGAlib must be installed separately. Each execution uses a new output directory
+and saves source snapshots, checksums, logs, and a manifest. The first version
+supports ordinary single-run simulations; dependency capture is incomplete and
+real integration must be checked against your MEGAlib installation.
+
+See the [Cosima guide](docs/cosima.rst) for both runtime modes, provenance limits,
+and failure handling, and the [runnable example](examples/cosima_simulation.py)
+for a small end-to-end invocation using your own source and geometry files.
+Keep execution directories outside the public repository.
+
 ## Testing
 
 With the environment activated, run the smoke tests, the full test suite with
@@ -98,7 +125,7 @@ to enable Codecov uploads.
 Read the [online documentation](https://yong2sheng.github.io/megalibpy/) for
 installation instructions, the tutorial notebook, and the API reference.
 GitHub Actions builds and publishes the documentation after successful checks
-on `main`; no local installation is needed to read it.
+on `develop`; no local installation is needed to read it.
 
 ### Build documentation locally
 

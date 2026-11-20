@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      docs_preview:
+        description: Publish PR 6 documentation preview without merging
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,7 +44,13 @@ jobs:
             --cov-report=term-missing --cov-report=xml --cov-report=html
 
       - name: Build documentation
-        run: sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html
+        run: |
+          if [[ "${{ inputs.docs_preview }}" == "true" ]]; then
+            sphinx-build -W -b html -D html_title="megalibpy - PR 6 preview (unmerged)" \
+              -d docs/_build/doctrees docs docs/_build/html
+          else
+            sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html
+          fi
 
       - name: Smoke-test the installed wheel
         run: |
@@ -67,7 +78,7 @@ jobs:
           retention-days: 7
 
       - name: Upload GitHub Pages artifact
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: docs/_build/html/
@@ -82,7 +93,7 @@ jobs:
           fail_ci_if_error: true
 
   deploy-docs:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
     needs: test
     runs-on: ubuntu-latest
     permissions:
@@ -99,5 +110,85 @@ jobs:
         uses: actions/configure-pages@v6
 
       - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  deploy-docs-preview:
+    # Explicit maintainer dispatch only; PR events cannot publish this preview.
+    if: github.event_name == 'workflow_dispatch' && inputs.docs_preview && github.ref == 'refs/heads/codex/cosima-wrapper'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}previews/pr-6/
+    defaults:
+      run:
+        shell: micromamba-shell {0}
+    steps:
+      # Build the regular site from develop, never from the unmerged feature.
+      - name: Check out published development source
+        uses: actions/checkout@v6
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Create development documentation environment
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-file: environment.yml
+          cache-environment: true
+
+      - name: Build regular documentation from develop
+        run: |
+          python -m pip install -e . --no-deps --no-build-isolation
+          sphinx-build -W -b html docs _site
+
+      - name: Download checked PR documentation
+        uses: actions/download-artifact@v8
+        with:
+          name: documentation
+          path: _site/previews/pr-6/
+
+      - name: Mark the preview and record its source
+        env:
+          PREVIEW_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path("_site/previews/pr-6")
+          revision = os.environ["PREVIEW_SHA"]
+          notice = (
+              '<div class="admonition warning" role="note">'
+              '<p class="admonition-title">PR #6 documentation preview - unmerged</p>'
+              f'<p>Source commit: <code>{revision}</code>. '
+              'This preview does not mean native MEGAlib integration has passed. '
+              '<a href="https://github.com/Yong2Sheng/megalibpy/pull/6">View PR #6</a>.'
+              '</p></div>'
+          )
+          anchor = '<div itemprop="articleBody">'
+          for path in root.rglob("*.html"):
+              text = path.read_text()
+              if anchor in text:
+                  path.write_text(text.replace(anchor, anchor + notice, 1))
+          (root / "source-commit.txt").write_text(revision + "\n")
+          PY
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload regular site and isolated preview
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site/
+
+      - name: Deploy documentation preview
         id: deployment
         uses: actions/deploy-pages@v5
