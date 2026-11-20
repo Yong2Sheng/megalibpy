@@ -12,7 +12,7 @@ clone the repository and create the project environment.
    conda activate megalibpy
    python -m pip install -e . --no-deps --no-build-isolation
 
-Conda installs Python 3.11 and the dependencies in ``environment.yml``.
+Conda installs Python 3.12 and the dependencies in ``environment.yml``.
 Pip installs the package in editable mode, so changes to the source code
 take effect without reinstalling.
 
