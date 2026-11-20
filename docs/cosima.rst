@@ -12,6 +12,22 @@ simulation for the first integration test. The bundled source-file editing
 template contains installation-specific external paths and is not a portable
 simulation fixture.
 
+Looking up the API
+------------------
+
+The :doc:`API reference <api/index>` provides signatures, parameter defaults
+and units, return fields, and exception behavior. In Python or a Notebook, the
+same docstrings are available without building the documentation:
+
+.. code-block:: python
+
+   from megalibpy import Cosima, MEGAlibRuntime, ExecutionResult, ExecutionError
+
+   help(Cosima.simulate)
+   help(MEGAlibRuntime.from_setup_script)
+   help(ExecutionResult)
+   help(ExecutionError)
+
 Two runtime modes
 -----------------
 

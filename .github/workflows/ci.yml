@@ -67,7 +67,7 @@ jobs:
           retention-days: 7
 
       - name: Upload GitHub Pages artifact
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: docs/_build/html/
@@ -82,7 +82,7 @@ jobs:
           fail_ci_if_error: true
 
   deploy-docs:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
     needs: test
     runs-on: ubuntu-latest
     permissions:

@@ -125,7 +125,7 @@ to enable Codecov uploads.
 Read the [online documentation](https://yong2sheng.github.io/megalibpy/) for
 installation instructions, the tutorial notebook, and the API reference.
 GitHub Actions builds and publishes the documentation after successful checks
-on `main`; no local installation is needed to read it.
+on `develop`; no local installation is needed to read it.
 
 ### Build documentation locally
 

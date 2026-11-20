@@ -1,6 +1,11 @@
 API reference
 =============
 
+.. contents:: On this page
+   :local:
+   :depth: 2
+
+
 .. currentmodule:: megalibpy
 
 Import these classes directly from ``megalibpy``. Start with
@@ -36,16 +41,45 @@ Source parameters
 .. autoclass:: Source
    :members:
 
-Cosima execution
-----------------
+Cosima simulation
+-----------------
+
+Use :meth:`Cosima.simulate` to start an external simulation. Its parameter
+reference below includes defaults, units, output layout, return values, errors,
+and the limits of dependency capture. See :doc:`../cosima` for complete examples
+and the two runtime modes.
 
 .. autoclass:: Cosima
-   :members:
+   :members: simulate
+
+Runtime selection
+-----------------
+
+Choose :meth:`MEGAlibRuntime.direct` for an already initialized environment, or
+:meth:`MEGAlibRuntime.from_setup_script` to initialize MEGAlib in a Bash child.
+Both modes preserve the calling Python environment.
 
 .. autoclass:: MEGAlibRuntime
-   :members:
+   :members: direct, from_setup_script
+
+Results and failures
+--------------------
+
+Successful calls return ``ExecutionResult``. Failed attempts raise
+``ExecutionError`` with the manifest path and the native return code when
+available. A zero native return code can still produce an error if expected
+output files are missing.
 
 .. autoclass:: ExecutionResult
    :members:
 
 .. autoexception:: ExecutionError
+
+Executor extension interface
+----------------------------
+
+This plan model is used by tool adapters. It is not required for ordinary
+Cosima calls.
+
+.. autoclass:: megalibpy.execution.ExecutionPlan
+   :members:

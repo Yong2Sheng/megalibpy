@@ -13,6 +13,33 @@ class MEGAlibRuntime:
     Use :meth:`direct` for an already initialized environment, or
     :meth:`from_setup_script` to source a trusted Bash script in a child process.
     The parent process's environment is never modified.
+
+    Parameters
+    ----------
+    setup_script : pathlib.Path or None, optional
+        Absolute path to a trusted Bash initialization script. ``None`` selects
+        direct execution. Prefer the factory methods to constructing this
+        dataclass directly; :meth:`from_setup_script` expands ``~`` and resolves
+        relative paths for you.
+    bash : str, optional
+        Bash command name or executable path, defaulting to ``"bash"``.
+        Used only in setup-script mode.
+
+    Attributes
+    ----------
+    setup_script : pathlib.Path or None
+        Script selected for initialization, or ``None`` in direct mode.
+    bash : str
+        Bash executable selected for setup-script mode.
+
+    Notes
+    -----
+    Both modes launch external processes. Setup-script mode removes common
+    inherited Python and native-library search paths, then sources the script
+    and executes the tool in the same Bash child. The script must establish the
+    complete runtime; this is not a container or fully hermetic environment.
+    Scripts are executed from their original location so ``BASH_SOURCE``-based
+    resource lookup continues to work. Only load scripts you trust.
     """
 
     setup_script: Path | None = None
@@ -20,15 +47,92 @@ class MEGAlibRuntime:
 
     @classmethod
     def direct(cls):
-        """Execute the tool directly using the current environment."""
+        """Select direct execution in the current process environment.
+
+        Returns
+        -------
+        MEGAlibRuntime
+            Runtime with no setup script. Tool availability is checked later,
+            when an execution is prepared; this factory does not launch a tool.
+
+        Examples
+        --------
+        >>> runtime = MEGAlibRuntime.direct()
+        >>> runtime.setup_script is None
+        True
+        """
         return cls()
 
     @classmethod
     def from_setup_script(cls, path, *, bash="bash"):
-        """Source a trusted environment script, then exec the tool in that Bash."""
+        """Select environment initialization in a separate Bash child.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path
+            Trusted Bash script to source before executing a tool. ``~`` is
+            expanded and relative paths are resolved against the calling
+            Python working directory. The script may activate a separate
+            Conda environment and must establish MEGAlib's runtime paths.
+        bash : str, optional
+            Bash executable name or path, defaulting to ``"bash"``. Login and
+            interactive startup files are not automatically loaded.
+
+        Returns
+        -------
+        MEGAlibRuntime
+            Runtime containing the resolved script path. This method neither
+            sources the script nor verifies its existence. Missing scripts or
+            Bash executables are reported when an execution is prepared.
+
+        Notes
+        -----
+        Environment changes occur only in the child process. The calling
+        Python process remains in its original environment. The initialization
+        script and tool arguments are passed as positional parameters rather
+        than interpolated into shell syntax.
+
+        Examples
+        --------
+        >>> runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
+        >>> runtime.setup_script.is_absolute()
+        True
+        """
         return cls(Path(path).expanduser().resolve(), bash)
 
     def launch(self, command, executable_record):
+        """Build subprocess arguments and a child environment for an executor.
+
+        Parameters
+        ----------
+        command : sequence of str
+            Nonempty argument sequence whose first item names the tool.
+        executable_record : pathlib.Path
+            Destination for the resolved executable path. Its parent directory
+            must exist. Direct mode writes it immediately; setup-script mode
+            writes it from the Bash child just before ``exec``.
+
+        Returns
+        -------
+        argv : list of str
+            Arguments for ``subprocess.Popen`` with ``shell=False``.
+        env : dict of str to str
+            Child environment copied from the parent, with setup-mode search
+            paths removed as described in the class notes.
+
+        Raises
+        ------
+        FileNotFoundError
+            The direct-mode tool, setup script, or Bash executable cannot be
+            found. Setup-mode tool discovery occurs in the child instead.
+        OSError
+            The direct-mode executable record cannot be written.
+
+        Notes
+        -----
+        This is a low-level executor interface. It does not launch a process;
+        normal users select a runtime and pass it to ``Cosima`` instead.
+        """
         env = os.environ.copy()
         if self.setup_script is None:
             executable = shutil.which(command[0])

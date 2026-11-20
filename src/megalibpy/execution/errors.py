@@ -6,8 +6,32 @@ from pathlib import Path
 class ExecutionError(RuntimeError):
     """A preparation, process, or output-validation failure.
 
-    ``manifest_path`` records the failure; logs are beside it in ``logs/``.
-    ``returncode`` is absent when no process was started.
+    Parameters
+    ----------
+    message : str
+        Human-readable failure description. The exception's display text also
+        includes the manifest path.
+    manifest_path : pathlib.Path
+        Path to the execution's persistent JSON record. Standard-output and
+        standard-error logs are in the adjacent ``logs/`` directory.
+    returncode : int or None, optional
+        Native process return code, or ``None`` if no process was started.
+        Zero is possible when process execution succeeded but output validation
+        failed. On POSIX, a negative value indicates termination by a signal.
+
+    Attributes
+    ----------
+    manifest_path : pathlib.Path
+        Record containing the final status, error description, and available
+        command and input metadata.
+    returncode : int or None
+        Process outcome as described above. Defaults to ``None``.
+
+    Notes
+    -----
+    The original preparation or subprocess exception is available through
+    ``error.__cause__``. Argument errors and failures creating the initial
+    workspace may be raised directly before a manifest exists.
     """
 
     def __init__(self, message: str, manifest_path: Path, returncode=None):

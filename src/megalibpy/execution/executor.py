@@ -56,12 +56,62 @@ def _stop(process):
 
 
 class Executor:
-    """Common synchronous execution lifecycle for MEGAlib command-line tools."""
+    """Manage one synchronous MEGAlib execution attempt at a time.
+
+    Parameters
+    ----------
+    runtime : MEGAlibRuntime
+        Direct or setup-script runtime used to prepare each child process.
+
+    Notes
+    -----
+    This shared implementation is intended for tool adapters such as ``Cosima``.
+    It writes manifests and streams logs to disk without changing the parent
+    environment or working directory.
+    """
 
     def __init__(self, runtime):
         self.runtime = runtime
 
     def execute(self, tool, output_dir, prepare, *, timeout=None):
+        """Prepare a fresh workspace, execute a plan, and validate its outputs.
+
+        Parameters
+        ----------
+        tool : str
+            Tool label recorded in the manifest, for example ``"cosima"``.
+        output_dir : str or pathlib.Path
+            Workspace path, which must not exist. Parent directories are created.
+        prepare : callable
+            Function receiving a ``Workspace`` and returning an ``ExecutionPlan``.
+            It may create input snapshots and supply tool-specific metadata.
+        timeout : float or None, optional
+            Positive time limit in seconds for the child, including any setup
+            script. ``None`` waits without a limit. Preparation and final record
+            writing are not included in this limit.
+
+        Returns
+        -------
+        ExecutionResult
+            Paths to the successful execution's outputs, manifest, and logs.
+
+        Raises
+        ------
+        ValueError
+            ``timeout`` is nonpositive.
+        NotImplementedError
+            The host is not POSIX-compatible.
+        FileExistsError
+            The output directory already exists.
+        OSError
+            The initial workspace or execution record cannot be created.
+        ExecutionError
+            Preparation, launch, execution, timeout, or output checks fail after
+            record creation. The manifest retains failure details.
+        KeyboardInterrupt
+            Execution is interrupted; the process group is stopped and the
+            interrupted state is recorded before propagating the interrupt.
+        """
         if os.name != "posix":
             raise NotImplementedError("MEGAlib execution currently requires a POSIX host")
         if timeout is not None and timeout <= 0:

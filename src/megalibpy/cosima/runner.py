@@ -129,7 +129,22 @@ class Cosima:
         Defaults to direct execution. A setup-script runtime initializes MEGAlib
         in a separate Bash process without modifying the calling Python process.
     executable : str, optional
-        Command name or absolute executable path. Defaults to ``cosima``.
+        Command name or executable path, defaulting to ``cosima``. Direct mode
+        resolves it before changing the child working directory; setup-script
+        mode resolves it inside the initialized child environment.
+
+    Attributes
+    ----------
+    runtime : MEGAlibRuntime
+        Runtime used for every call to :meth:`simulate` on this instance.
+    executable : str
+        Executable command or path supplied to the selected runtime.
+
+    Notes
+    -----
+    Constructing this object does not start a process or check MEGAlib's
+    availability. Checks occur when :meth:`simulate` is called. This wrapper
+    requires a separate MEGAlib installation and does not import PyROOT.
     """
 
     def __init__(self, runtime=None, *, executable="cosima"):
@@ -138,31 +153,105 @@ class Cosima:
 
     def simulate(self, source_file, *, output_dir, seed=None, compressed=True,
                  timeout=None, dependencies=(), hash_limit_bytes=64 * 1024 * 1024):
-        """Run Cosima and return an :class:`~megalibpy.ExecutionResult`.
+        """Simulate events with Cosima and save an execution record.
 
-        ``output_dir`` must not exist. Source comments and unknown directives are
-        preserved; only the output FileName and supported external file paths are
-        rewritten in the execution snapshot. The original file is never edited.
-        Relative supported input paths are resolved against the source directory.
+        Parameters
+        ----------
+        source_file : str or pathlib.Path
+            UTF-8 Cosima source file with one inline ``Run`` declaration and
+            one corresponding ``FileName`` directive. Relative paths to this
+            file are resolved against the calling Python working directory.
+            Supported relative references inside the file are resolved against
+            the source file's directory. The original file is never modified.
+        output_dir : str or pathlib.Path
+            Required keyword-only path to a new execution directory. Missing
+            parent directories are created. The directory must not already
+            exist, and its absolute path cannot contain whitespace or ``$``.
+            Snapshots, logs, products, and ``manifest.json`` are saved here.
+        seed : int or None, optional
+            Positive integer in ``[1, 2147483647]`` passed to Cosima's ``-s``
+            option. Defaults to ``None``, which generates and records a random
+            seed in that range. Boolean values are rejected.
+        compressed : bool, optional
+            If ``True`` (default), pass ``-z`` and discover ``*.sim.gz`` files.
+            If ``False``, pass ``-u`` and discover uncompressed ``*.sim`` files.
+        timeout : float or None, optional
+            Positive wall-clock limit in seconds for the child process,
+            including environment initialization and Cosima execution.
+            Defaults to ``None`` (no limit). Preparation and snapshot copying
+            occur before this timer. A timeout terminates the process group
+            and raises ``ExecutionError``.
+        dependencies : iterable of str or pathlib.Path, optional
+            Additional external files to record, defaulting to an empty tuple.
+            Relative paths are resolved against the source directory. These
+            declarations supplement supported automatically discovered inputs;
+            they do not rewrite arbitrary directives or recursively discover
+            geometry includes.
+        hash_limit_bytes : int or None, optional
+            Maximum size of an external dependency to hash and copy, in bytes.
+            Defaults to 67108864 (64 MiB). Larger dependencies record size and
+            modification time only. ``None`` hashes and archives every declared
+            or discovered external dependency. The source snapshots and setup
+            script are always archived and hashed independently of this limit.
 
-        ``seed`` is a positive 31-bit integer; when omitted one is generated and
-        recorded. ``timeout`` is in seconds and covers setup plus tool execution.
-        ``dependencies`` lists additional files to record, resolved against the
-        original source directory. Files up to ``hash_limit_bytes`` are hashed and
-        copied; larger external files record size and mtime only. Set the limit to
-        ``None`` to hash and archive every declared/discovered dependency.
-
-        Dependency capture is explicitly incomplete: geometry include trees and
-        runtime-expanded paths require external archival. Outputs are checked for
-        nonzero size, not scientific validity or full gzip integrity.
+        Returns
+        -------
+        megalibpy.ExecutionResult
+            Successful execution with absolute paths to the workspace, logs,
+            and manifest. ``result.outputs["sim"]`` is a sorted tuple of one or
+            more nonempty simulation files; no ``inc1.id1`` naming assumption
+            is made. ``result.returncode`` is zero.
 
         Raises
         ------
-        ExecutionError
-            Preparation, process execution, timeout, or output validation failed.
-            The exception provides the manifest location and process return code.
+        ValueError
+            The seed, hash limit, or timeout is invalid before preparation.
+            No execution manifest is created for these argument errors.
         FileExistsError
-            The execution directory already exists; it is never overwritten.
+            The execution directory already exists. It is never overwritten
+            or reused, even if it is empty.
+        OSError
+            The execution directory or its initial record cannot be created.
+        megalibpy.ExecutionError
+            Source/setup preparation, program discovery, process startup,
+            native execution, timeout, or output validation fails after the
+            execution record is created. Inspect ``error.manifest_path``,
+            ``error.returncode``, and the files in ``logs/`` for diagnostics.
+            Unsupported source layouts are reported through this exception.
+        KeyboardInterrupt
+            The caller interrupts execution. The process group is terminated,
+            the attempt is recorded as interrupted, and the interrupt is
+            propagated to the caller.
+        NotImplementedError
+            The host is not POSIX-compatible.
+
+        Notes
+        -----
+        This synchronous method blocks until the child finishes or fails.
+        It preserves the parent Python environment and working directory.
+        Source comments and unknown directives are retained in the execution
+        copy; ``FileName`` is redirected to ``products/events`` and supported
+        input paths are rebased. Source ``Include`` directives and
+        activation/cross-section jobs are not supported in this version.
+
+        Dependency capture is explicitly incomplete. Nested geometry includes
+        and runtime-expanded paths require external archival, and external
+        inputs must remain unchanged while the tool runs. Success checks only
+        the exit status and nonempty output files; it does not establish
+        scientific validity or complete gzip integrity.
+
+        Examples
+        --------
+        In an already initialized MEGAlib environment:
+
+        >>> result = Cosima().simulate(  # doctest: +SKIP
+        ...     "small.source", output_dir="experiment/cosima-001", seed=12345
+        ... )
+        >>> result.outputs["sim"]  # doctest: +SKIP
+
+        To initialize a separate MEGAlib environment, pass a
+        :class:`~megalibpy.MEGAlibRuntime` created with ``from_setup_script``
+        to the ``Cosima`` constructor.
         """
         if seed is None:
             seed = secrets.randbelow(2**31 - 1) + 1
