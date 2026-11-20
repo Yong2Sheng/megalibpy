@@ -6,9 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       docs_preview:
-        description: Publish PR 6 documentation preview without merging
+        description: Publish an explicitly selected PR documentation preview
         type: boolean
         default: false
+      preview_pr:
+        description: Open PR number matching this branch and commit
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -16,6 +20,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DOCS_PREVIEW_PR: ${{ inputs.preview_pr }}
     defaults:
       run:
         shell: micromamba-shell {0}
@@ -46,7 +52,7 @@ jobs:
       - name: Build documentation
         run: |
           if [[ "${{ inputs.docs_preview }}" == "true" ]]; then
-            sphinx-build -W -b html -D html_title="megalibpy - PR 6 preview (unmerged)" \
+            sphinx-build -W -b html -D html_title="megalibpy - PR ${DOCS_PREVIEW_PR} preview (unmerged)" \
               -d docs/_build/doctrees docs docs/_build/html
           else
             sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html
@@ -115,11 +121,12 @@ jobs:
 
   deploy-docs-preview:
     # Explicit maintainer dispatch only; PR events cannot publish this preview.
-    if: github.event_name == 'workflow_dispatch' && inputs.docs_preview && github.ref == 'refs/heads/codex/cosima-wrapper'
+    if: github.event_name == 'workflow_dispatch' && inputs.docs_preview && startsWith(github.ref, 'refs/heads/codex/')
     needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
       pages: write
       id-token: write
     concurrency:
@@ -127,11 +134,39 @@ jobs:
       cancel-in-progress: false
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}previews/pr-6/
+      url: ${{ steps.deployment.outputs.page_url }}previews/pr-${{ steps.preview.outputs.number }}/
     defaults:
       run:
         shell: micromamba-shell {0}
     steps:
+      - name: Validate the explicitly selected preview PR
+        id: preview
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_PR: ${{ inputs.preview_pr }}
+          PREVIEW_SHA: ${{ github.sha }}
+          PREVIEW_BRANCH: ${{ github.ref_name }}
+          PREVIEW_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PYCODE'
+          import json
+          import os
+          import re
+          import subprocess
+          number = os.environ["PREVIEW_PR"]
+          if not re.fullmatch(r"[1-9][0-9]*", number):
+              raise SystemExit("preview_pr must be a positive PR number")
+          repo = os.environ["PREVIEW_REPOSITORY"]
+          pr = json.loads(subprocess.check_output(["gh", "api", f"repos/{repo}/pulls/{number}"]))
+          if (pr["state"] != "open" or pr["base"]["ref"] != "develop"
+                  or pr["head"]["repo"]["full_name"] != repo
+                  or pr["head"]["ref"] != os.environ["PREVIEW_BRANCH"]
+                  or pr["head"]["sha"] != os.environ["PREVIEW_SHA"]):
+              raise SystemExit("Preview must match an open develop PR in this repository at this exact commit")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
+              stream.write(f"number={number}\n")
+          PYCODE
       # Build the regular site from develop, never from the unmerged feature.
       - name: Check out published development source
         uses: actions/checkout@v6
@@ -154,23 +189,25 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: documentation
-          path: _site/previews/pr-6/
+          path: _site/previews/pr-${{ steps.preview.outputs.number }}/
 
       - name: Mark the preview and record its source
         env:
           PREVIEW_SHA: ${{ github.sha }}
+          PREVIEW_NUMBER: ${{ steps.preview.outputs.number }}
         run: |
           python - <<'PY'
           import os
           from pathlib import Path
-          root = Path("_site/previews/pr-6")
+          number = os.environ["PREVIEW_NUMBER"]
+          root = Path(f"_site/previews/pr-{number}")
           revision = os.environ["PREVIEW_SHA"]
           notice = (
               '<div class="admonition warning" role="note">'
-              '<p class="admonition-title">PR #6 documentation preview - unmerged</p>'
+              f'<p class="admonition-title">PR #{number} documentation preview - unmerged</p>'
               f'<p>Source commit: <code>{revision}</code>. '
               'This preview does not mean native MEGAlib integration has passed. '
-              '<a href="https://github.com/Yong2Sheng/megalibpy/pull/6">View PR #6</a>.'
+              f'<a href="https://github.com/Yong2Sheng/megalibpy/pull/{number}">View PR #{number}</a>.'
               '</p></div>'
           )
           anchor = '<div itemprop="articleBody">'

@@ -1,6 +1,7 @@
 # megalibpy
 
-Python tools for reading, inspecting, and editing MEGAlib/Cosima `.source` files.
+Python tools for editing MEGAlib/Cosima source files, running Cosima simulations,
+and reconstructing events with Revan, with configuration snapshots and execution records.
 The current parser supports one run with one source per file.
 
 [Read the documentation](https://yong2sheng.github.io/megalibpy/)
@@ -96,6 +97,38 @@ See the [Cosima guide](docs/cosima.rst) for both runtime modes, provenance limit
 and failure handling, and the [runnable example](examples/cosima_simulation.py)
 for a small end-to-end invocation using your own source and geometry files.
 Keep execution directories outside the public repository.
+
+## Reconstructing events with Revan
+
+Continue from an existing Cosima execution directory using an explicit Revan
+configuration and geometry:
+
+```python
+from megalibpy import MEGAlibRuntime, Revan
+
+runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
+reconstructed = Revan(runtime).reconstruct(
+    "experiments/cosima-smoke-005",
+    config_file="configurations/baseline.revan.cfg",
+    geometry="massmodel/detector.geo.setup",
+    task="baseline",
+)
+print(reconstructed.outputs["tra"])
+```
+
+The original simulation remains in place. Reconstruction attempts are stored
+under the same experiment, with configuration snapshots, logs and explicit
+upstream references. Native Revan settings use an isolated HOME so they do not
+overwrite your usual `.revan.cfg`.
+
+For a new experiment, pass `workspace=SimulationWorkspace("experiments/grb-001")`
+to `Cosima.simulate()` instead of `output_dir`; passing its result to Revan
+continues in that workspace. Separate task names organize different configurations,
+and repeated attempts never overwrite earlier records. Standalone sim/evta files
+are also accepted. See the [Revan guide](docs/revan.rst),
+[workspace guide](docs/workspaces.rst), and
+[command-line example](examples/revan_reconstruction.py) for input selection,
+legacy directories, explicit destinations and capture limits.
 
 ## Testing
 

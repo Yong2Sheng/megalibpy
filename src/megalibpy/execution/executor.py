@@ -152,13 +152,16 @@ class Executor:
             reserved = set(manifest) | {
                 "command", "cwd", "output_patterns", "launch_command", "validation",
                 "error", "duration_seconds",
+                "tool_environment",
             }
             if reserved.intersection(plan.metadata):
                 raise ValueError("Tool metadata cannot override reserved execution fields")
             manifest["upstream"] = capture_upstream(workspace, plan.upstream)
             manifest.update(command=list(plan.command), cwd=str(plan.cwd),
                             output_patterns=plan.output_patterns, **plan.metadata)
-            command, env = self.runtime.launch(plan.command, executable_record)
+            manifest["tool_environment"] = plan.environment
+            command, env = self.runtime.launch(plan.command, executable_record,
+                                              tool_environment=plan.environment)
             bootstrap = root / "logs/launch.sh"
             if self.runtime.setup_script and bootstrap.is_file():
                 manifest["runtime"]["bootstrap"] = {
