@@ -1,6 +1,7 @@
 # megalibpy
 
-Python tools for reading, inspecting, and editing MEGAlib/Cosima `.source` files.
+Python tools for editing MEGAlib/Cosima source files, running Cosima simulations,
+and reconstructing events with Revan, with configuration snapshots and execution records.
 The current parser supports one run with one source per file.
 
 [Read the documentation](https://yong2sheng.github.io/megalibpy/)
@@ -96,6 +97,38 @@ See the [Cosima guide](docs/cosima.rst) for both runtime modes, provenance limit
 and failure handling, and the [runnable example](examples/cosima_simulation.py)
 for a small end-to-end invocation using your own source and geometry files.
 Keep execution directories outside the public repository.
+
+## Reconstructing events with Revan
+
+Continue from an existing Cosima execution directory using an explicit Revan
+configuration and optional geometry override:
+
+```python
+from megalibpy import MEGAlibRuntime, Revan
+
+runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
+reconstructed = Revan(runtime).reconstruct(
+    working_space="experiments/cosima-smoke-005",
+    config_file="configurations/baseline.revan.cfg",
+    task="baseline",
+)
+print(reconstructed.outputs["tra"])
+```
+
+The original simulation remains in place. Reconstruction attempts are stored
+under the same experiment, with configuration snapshots, logs and explicit
+upstream references. Native Revan controls external resources and settings; optional HOME isolation
+can be enabled explicitly.
+
+For a new experiment, pass `workspace=SimulationWorkspace("experiments/grb-001")`
+to `Cosima.simulate()` instead of `output_dir`; passing its result to Revan
+continues in that workspace. Separate task names organize different configurations,
+and repeated attempts never overwrite earlier records. External sim/evta files
+use `sim_path="received/events.sim.gz", output_dir="experiments/received-grb"`;
+this creates the same experiment structure and records the external input in place. See the [Revan guide](docs/revan.rst),
+[workspace guide](docs/workspaces.rst), and
+[command-line example](examples/revan_reconstruction.py) for input selection,
+legacy directories, explicit destinations and capture limits.
 
 ## Testing
 

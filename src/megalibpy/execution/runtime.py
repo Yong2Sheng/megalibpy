@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import shutil
+import re
 
 
 @dataclass(frozen=True)
@@ -100,7 +101,7 @@ class MEGAlibRuntime:
         """
         return cls(Path(path).expanduser().resolve(), bash)
 
-    def launch(self, command, executable_record):
+    def launch(self, command, executable_record, *, tool_environment=None):
         """Build subprocess arguments and a child environment for an executor.
 
         Parameters
@@ -113,6 +114,9 @@ class MEGAlibRuntime:
             writes it from the Bash child just before ``exec``. Setup mode also
             saves the fixed bootstrap program to ``launch.sh`` beside this file,
             avoiding multiline commands in the shell's argument list.
+        tool_environment : dict of str to str or None, optional
+            Overrides applied only to the native tool, after setup completes.
+            ``None`` leaves the initialized environment unchanged.
 
         Returns
         -------
@@ -136,6 +140,11 @@ class MEGAlibRuntime:
         normal users select a runtime and pass it to ``Cosima`` instead.
         """
         env = os.environ.copy()
+        overrides = dict(tool_environment or {})
+        if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key)
+               or not isinstance(value, str) or "\0" in value
+               for key, value in overrides.items()):
+            raise ValueError("Invalid tool environment variable")
         if self.setup_script is None:
             executable = shutil.which(command[0])
             if executable is None:
@@ -145,6 +154,7 @@ class MEGAlibRuntime:
                 )
             executable = str(Path(executable).resolve())
             executable_record.write_text(executable + "\n")
+            env.update(overrides)
             return [executable, *command[1:]], env
 
         if not self.setup_script.is_file():
@@ -174,10 +184,18 @@ fi
 shift
 record="$1"
 shift
+count="$1"
+shift
+while [ "$count" -gt 0 ]; do
+    export "$1" || exit 125
+    shift
+    count=$((count - 1))
+done
 command -v -- "$1" > "$record" || exit 127
 exec "$@"
 '''
         bootstrap = executable_record.parent / "launch.sh"
         bootstrap.write_text(program, encoding="utf-8")
         return [bash, "--noprofile", "--norc", str(bootstrap),
-                str(self.setup_script), str(executable_record), *command], env
+                str(self.setup_script), str(executable_record), str(len(overrides)),
+                *(f"{key}={value}" for key, value in overrides.items()), *command], env

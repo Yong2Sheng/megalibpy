@@ -8,6 +8,8 @@ import megalibpy
 @pytest.mark.smoke
 def test_installed_version():
     assert megalibpy.__version__ == version("megalibpy")
+    assert megalibpy.Revan().executable == "revan"
+    assert megalibpy.SimulationWorkspace is not None
 
 
 @pytest.mark.smoke

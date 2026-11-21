@@ -19,6 +19,11 @@ class ExecutionInput:
     execution_id : str or None, optional
         Expected upstream identity. Results supply their ID automatically;
         ``None`` allows references to legacy records without an ID.
+    paths : tuple of pathlib.Path or None, optional
+        Explicit subset of the group's files. ``None`` selects the whole group.
+        Relative selections are resolved against the upstream execution root.
+    workspace_dir : pathlib.Path or None, optional
+        Experiment hint carried by managed results; not part of execution identity.
 
     Notes
     -----
@@ -30,6 +35,8 @@ class ExecutionInput:
     manifest_path: Path
     output_group: str
     execution_id: str | None = None
+    paths: tuple[Path, ...] | None = None
+    workspace_dir: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -57,10 +64,13 @@ class ExecutionPlan:
         Explicit upstream product selections, defaulting to no parents. Multiple
         inputs and multiple consumers are allowed; no linear stage order is
         imposed. Each upstream manifest is validated and snapshotted.
+    environment : dict of str to str, optional
+        Tool-only environment overrides, applied after setup-script execution.
+        Recorded in the manifest; do not use for secrets. Defaults to none.
 
     Notes
     -----
-    This is an executor extension interface. Normal users call ``Cosima``
+    This is an executor extension interface. Normal users call ``Cosima`` or ``Revan``
     rather than constructing plans. Frozen dataclasses prevent field rebinding,
     but do not make nested dictionaries immutable.
     """
@@ -70,6 +80,7 @@ class ExecutionPlan:
     output_patterns: dict[str, str]
     metadata: dict[str, Any] = field(default_factory=dict)
     upstream: tuple[ExecutionInput, ...] = ()
+    environment: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -96,6 +107,8 @@ class ExecutionResult:
         Persistent UUID identifying this execution attempt independently of its
         directory name. ``None`` supports manually constructed legacy results.
         This is not a task ID: reruns receive different execution IDs.
+    workspace_dir : pathlib.Path or None, optional
+        Experiment root when managed by ``SimulationWorkspace``; otherwise none.
 
     Attributes
     ----------
@@ -113,6 +126,8 @@ class ExecutionResult:
         Zero when returned after successful execution and output checks.
     execution_id : str or None
         Execution identity stored in the manifest, or ``None`` for legacy objects.
+    workspace_dir : pathlib.Path or None
+        Experiment root for managed executions; ``None`` for standalone attempts.
 
     Notes
     -----
@@ -128,14 +143,18 @@ class ExecutionResult:
     stderr_path: Path
     returncode: int = 0
     execution_id: str | None = None
+    workspace_dir: Path | None = None
 
-    def as_input(self, output_group):
+    def as_input(self, output_group, *, paths=None):
         """Select a product group for a downstream execution plan.
 
         Parameters
         ----------
         output_group : str
             Product group present in :attr:`outputs`, for example ``"sim"``.
+        paths : iterable of str or pathlib.Path or None, optional
+            Explicit subset, checked against the persisted group by the executor.
+            ``None`` selects every file in the group.
 
         Returns
         -------
@@ -150,4 +169,6 @@ class ExecutionResult:
         """
         if output_group not in self.outputs:
             raise KeyError(output_group)
-        return ExecutionInput(self.manifest_path, output_group, self.execution_id)
+        return ExecutionInput(self.manifest_path, output_group, self.execution_id,
+                              None if paths is None else tuple(Path(p) for p in paths),
+                              self.workspace_dir)

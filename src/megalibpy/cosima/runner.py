@@ -5,7 +5,7 @@ import re
 import secrets
 import shutil
 
-from ..execution import ExecutionPlan, MEGAlibRuntime
+from ..execution import ExecutionPlan, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
 from ..execution.provenance import file_record, sha256
 
@@ -151,7 +151,7 @@ class Cosima:
         self.runtime = runtime if runtime is not None else MEGAlibRuntime.direct()
         self.executable = str(executable)
 
-    def simulate(self, source_file, *, output_dir, seed=None, compressed=True,
+    def simulate(self, source_file, *, output_dir=None, workspace=None, seed=None, compressed=True,
                  timeout=None, dependencies=(), hash_limit_bytes=64 * 1024 * 1024):
         """Simulate events with Cosima and save an execution record.
 
@@ -163,11 +163,16 @@ class Cosima:
             file are resolved against the calling Python working directory.
             Supported relative references inside the file are resolved against
             the source file's directory. The original file is never modified.
-        output_dir : str or pathlib.Path
-            Required keyword-only path to a new execution directory. Missing
+        output_dir : str or pathlib.Path or None, optional
+            Explicit path to a new execution directory. Missing
             parent directories are created. The directory must not already
             exist, and its absolute path cannot contain whitespace or ``$``.
             Snapshots, logs, products, and ``manifest.json`` are saved here.
+            Supply exactly one of ``output_dir`` or ``workspace``.
+        workspace : SimulationWorkspace or str or pathlib.Path or None, optional
+            Experiment root. Allocates ``cosima/simulation/attempt-NNN`` and
+            records the attempt in the experiment index. A second successful
+            Cosima simulation in the same experiment is rejected. Defaults to none.
         seed : int or None, optional
             Positive integer in ``[1, 2147483647]`` passed to Cosima's ``-s``
             option. Defaults to ``None``, which generates and records a random
@@ -259,14 +264,21 @@ class Cosima:
             raise ValueError("seed must be an integer between 1 and 2147483647")
         if hash_limit_bytes is not None and hash_limit_bytes < 0:
             raise ValueError("hash_limit_bytes must be nonnegative or None")
+        if (output_dir is None) == (workspace is None):
+            raise ValueError("Supply exactly one of output_dir or workspace")
         source = Path(source_file).expanduser().resolve()
         files = []
         for path in dependencies:
             path = Path(path).expanduser()
             files.append((source.parent / path).resolve() if not path.is_absolute() else path.resolve())
-        return Executor(self.runtime).execute(
-            "cosima", output_dir,
-            lambda workspace: _prepare_source(source, workspace, seed, compressed,
-                                               self.executable, files, hash_limit_bytes),
-            timeout=timeout,
-        )
+        def execute(target):
+            return Executor(self.runtime).execute(
+                "cosima", target,
+                lambda attempt: _prepare_source(source, attempt, seed, compressed,
+                                                self.executable, files, hash_limit_bytes),
+                timeout=timeout,
+            )
+        if workspace is not None:
+            experiment = workspace if isinstance(workspace, SimulationWorkspace) else SimulationWorkspace(workspace)
+            return experiment.execute("cosima", "simulation", execute)
+        return execute(output_dir)

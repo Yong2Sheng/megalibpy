@@ -62,6 +62,24 @@ Both modes preserve the calling Python environment.
 .. autoclass:: MEGAlibRuntime
    :members: direct, from_setup_script
 
+Revan reconstruction
+--------------------
+
+Use an explicit configuration and geometry; see :doc:`../revan` for native
+settings isolation, input selection and examples.
+
+.. autoclass:: Revan
+   :members: reconstruct
+
+Experiment workspace
+--------------------
+
+See :doc:`../workspaces` for the index layout, legacy directory handling and
+the distinction between task identity and execution identity.
+
+.. autoclass:: SimulationWorkspace
+   :members: select, attach_cosima, attach_sim, external_sim_path, index_path
+
 Results and failures
 --------------------
 
