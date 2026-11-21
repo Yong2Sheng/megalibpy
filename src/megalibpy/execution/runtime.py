@@ -26,6 +26,18 @@ class MEGAlibRuntime:
         Bash command name or executable path, defaulting to ``"bash"``.
         Used only in setup-script mode.
 
+    archive_inputs : bool, optional
+        False (default) records native source/configuration bytes in the root
+        manifest and removes temporary native input files after execution.
+        True retains source/configuration snapshots in inputs/. Setup helpers
+        and executable-path handoff files are temporary in both modes.
+    log_mode : str, optional
+        Default "full" retains all stdout/stderr. "tail" retains a bounded tail
+        of each stream. Cosima may override this per simulate call with "summary".
+    log_tail_bytes : int, optional
+        Positive byte limit per retained stream in tail/summary mode, default
+        65536. Full mode streams to disk. Empty logs are removed in every mode.
+
     Attributes
     ----------
     setup_script : pathlib.Path or None
@@ -45,10 +57,23 @@ class MEGAlibRuntime:
 
     setup_script: Path | None = None
     bash: str = "bash"
+    archive_inputs: bool = False
+    log_mode: str = "full"
+    log_tail_bytes: int = 65536
 
     @classmethod
-    def direct(cls):
+    def direct(cls, *, archive_inputs=False, log_mode="full", log_tail_bytes=65536):
         """Select direct execution in the current process environment.
+
+        Parameters
+        ----------
+        archive_inputs : bool, optional
+            Default false stores configuration content in the manifest; true
+            retains source/config files. Launch helpers are always temporary.
+        log_mode : str, optional
+            "full" (default) or "tail". Cosima accepts its own summary override.
+        log_tail_bytes : int, optional
+            Tail limit in bytes per stream, default 65536; must be positive.
 
         Returns
         -------
@@ -62,10 +87,10 @@ class MEGAlibRuntime:
         >>> runtime.setup_script is None
         True
         """
-        return cls()
+        return cls(archive_inputs=archive_inputs, log_mode=log_mode, log_tail_bytes=log_tail_bytes)
 
     @classmethod
-    def from_setup_script(cls, path, *, bash="bash"):
+    def from_setup_script(cls, path, *, bash="bash", archive_inputs=False, log_mode="full", log_tail_bytes=65536):
         """Select environment initialization in a separate Bash child.
 
         Parameters
@@ -78,6 +103,13 @@ class MEGAlibRuntime:
         bash : str, optional
             Bash executable name or path, defaulting to ``"bash"``. Login and
             interactive startup files are not automatically loaded.
+        archive_inputs : bool, optional
+            False (default) stores source/configuration content in the manifest;
+            true retains their files in inputs/. Helpers remain temporary.
+        log_mode : str, optional
+            "full" (default) or "tail"; Cosima can override with summary per call.
+        log_tail_bytes : int, optional
+            Positive byte cap per retained tail, default 65536.
 
         Returns
         -------
@@ -99,7 +131,7 @@ class MEGAlibRuntime:
         >>> runtime.setup_script.is_absolute()
         True
         """
-        return cls(Path(path).expanduser().resolve(), bash)
+        return cls(Path(path).expanduser().resolve(), bash, archive_inputs, log_mode, log_tail_bytes)
 
     def launch(self, command, executable_record, *, tool_environment=None):
         """Build subprocess arguments and a child environment for an executor.
@@ -112,8 +144,9 @@ class MEGAlibRuntime:
             Destination for the resolved executable path. Its parent directory
             must exist. Direct mode writes it immediately; setup-script mode
             writes it from the Bash child just before ``exec``. Setup mode also
-            saves the fixed bootstrap program to ``launch.sh`` beside this file,
-            avoiding multiline commands in the shell's argument list.
+            creates launch.sh beside this file in the executor's temporary
+            directory, avoiding multiline shell argument lists. Both files are
+            removed after the command; executable identity goes to the manifest.
         tool_environment : dict of str to str or None, optional
             Overrides applied only to the native tool, after setup completes.
             ``None`` leaves the initialized environment unchanged.

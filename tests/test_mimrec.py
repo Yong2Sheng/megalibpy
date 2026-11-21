@@ -51,7 +51,7 @@ def read(result):
 def test_operations_preserve_configuration_and_prepare_native_flags(analysis, tmp_path, operation, flag, group, filename):
     tra, cfg, tool = analysis
     original = cfg.read_bytes()
-    result = getattr(Mimrec(executable=tool), operation)(
+    result = getattr(Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool), operation)(
         tra_path=tra, output_dir=tmp_path / 'experiment', config_file=cfg,
         geometry='$(MEGALIB)/missing_model.geo.setup', EventSelections_TimeMode=1,
         Any_Native_Value='raw_value = a=b', Some_Bool=True, Other_Bool=False)
@@ -78,7 +78,7 @@ def test_operations_preserve_configuration_and_prepare_native_flags(analysis, tm
 
 def test_external_origin_reopen_and_extraction_fanout(analysis, tmp_path):
     tra, cfg, tool = analysis
-    runner = Mimrec(executable=tool)
+    runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     workspace = SimulationWorkspace(selected.workspace_dir)
     assert workspace.external_tra_path == tra
@@ -110,10 +110,10 @@ def test_revan_handoff_and_branch_selection_keep_primary_origin(analysis, tmp_pa
     sim = tmp_path/'events.sim'
     sim.write_bytes(b'sim')
     # Same stand-in supports -a; no event/configuration parser is involved.
-    runner = Revan(executable=tool)
+    runner = Revan(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     a = runner.reconstruct(sim_path=sim, output_dir=tmp_path/'experiment', config_file=cfg, task='a')
     workspace = SimulationWorkspace(a.workspace_dir)
-    mimrec = Mimrec(executable=tool)
+    mimrec = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     first = mimrec.extract_events(working_space=workspace.root, config_file=cfg)
     assert read(first)['upstream'][0]['execution_id'] == a.execution_id
     runner.reconstruct(working_space=workspace, config_file=cfg, task='b')
@@ -138,7 +138,7 @@ def test_setup_and_optional_home_isolation(analysis, tmp_path):
     home = os.environ['HOME']
     setup = tmp_path/'setup.sh'
     setup.write_text('export SETUP_HOME="$HOME"\n')
-    result = Mimrec(MEGAlibRuntime.from_setup_script(setup), executable=tool).extract_events(
+    result = Mimrec(MEGAlibRuntime.from_setup_script(setup, archive_inputs=True), executable=tool).extract_events(
         tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg,
         output_name='events.tra', isolate_settings=True)
     output = json.loads(result.stdout_path.read_text())
@@ -157,7 +157,7 @@ def test_failure_records_remain_indexed(analysis, tmp_path, mode):
     else: cfg.write_bytes(b'' if mode == 'empty' else mode.encode())
     workspace = SimulationWorkspace(tmp_path/'experiment')
     with pytest.raises(ExecutionError) as error:
-        Mimrec(executable=tool).image(tra_path=tra, output_dir=workspace.root, config_file=cfg,
+        Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool).image(tra_path=tra, output_dir=workspace.root, config_file=cfg,
                                       timeout=0.15 if mode == 'sleep' else None)
     record = next(iter(json.loads(error.value.manifest_path.read_text())["executions"].values()))
     assert record['status'] == 'failed'
@@ -173,12 +173,12 @@ def test_failure_records_remain_indexed(analysis, tmp_path, mode):
 def test_argument_conflicts_rejected_before_allocation(analysis, arguments):
     _, cfg, tool = analysis
     with pytest.raises(ValueError):
-        Mimrec(executable=tool).image(config_file=cfg, **arguments)
+        Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool).image(config_file=cfg, **arguments)
 
 
 def test_explicit_product_subset_and_wrong_group(analysis, tmp_path):
     tra, cfg, tool = analysis
-    runner = Mimrec(executable=tool)
+    runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     upstream = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     record = read(upstream)
     second = upstream.outputs['tra'][0].parent/'second.tra'
@@ -213,9 +213,9 @@ Path(prefix + '.inc1.id1.sim.gz').write_bytes(b'native simulation')
 ''')
     cosima.chmod(0o755)
     workspace = SimulationWorkspace(tmp_path/'experiment')
-    simulated = Cosima(executable=cosima).simulate(source, workspace=workspace, seed=12345)
-    reconstructed = Revan(executable=tool).reconstruct(simulated, config_file=cfg, task='baseline')
-    mimrec = Mimrec(executable=tool)
+    simulated = Cosima(MEGAlibRuntime.direct(archive_inputs=True), executable=cosima).simulate(source, workspace=workspace, seed=12345)
+    reconstructed = Revan(MEGAlibRuntime.direct(archive_inputs=True), executable=tool).reconstruct(simulated, config_file=cfg, task='baseline')
+    mimrec = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     selected = mimrec.extract_events(reconstructed, config_file=cfg)
     image = mimrec.image(selected, config_file=cfg)
     assert read(image)['upstream'][0]['execution_id'] == selected.execution_id
@@ -228,7 +228,7 @@ Path(prefix + '.inc1.id1.sim.gz').write_bytes(b'native simulation')
 
 def test_plot_filename_requires_suffix_without_format_whitelist(analysis, tmp_path):
     tra, cfg, tool = analysis
-    runner = Mimrec(executable=tool)
+    runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     with pytest.raises(ValueError, match='explicit native output suffix'):
         runner.image(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg, output_name='image')
     with pytest.raises(ValueError, match='must end in'):
@@ -239,7 +239,7 @@ def test_plot_filename_requires_suffix_without_format_whitelist(analysis, tmp_pa
 
 def test_data_group_defaults_variants_and_single_manifest(analysis, tmp_path):
     tra, cfg, tool = analysis
-    runner = Mimrec(executable=tool)
+    runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg,
                                      geometry='literal-model.setup', task='event-selected',
                                      EventSelections_TimeMode=1)
@@ -285,7 +285,7 @@ def test_data_group_defaults_variants_and_single_manifest(analysis, tmp_path):
 def test_record_hash_is_stable_across_workspace_growth(analysis, tmp_path):
     from megalibpy.execution.provenance import resolve_upstream
     tra, cfg, tool = analysis
-    runner = Mimrec(executable=tool)
+    runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     _, before = resolve_upstream(selected.as_input('tra'))
     runner.image(selected)
@@ -296,7 +296,7 @@ def test_record_hash_is_stable_across_workspace_growth(analysis, tmp_path):
 
 def test_output_collision_is_rejected_without_overwrite(analysis, tmp_path):
     tra, cfg, tool = analysis
-    runner = Mimrec(executable=tool)
+    runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     image = runner.image(selected, task='plots', output_name='same.root')
     original = image.outputs['image'][0].read_bytes()
@@ -307,7 +307,7 @@ def test_output_collision_is_rejected_without_overwrite(analysis, tmp_path):
 
 def test_configuration_changes_warn_without_requiring_configuration_parser(analysis, tmp_path):
     tra, cfg, tool = analysis
-    runner = Mimrec(executable=tool)
+    runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     with pytest.warns(UserWarning, match='settings differ'):
         changed = runner.image(selected, Any_Value='projection_only')
@@ -318,7 +318,7 @@ def test_configuration_changes_warn_without_requiring_configuration_parser(analy
 def test_cross_workspace_record_snapshot_and_new_origin(analysis, tmp_path):
     from megalibpy.execution.provenance import resolve_upstream
     tra, cfg, tool = analysis
-    runner = Mimrec(executable=tool)
+    runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'first', config_file=cfg)
     image = runner.image(selected, output_dir=tmp_path/'second', config_file=cfg)
     record = read(image)
@@ -335,7 +335,7 @@ def test_cross_workspace_record_snapshot_and_new_origin(analysis, tmp_path):
 
 def test_failed_operation_has_exact_id_and_keeps_group_defaults(analysis, tmp_path):
     tra, cfg, tool = analysis
-    runner = Mimrec(executable=tool)
+    runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     cfg.write_bytes(b'exit')
     with pytest.warns(UserWarning):
@@ -351,15 +351,15 @@ def test_failed_operation_has_exact_id_and_keeps_group_defaults(analysis, tmp_pa
 
 def test_external_tra_cannot_be_processed_as_revan_sim_input(analysis, tmp_path):
     tra, cfg, tool = analysis
-    selected = Mimrec(executable=tool).extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
+    selected = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool).extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     with pytest.raises(ValueError, match='found 0'):
-        Revan(executable=tool).reconstruct(working_space=selected.workspace_dir, config_file=cfg)
+        Revan(MEGAlibRuntime.direct(archive_inputs=True), executable=tool).reconstruct(working_space=selected.workspace_dir, config_file=cfg)
 
 
 def test_central_execution_directory_cannot_escape_workspace(analysis, tmp_path):
     from megalibpy.execution.provenance import resolve_upstream
     tra, cfg, tool = analysis
-    selected = Mimrec(executable=tool).extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
+    selected = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool).extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     data = json.loads(selected.manifest_path.read_text())
     data['executions'][selected.execution_id]['execution_dir'] = '..'
     selected.manifest_path.write_text(json.dumps(data))

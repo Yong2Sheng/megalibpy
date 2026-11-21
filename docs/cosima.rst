@@ -81,7 +81,6 @@ Each experiment has exactly one Cosima execution, stored at:
    experiment-001/
    ├── manifest.json             # all experiment execution records
    └── cosima/
-       ├── inputs/               # original/executed source and limited snapshots
        ├── logs/                 # numbered stdout/stderr and setup bootstrap
        └── products/events.inc*.id*.sim.gz
 
@@ -90,7 +89,7 @@ subdirectory. Repeating simulation, including after failure, requires a new
 workspace. Read a particular command with result.record, not by treating the
 root manifest as a standalone execution. See :doc:`workspaces`.
 
-The original source is copied byte for byte. In the execution copy, the single
+The original source bytes are recorded in the manifest. In the temporary execution input, the single
 ``FileName`` is redirected to ``products/events``. Comments and other directives
 are retained. Supported relative geometry, orientation-file, and spectrum/beam
 file references are rebased against the original source directory. Cosima runs
@@ -110,8 +109,9 @@ executable checksum identifies the binary; it does not identify every dynamic
 library or substitute for a complete ROOT/Geant4 build record. Native tool
 version information printed by an initialization script is preserved in logs.
 
-The setup script is archived for provenance but executed from its original
-location, preserving scripts that locate resources using ``BASH_SOURCE``.
+The setup script is recorded by original path and hash and sourced from that
+location, preserving scripts that locate resources using BASH_SOURCE. There is
+no separate setup.sh file in the workspace.
 Keep it and external inputs unchanged during execution.
 
 Additional external files can be declared explicitly:
@@ -126,9 +126,9 @@ Additional external files can be declared explicitly:
        hash_limit_bytes=64 * 1024 * 1024,
    )
 
-Small discovered/declared files are hashed and copied; larger ones record size
-and modification time without being reread in full. Set ``hash_limit_bytes=None``
-to hash and archive all discovered/declared files. Manifest and snapshot files
+The default hash limit is zero: nonempty resources are recorded by path, size
+and mtime without being read or copied. Explicit hash_limit_bytes enables
+hashing; copying additionally requires runtime.archive_inputs=True. Manifest and snapshot files
 may contain private paths and configuration: keep execution directories outside
 the public repository and review them before sharing.
 
@@ -199,3 +199,11 @@ and selected sim files. Same-workspace lineage uses ID links without copying
 manifests; external selected records are snapshotted. Legacy schema-1 standalone
 records remain readable, including records without an execution ID.
 See :doc:`workspaces` for group selection and compatibility.
+
+Compact recording
+-----------------
+
+See :doc:`workspaces` for the default manifest-based source/config retention,
+temporary native inputs and launch helpers, optional archival mode and bounded
+log capture. Empty logs are removed and their result paths are None. A physical
+configuration snapshot is retained only when runtime.archive_inputs is true.

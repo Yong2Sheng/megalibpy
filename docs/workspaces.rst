@@ -10,18 +10,15 @@ contains the origin, data groups and independent command execution records.
    grb-localization-001/
    ├── manifest.json
    ├── cosima/                       # exactly one simulation, no attempt level
-   │   ├── inputs/
    │   ├── logs/
    │   └── products/
    ├── revan/
    │   ├── attempt-001/              # one input/configuration group
-   │   │   ├── inputs/
-   │   │   ├── logs/
+   │   │   │   ├── logs/
    │   │   └── products/events.tra.gz
    │   └── attempt-002/...           # alternative reconstruction
    └── mimrec/
        └── attempt-001/              # shared data and default configuration
-           ├── inputs/executed.mimrec.cfg
            ├── logs/                 # separate numbered logs per command
            ├── event-selected/events.tra.gz
            ├── image-selected/image.png
@@ -69,17 +66,17 @@ Mimrec data groups and configuration reuse
    image = mimrec.image(selected, task="image-selected", output_name="image.png")
    spectrum = mimrec.spectrum(selected, output_name="spectrum.png")
 
-The first call creates ``mimrec/attempt-001`` and establishes its default native
+The first call creates ``mimrec/attempt-001`` and records its default native
 configuration, explicit geometry selection, overrides and original resource cwd.
 Passing the extraction result continues in that same group. Omitting
-``config_file`` reuses the archived configuration and these defaults; the original
+``config_file`` reuses the manifest-recorded configuration and these defaults; the original
 configuration file is not required to remain available. Native relative resources
 still use the original configuration directory.
 
 Explicit settings that differ from the group's defaults produce a Python
 ``UserWarning`` and are recorded for that execution. Different configuration
-bytes are retained in an additional content-addressed snapshot; the default
-snapshot is never replaced. Python compares bytes/hashes, original cwd, literal
+bytes are retained in that execution's manifest entry; the default is never
+replaced. Archival mode additionally retains content-addressed snapshot files. Python compares bytes/hashes, original cwd, literal
 geometry and ordered overrides. It does not parse configuration fields or decide
 whether a change affects projection or event selection.
 
@@ -133,8 +130,8 @@ require retaining their returned result or constructing an explicit ID reference
 Same-workspace parents are referenced by execution ID without copying manifests.
 For external parents, only the selected execution record is snapshotted; products
 stay in place. A selected record's checksum is stable when unrelated executions
-are added to its workspace. Identical configuration/setup snapshots are reused
-within a data group. Event products are not scanned or hashed by Revan/Mimrec.
+are added to its workspace. Configuration content is recorded in the manifest by default; optional physical
+configuration snapshots are reused within a data group. Event products are not scanned or hashed by Revan/Mimrec.
 
 Manifest allocation/status changes use short exclusive locks and atomic writes.
 The lock is released during native execution. Contention raises ``FileExistsError``;
@@ -154,3 +151,50 @@ There is no automatic in-place migration in this release.
 See :doc:`mimrec` for native operations and :doc:`api/index` for signatures.
 The full-chain smoke example is ``examples/end_to_end_smoke.py``. Component
 workflows, study scheduling and graph visualization remain separate future work.
+
+Recording for large batches
+---------------------------
+
+The default runtime uses ``archive_inputs=False``. Source/configuration bytes
+and their hashes are retained inside the existing root manifest, rather than
+creating additional source/cfg files. Native tools still require input filenames;
+those are temporary for the duration of the command and removed afterwards.
+Mimrec defaults are restored from the recorded bytes, preserving native content
+without parsing XML. Binary/non-UTF-8 configurations use lossless base64.
+
+Cosima's default ``hash_limit_bytes=0`` records discovered resource paths, sizes
+and modification times without reading or copying nonempty orientation, geometry
+or spectrum files. Long shared orientation files stay in their original location.
+Explicit ``hash_limit_bytes`` requests hashing; copying also requires an archival
+runtime. External resources must be preserved by the user.
+
+``archive_inputs=True`` explicitly retains source/configuration snapshots. Setup
+scripts are always sourced from their original path; compact records keep their
+path and hash, archival records also retain their text in the manifest. There is
+no setup.sh backup file. The executable-path handoff and launch.sh bootstrap are
+created in a temporary directory and removed; actual executable path/hash are
+stored in the manifest. The bootstrap sources the supplied initialization once
+per native command and execs the tool. It is not another initialization routine.
+
+Choose log retention independently:
+
+.. code-block:: python
+
+   runtime = MEGAlibRuntime.from_setup_script(
+       "initialize-megalib.sh", log_mode="tail", log_tail_bytes=65536)
+   simulated = Cosima(runtime).simulate(
+       "burst.source", workspace=experiment, log_mode="summary")
+
+``full`` (runtime default) streams all output to disk. ``tail`` keeps at most the
+configured byte cap per stream. Cosima's ``summary`` override keeps the last
+``Summary for run`` stdout block within that cap, with a bounded diagnostic-tail
+fallback if it is absent or too long. Tail/summary capture drains both pipes
+concurrently into bounded buffers; it does not first write the full log or load
+it into memory. Missing summary is marked in ``logs.capture`` and does not alter
+native exit-status/output validation.
+
+Empty logs are removed, including stderr. Their manifest path and corresponding
+result property are None. Check ``result.stderr_path is not None`` before opening
+it. Nonempty error diagnostics remain available. Setup/bootstrap/path handoffs do
+not leave permanent files, even in archival mode. Existing historical files are
+not deleted or reorganized automatically.

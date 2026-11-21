@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
-from ..execution.provenance import file_record, read_execution, resolve_upstream, sha256
+from ..execution.provenance import configuration_snapshot, file_record, read_execution, resolve_upstream
 
 
 def _event_file(path):
@@ -54,11 +54,7 @@ def _input(input_data):
 
 def _prepare(attempt, event_file, geometry, config, executable, compressed, reference,
              overrides, isolate_settings):
-    content = config.read_bytes()
-    if not content:
-        raise ValueError("Revan configuration file must not be empty")
-    executed = attempt.snapshot("executed.revan.cfg", content)
-    original = executed if attempt.owner is not None else attempt.snapshot("original.revan.cfg", content)
+    executed, config_record = configuration_snapshot(attempt, config, "revan")
     home = attempt.log_path("native-home")
     if isolate_settings:
         home.mkdir(exist_ok=True)
@@ -75,15 +71,8 @@ def _prepare(attempt, event_file, geometry, config, executable, compressed, refe
     command.extend(("-n", "-a"))
     return ExecutionPlan(tuple(command), config.parent, {"tra": product.name}, {
         "input_file": file_record(event_file, hash_limit=0),
-        "configuration": {"original_path": str(config),
-                          "original_snapshot": str(original.relative_to(attempt.root)),
-                          "original_sha256": sha256(original),
-                          "executed_snapshot": str(executed.relative_to(attempt.root)),
-                          "executed_sha256": sha256(executed),
-                          "relative_path_base": str(config.parent),
-                          "settings_home": str(home.relative_to(attempt.root)) if isolate_settings else None,
-                          "format": "native_passthrough",
-                          "validation": "readable_nonempty_file; native parser handles configuration"},
+        "configuration": {**config_record,
+                          "settings_home": str(home.relative_to(attempt.root)) if isolate_settings else None},
         "geometry": None if geometry is None else str(geometry),
         "configuration_overrides": changes,
     }, upstream=() if reference is None else (reference,), environment={"HOME": str(home)} if isolate_settings else {})

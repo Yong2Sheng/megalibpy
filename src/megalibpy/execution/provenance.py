@@ -62,10 +62,50 @@ def capture_upstream(workspace, references):
     for index, reference in enumerate(references):
         content, record = resolve_upstream(reference)
         if workspace.owner is None or Path(record["manifest_path"]) != workspace.manifest_path:
-            snapshot = workspace.snapshot(f"upstream-{index:04d}.json", content)
-            record["manifest_snapshot"] = str(snapshot.relative_to(workspace.root))
+            if workspace.archive_inputs:
+                snapshot = workspace.snapshot(f"upstream-{index:04d}.json", content)
+                record["manifest_snapshot"] = str(snapshot.relative_to(workspace.root))
+            else:
+                record["execution_record"] = json.loads(content)
         records.append(record)
     return records
+
+
+def encode_content(content):
+    """Represent opaque native bytes in JSON without changing them."""
+    import base64
+    try:
+        return {"content": content.decode("utf-8"), "encoding": "utf-8"}
+    except UnicodeDecodeError:
+        return {"content": base64.b64encode(content).decode("ascii"), "encoding": "base64"}
+
+
+def decode_content(record):
+    """Restore the exact native bytes recorded in a manifest."""
+    import base64
+    if record["encoding"] == "utf-8":
+        return record["content"].encode("utf-8")
+    return base64.b64decode(record["content"], validate=True)
+
+
+def configuration_snapshot(workspace, config, tool, *, content=None, cwd=None, original_path=None):
+    """Prepare a native input file; compact mode retains its bytes in the manifest."""
+    content = config.read_bytes() if content is None else content
+    if not content:
+        raise ValueError(f"{tool.capitalize()} configuration file must not be empty")
+    executed = workspace.snapshot(f"executed.{tool}.cfg", content)
+    relative = str(executed.relative_to(workspace.root)) if workspace.archive_inputs else None
+    digest = hashlib.sha256(content).hexdigest()
+    return executed, {
+        "original_path": str(original_path or config),
+        "original_snapshot": relative, "original_sha256": digest,
+        "executed_snapshot": relative, "executed_sha256": digest,
+        "relative_path_base": str(cwd or config.parent),
+        "format": "native_passthrough",
+        "validation": "readable_nonempty_file; native parser handles configuration",
+        "retention": "archive" if workspace.archive_inputs else "manifest",
+        **encode_content(content),
+    }
 
 
 def sha256(path: Path) -> str:

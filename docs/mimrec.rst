@@ -113,7 +113,7 @@ A typical command is:
    mimrec -c EXECUTED_CONFIGURATION -f INPUT -o OUTPUT [-g GEOMETRY] [-C name=value ...] -n -x
 
 The final operation flag is ``-x``, ``-i``, ``-s`` or ``-a``. ``-n`` selects
-batch operation. A shared, immutable configuration snapshot preserves the original bytes:
+batch operation. The manifest records the original configuration bytes losslessly:
 Python does not parse XML, rewrite paths, repair tags, discover dependencies or
 inspect geometry/resources. The original configuration directory is the child
 working directory. Native logs explain settings/selection errors.
@@ -187,3 +187,11 @@ A command-line example is provided in ``examples/mimrec_analysis.py``:
      --config configurations/analysis.mimrec.cfg \
      --task event-selection --revan-task baseline \
      --setup-script megalib-setup.sh
+
+Compact recording
+-----------------
+
+See :doc:`workspaces` for the default manifest-based source/config retention,
+temporary native inputs and launch helpers, optional archival mode and bounded
+log capture. Empty logs are removed and their result paths are None. A physical
+configuration snapshot is retained only when runtime.archive_inputs is true.

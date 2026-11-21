@@ -7,7 +7,8 @@ import shutil
 
 from ..execution import ExecutionPlan, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
-from ..execution.provenance import file_record, sha256
+from ..execution.provenance import encode_content, file_record, sha256
+import hashlib
 
 
 def _tokens(line):
@@ -36,9 +37,8 @@ def _prepare_source(source, workspace, seed, compressed, executable, dependencie
     prefix = workspace.root / "products/events"
     if re.search(r"\s|\$", str(prefix)):
         raise ValueError("Cosima output paths must not contain whitespace or '$'")
-    snapshot = workspace.root / "inputs/original.source"
-    snapshot.write_bytes(original)
-    executed = workspace.root / "inputs/executed.source"
+    if workspace.archive_inputs:
+        workspace.snapshot("original.source", original)
     external = set(dependencies)
     unresolved = []
     for index, line in enumerate(lines):
@@ -86,13 +86,14 @@ def _prepare_source(source, workspace, seed, compressed, executable, dependencie
             body, separator, comment = line.partition("#")
             body = re.sub(r"\S+", lambda m: replacements.get(m.group(), m.group()), body)
             lines[index] = body + separator + comment
-    executed.write_text("".join(lines), encoding="utf-8")
+    executed_bytes = "".join(lines).encode("utf-8")
+    executed = workspace.snapshot("executed.source", executed_bytes)
     dependency_records = []
     for index, path in enumerate(sorted(external)):
         record = file_record(path, hash_limit=hash_limit)
         # Archive small declared/discovered files, but retain original locations
         # for dependencies referenced by geometry includes and other files.
-        if record["sha256"] is not None:
+        if workspace.archive_inputs and record["sha256"] is not None:
             target = workspace.root / "inputs" / f"dependency-{index:04d}{path.suffix}"
             shutil.copyfile(path, target)
             if sha256(target) != record["sha256"]:
@@ -104,10 +105,12 @@ def _prepare_source(source, workspace, seed, compressed, executable, dependencie
                          {"sim": "events*.sim.gz" if compressed else "events*.sim"}, {
         "seed": seed,
         "source": {"original_path": str(source),
-                   "original_snapshot": "inputs/original.source",
-                   "original_sha256": sha256(snapshot),
-                   "executed_snapshot": "inputs/executed.source",
-                   "executed_sha256": sha256(executed)},
+                   "original_snapshot": "inputs/original.source" if workspace.archive_inputs else None,
+                   "original_sha256": hashlib.sha256(original).hexdigest(),
+                   "executed_snapshot": "inputs/executed.source" if workspace.archive_inputs else None,
+                   "executed_sha256": hashlib.sha256(executed_bytes).hexdigest(),
+                   "original": encode_content(original), "executed": encode_content(executed_bytes),
+                   "retention": "archive" if workspace.archive_inputs else "manifest"},
         "dependencies": dependency_records,
         "dependency_capture": {
             "scope": "best_effort_top_level_and_explicit_files",
@@ -116,6 +119,7 @@ def _prepare_source(source, workspace, seed, compressed, executable, dependencie
             "limitations": "Nested geometry/includes and runtime-expanded paths are not automatically archived. "
                           "External files are still read from original locations; keep them immutable during execution.",
             "hash_limit_bytes": hash_limit,
+            "retention": "eligible_files_archived" if workspace.archive_inputs else "references_only",
         },
     })
 
@@ -152,7 +156,7 @@ class Cosima:
         self.executable = str(executable)
 
     def simulate(self, source_file, *, output_dir=None, workspace=None, seed=None, compressed=True,
-                 timeout=None, dependencies=(), hash_limit_bytes=64 * 1024 * 1024):
+                 timeout=None, dependencies=(), hash_limit_bytes=0, log_mode=None):
         """Simulate events with Cosima and save an execution record.
 
         Parameters
@@ -193,11 +197,19 @@ class Cosima:
             they do not rewrite arbitrary directives or recursively discover
             geometry includes.
         hash_limit_bytes : int or None, optional
-            Maximum size of an external dependency to hash and copy, in bytes.
-            Defaults to 67108864 (64 MiB). Larger dependencies record size and
-            modification time only. ``None`` hashes and archives every declared
-            or discovered external dependency. The source snapshots and setup
-            script are always archived and hashed independently of this limit.
+            Maximum external dependency size to hash, in bytes. Default zero
+            records path, size and mtime without reading nonempty resources.
+            None hashes all discovered/declared resources. Copies are made only
+            when runtime.archive_inputs=True and a file is within this hash limit.
+            Compact mode never copies geometry/orientation/spectrum dependencies.
+            Source bytes and checksums are stored in the manifest by default.
+        log_mode : str or None, optional
+            None (default) uses runtime.log_mode. "full" streams complete logs;
+            "tail" retains up to runtime.log_tail_bytes per stream; "summary"
+            retains the last stdout block starting with "Summary for run" within
+            that byte cap. Missing/oversized summaries fall back to the bounded
+            tail and are marked in logs.capture. No full intermediate log is
+            written in tail/summary modes. Empty stdout/stderr files are removed.
 
         Returns
         -------
@@ -276,7 +288,7 @@ class Cosima:
                 "cosima", target,
                 lambda attempt: _prepare_source(source, attempt, seed, compressed,
                                                 self.executable, files, hash_limit_bytes),
-                timeout=timeout,
+                timeout=timeout, log_mode=log_mode,
             )
         if workspace is not None:
             experiment = workspace if isinstance(workspace, SimulationWorkspace) else SimulationWorkspace(workspace)

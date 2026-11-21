@@ -20,6 +20,8 @@ class Workspace:
     operation: str | None = None
     number: int = 1
     product_folder: str = "products"
+    archive_inputs: bool = True
+    transient_files: list = field(default_factory=list, repr=False, compare=False)
 
     @property
     def inputs_dir(self):
@@ -43,6 +45,13 @@ class Workspace:
         from hashlib import sha256
         from contextlib import nullcontext
         with self.owner._locked() if self.owner is not None else nullcontext():
+            self.inputs_dir.mkdir(exist_ok=True)
+            if not self.archive_inputs:
+                from uuid import uuid4
+                path = self.inputs_dir / f".{uuid4().hex}-{name}"
+                path.write_bytes(content)
+                self.transient_files.append(path)
+                return path
             path = self.inputs_dir / name
             if path.exists() and path.read_bytes() != content:
                 path = path.with_name(f"{path.stem}-{sha256(content).hexdigest()}{path.suffix}")

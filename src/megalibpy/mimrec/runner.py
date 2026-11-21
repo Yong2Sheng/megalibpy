@@ -4,10 +4,11 @@ from dataclasses import replace
 from glob import escape
 from pathlib import Path
 import warnings
+import hashlib
 
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
-from ..execution.provenance import file_record, read_execution, resolve_upstream, sha256
+from ..execution.provenance import configuration_snapshot, decode_content, file_record, read_execution, resolve_upstream, sha256
 
 
 def _event_file(path):
@@ -53,12 +54,8 @@ def _input(input_data):
 
 
 def _prepare(attempt, event_file, geometry, config, executable, operation, output_name, reference,
-             overrides, isolate_settings, config_base=None, original_path=None):
-    content = config.read_bytes()
-    if not content:
-        raise ValueError("Mimrec configuration file must not be empty")
-    executed = attempt.snapshot("executed.mimrec.cfg", content)
-    original = executed if attempt.owner is not None else attempt.snapshot("original.mimrec.cfg", content)
+             overrides, isolate_settings, config_base=None, original_path=None, config_content=None):
+    executed, config_record = configuration_snapshot(attempt, config, "mimrec", content=config_content, cwd=config_base, original_path=original_path)
     home = attempt.log_path("native-home")
     if isolate_settings:
         home.mkdir(exist_ok=True)
@@ -82,15 +79,8 @@ def _prepare(attempt, event_file, geometry, config, executable, operation, outpu
     return ExecutionPlan(tuple(command), config_base or config.parent, {"tra" if operation == "extract_events" else operation: escape(product.name)}, {
         "operation": operation,
         "input_file": file_record(event_file, hash_limit=0),
-        "configuration": {"original_path": str(original_path or config),
-                          "original_snapshot": str(original.relative_to(attempt.root)),
-                          "original_sha256": sha256(original),
-                          "executed_snapshot": str(executed.relative_to(attempt.root)),
-                          "executed_sha256": sha256(executed),
-                          "relative_path_base": str(config_base or config.parent),
-                          "settings_home": str(home.relative_to(attempt.root)) if isolate_settings else None,
-                          "format": "native_passthrough",
-                          "validation": "readable_nonempty_file; native parser handles configuration"},
+        "configuration": {**config_record,
+                          "settings_home": str(home.relative_to(attempt.root)) if isolate_settings else None},
         "geometry": None if geometry is None else str(geometry),
         "configuration_overrides": changes,
     }, upstream=() if reference is None else (reference,), environment={"HOME": str(home)} if isolate_settings else {})
@@ -179,11 +169,16 @@ class Mimrec:
                 raise ValueError("A different TRA input requires a new Mimrec data group")
         config_base = None
         original_path = None
+        config_content = None
         if config_file is None:
             if defaults is None:
                 raise ValueError("config_file is required when creating a Mimrec data group")
             saved = defaults["configuration"]
-            config = experiment.root / group / saved["executed_snapshot"]
+            if saved.get("content") is not None:
+                config_content = decode_content(saved)
+                config = Path(saved["original_path"])
+            else:
+                config = experiment.root / group / saved["executed_snapshot"]
             config_base = Path(saved["relative_path_base"])
             original_path = saved["original_path"]
             if geometry is None:
@@ -198,7 +193,7 @@ class Mimrec:
             changes = [{"parameter": k.replace("_", "."),
                         "value": ("true" if v else "false") if isinstance(v, bool) else str(v)}
                        for k, v in configuration.items()]
-            different = (sha256(config) != defaults["configuration"]["executed_sha256"]
+            different = ((hashlib.sha256(config_content).hexdigest() if config_content is not None else sha256(config)) != defaults["configuration"]["executed_sha256"]
                          or (None if geometry is None else str(geometry)) != defaults["geometry"]
                          or changes != defaults["configuration_overrides"]
                          or str(config_base or config.parent) != defaults["configuration"]["relative_path_base"])
@@ -216,7 +211,7 @@ class Mimrec:
                 "mimrec", target,
                 lambda attempt: _prepare(attempt, path, geometry, config, self.executable,
                                          operation, output_name, reference, configuration,
-                                         isolate_settings, config_base, original_path), timeout=timeout,
+                                         isolate_settings, config_base, original_path, config_content), timeout=timeout,
             )
         return experiment.execute("mimrec", task, execute, group=group, native_operation=operation)
 

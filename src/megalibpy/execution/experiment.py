@@ -81,7 +81,8 @@ class SimulationWorkspace:
     def _result(self, path, record, root):
         return ExecutionResult(
             root, {k: tuple(root / p for p in v) for k, v in record["outputs"].items()},
-            path, root / record["logs"]["stdout"], root / record["logs"]["stderr"],
+            path, root / record["logs"]["stdout"] if record["logs"]["stdout"] else None,
+            root / record["logs"]["stderr"] if record["logs"]["stderr"] else None,
             execution_id=record.get("execution_id"), workspace_dir=self.root)
 
     def _select_legacy(self, data, stage, task):

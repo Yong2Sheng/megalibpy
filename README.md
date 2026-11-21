@@ -214,3 +214,11 @@ smoke test, use [the full-chain example](examples/end_to_end_smoke.py).
 A workspace has one root manifest and one Cosima simulation under `cosima/`.
 Revan/Mimrec data groups use `stage/attempt-NNN`; see the
 [workspace guide](docs/workspaces.rst) for configuration reuse and old-layout inputs.
+
+For large batches, the default runtime stores source/cfg contents in the root
+manifest instead of retaining separate copies. Cosima references external
+orientation/geometry files without copying or hashing them by default. Use
+`MEGAlibRuntime.from_setup_script(..., log_mode="tail")` and
+`Cosima.simulate(..., log_mode="summary")` for bounded logs. Empty logs and
+temporary launch/path handoff files are removed. See the
+[recording guide](docs/workspaces.rst) for archival opt-in and retention details.

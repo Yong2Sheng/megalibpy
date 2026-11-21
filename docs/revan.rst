@@ -54,7 +54,7 @@ to MEGAlib, including its handling of unsupported fields or invalid files.
 Native software may diagnose an error or fall back to defaults; passing a file
 explicitly is not a guarantee that every setting was accepted. Inspect logs.
 
-A single ``inputs/executed.revan.cfg`` snapshot preserves
+The manifest-recorded configuration preserves
 the original bytes, with identical SHA-256 checksums. Comments, whitespace,
 line endings, unknown names and literal values are unchanged.
 
@@ -238,3 +238,11 @@ create numbered ``revan/attempt-NNN`` groups without a task directory level.
 The task label remains queryable metadata. All executions are stored in the
 root manifest; use ``result.record`` to read one command by execution ID.
 Mimrec may reuse the selected reconstructed data across extraction and analysis.
+
+Compact recording
+-----------------
+
+See :doc:`workspaces` for the default manifest-based source/config retention,
+temporary native inputs and launch helpers, optional archival mode and bounded
+log capture. Empty logs are removed and their result paths are None. A physical
+configuration snapshot is retained only when runtime.archive_inputs is true.

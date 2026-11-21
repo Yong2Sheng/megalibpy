@@ -49,9 +49,12 @@ else:
     assert all('manifest_snapshot' not in u for r in records for u in r['upstream'])
     assert (root/'mimrec/attempt-001/spectrum/spectrum.png').is_file()
     assert (root/'mimrec/attempt-001/image-selected/image.png').is_file()
-    assert len(list((root/'mimrec/attempt-001/inputs').glob('*.cfg'))) == 1
-    assert len(list((root/'mimrec/attempt-001/inputs').glob('setup*.sh'))) == 1
-    assert len({r['logs']['stdout'] for r in records[2:]}) == 3
+    assert records[2]['configuration']['content'] == config.read_text()
+    assert all(r['configuration']['content'] == config.read_text() for r in records[2:])
+    assert not list(root.rglob('*.cfg'))
+    assert not list(root.rglob('*.sh'))
+    assert not list(root.rglob('*.txt'))
+    assert all(r['logs']['stdout'] is None and r['logs']['stderr'] is None for r in records)
     repeated = subprocess.run(command, capture_output=True, text=True, timeout=30)
     assert repeated.returncode != 0
     assert 'fresh path' in repeated.stderr
