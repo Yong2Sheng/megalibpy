@@ -16,6 +16,8 @@ def main():
     parser.add_argument("--task", default="baseline", help="Configuration/task label")
     parser.add_argument("--setup-script", help="Trusted MEGAlib Bash initialization script")
     parser.add_argument("--timeout", type=float, help="Child wall-clock timeout in seconds")
+    parser.add_argument("--use-user-settings", action="store_true",
+                        help="Keep original HOME; native Revan may read/write user settings")
     parser.add_argument("--uncompressed", action="store_true", help="Write .tra rather than .tra.gz")
     args = parser.parse_args()
     runtime = (MEGAlibRuntime.from_setup_script(args.setup_script)
@@ -24,6 +26,7 @@ def main():
         args.input, config_file=args.config, geometry=args.geometry,
         workspace=args.workspace, output_dir=args.output, task=args.task,
         compressed=not args.uncompressed, timeout=args.timeout,
+        isolate_settings=not args.use_user_settings,
     )
     print("Manifest:", result.manifest_path)
     print("Execution:", result.execution_id)

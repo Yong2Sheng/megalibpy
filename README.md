@@ -118,7 +118,7 @@ print(reconstructed.outputs["tra"])
 
 The original simulation remains in place. Reconstruction attempts are stored
 under the same experiment, with configuration snapshots, logs and explicit
-upstream references. Native Revan settings use an isolated HOME so they do not
+upstream references. By default, native Revan settings use an isolated HOME so they do not
 overwrite your usual `.revan.cfg`.
 
 For a new experiment, pass `workspace=SimulationWorkspace("experiments/grb-001")`

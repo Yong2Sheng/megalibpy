@@ -5,18 +5,9 @@ import json
 from pathlib import Path
 import shutil
 
-from .configuration import prepare_configuration
-
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
 from ..execution.provenance import file_record, resolve_upstream, sha256
-
-
-# Best-effort discovery only: these settings need not be enabled for a run.
-_RESOURCE_FIELDS = {
-    "EventClusteringTMVAFile", "PDFClusterizerBaseFileName", "OriginObjectsFile",
-    "DecayFile", "BayesianComptonFile", "BayesianElectronFile", "CSRTMVAFile",
-}
 
 
 def _input(source):
@@ -55,29 +46,17 @@ def _input(source):
 
 
 def _prepare(attempt, source, geometry, config, executable, compressed, reference,
-             dependencies, hash_limit):
+             dependencies, hash_limit, isolate_settings):
     original = attempt.root / "inputs/original.revan.cfg"
     original.write_bytes(config.read_bytes())
-    executed_bytes, leaves, home_edits = prepare_configuration(original.read_bytes(), Path.home())
-    unresolved = []
-    discovered = set(dependencies) | {geometry}
-    for field, value in leaves:
-        if field not in _RESOURCE_FIELDS or not value:
-            continue
-        if "$" in value or "~" in value:
-            unresolved.append({"field": field, "reference": value,
-                               "reason": "runtime-expanded reference"})
-            continue
-        candidate = (config.parent / value).resolve()
-        if candidate.is_file():
-            discovered.add(candidate)
-        else:
-            unresolved.append({"field": field, "reference": value,
-                               "reason": "missing or inactive resource/basename"})
+    content = original.read_bytes()
+    if not content:
+        raise ValueError("Revan configuration file must not be empty")
     executed = attempt.root / "inputs/executed.revan.cfg"
-    executed.write_bytes(executed_bytes)
+    executed.write_bytes(content)
+    declared = set(dependencies) | {geometry}
     records = []
-    for index, path in enumerate(sorted(discovered)):
+    for index, path in enumerate(sorted(declared)):
         record = file_record(path, hash_limit=hash_limit)
         if record["sha256"] is not None:
             snapshot = attempt.root / "inputs" / f"dependency-{index:04d}{path.suffix}"
@@ -87,7 +66,8 @@ def _prepare(attempt, source, geometry, config, executable, compressed, referenc
             record["snapshot"] = str(snapshot.relative_to(attempt.root))
         records.append(record)
     home = attempt.root / "logs/native-home"
-    home.mkdir()
+    if isolate_settings:
+        home.mkdir()
     product = attempt.root / "products" / ("events.tra.gz" if compressed else "events.tra")
     command = (executable, "-g", str(geometry), "-c", str(executed),
                "-f", str(source), "-o", str(product), "-n", "-a")
@@ -99,16 +79,16 @@ def _prepare(attempt, source, geometry, config, executable, compressed, referenc
                           "executed_snapshot": "inputs/executed.revan.cfg",
                           "executed_sha256": sha256(executed),
                           "relative_path_base": str(config.parent),
-                          "settings_home": "logs/native-home",
-                          "format": "megalib_native_xml_like",
-                          "validation": "root_envelope_only; native parser handles settings",
-                          "home_path_rewrites": home_edits},
+                          "settings_home": "logs/native-home" if isolate_settings else None,
+                          "format": "native_passthrough",
+                          "validation": "readable_nonempty_file; native parser handles configuration"},
         "geometry": str(geometry), "dependencies": records,
-        "dependency_capture": {"complete": False, "scope": "top_level_geometry_known_resources_and_explicit",
-                               "unresolved_references": unresolved, "hash_limit_bytes": hash_limit,
-                               "limitations": "Geometry include trees, runtime-expanded resources and native "
+        "dependency_capture": {"complete": False, "scope": "top_level_geometry_and_explicit_files",
+                               "hash_limit_bytes": hash_limit,
+                               "limitations": "Configuration contents are not inspected. Geometry include trees, "
+                               "configuration resources, runtime-expanded paths and native "
                                "event-file continuations are not recursively archived. External inputs remain live."},
-    }, upstream=() if reference is None else (reference,), environment={"HOME": str(home)})
+    }, upstream=() if reference is None else (reference,), environment={"HOME": str(home)} if isolate_settings else {})
 
 
 class Revan:
@@ -125,8 +105,8 @@ class Revan:
     -----
     No PyROOT is imported. Geometry, input and output CLI arguments override
     saved file selections in the supplied configuration. Native configuration
-    bytes and comments are retained except for recorded HOME-prefix edits; no
-    standard XML serializer or fixed Python settings model is used.
+    bytes are passed through unchanged; no configuration parser, serializer or
+    fixed Python settings model is used.
     """
 
     def __init__(self, runtime=None, *, executable="revan"):
@@ -135,7 +115,7 @@ class Revan:
 
     def reconstruct(self, source, *, config_file, geometry, workspace=None, output_dir=None,
                     task="default", compressed=True, timeout=None, dependencies=(),
-                    hash_limit_bytes=64 * 1024 * 1024):
+                    hash_limit_bytes=64 * 1024 * 1024, isolate_settings=True):
         """Reconstruct one native event file into a recorded ``tra`` product.
 
         Parameters
@@ -146,12 +126,10 @@ class Revan:
             Multiple declared input files require explicit selection. A single
             native file may itself reference continuation files handled by Revan.
         config_file : str or pathlib.Path
-            Required UTF-8 native MEGAlib configuration with a
-            ``RevanConfigurationFile`` root. This XML-like format need not be
-            valid standard XML. Original and executed bytes are archived; only
-            recorded HOME-prefix edits change the execution copy. Relative
-            resources resolve from this file's parent directory. HOME-based
-            leaf paths are rebased to the caller's home before settings isolation.
+            Required readable, nonempty native MEGAlib configuration. Original
+            bytes are copied unchanged to the execution snapshot and passed to
+            Revan via ``-c``. No syntax, field names or values are interpreted.
+            Relative resources resolve from this file's parent directory.
         geometry : str or pathlib.Path
             Required existing geometry setup file. Relative paths resolve from
             the calling Python directory. Passed with ``-g``, overriding the cfg.
@@ -179,6 +157,12 @@ class Revan:
             Dependency hash/copy threshold in bytes, default 64 MiB. None archives
             all declared resources. Event input contents are not read or copied;
             their path, size and mtime are recorded.
+        isolate_settings : bool, optional
+            Default true gives native Revan a private HOME after setup, protecting
+            the caller's ``.revan.cfg``. Configuration text is never rewritten:
+            HOME-based paths then refer to that private HOME. Use absolute or
+            other runtime-variable paths, or explicitly set false to retain the
+            original HOME and permit Revan to read/write its usual settings.
 
         Returns
         -------
@@ -203,15 +187,17 @@ class Revan:
 
         Notes
         -----
-        Native settings are isolated under ``logs/native-home``. HOME changes
-        only for the native tool, after any setup script completes; neither the
-        parent's HOME nor its ``.revan.cfg`` is modified. This is not a sandbox.
-        Only the outer root envelope is checked; configuration syntax and
-        settings semantics are delegated to native Revan. A zero exit status plus nonempty output is not a scientific
+        By default, native settings are isolated under ``logs/native-home``.
+        HOME changes only for the tool after setup; the parent's environment is
+        unchanged. Disabling isolation allows native writes to usual settings.
+        No configuration syntax or settings semantics are checked by Python;
+        native Revan may diagnose errors or fall back to defaults. Inspect logs. A zero exit status plus nonempty output is not a scientific
         check. Dependency capture is incomplete; external files must stay stable.
         """
         if workspace is not None and output_dir is not None:
             raise ValueError("workspace and output_dir are mutually exclusive")
+        if not isinstance(isolate_settings, bool):
+            raise ValueError("isolate_settings must be bool")
         if not isinstance(compressed, bool):
             raise ValueError("compressed must be bool")
         if hash_limit_bytes is not None and hash_limit_bytes < 0:
@@ -229,7 +215,7 @@ class Revan:
             return Executor(self.runtime).execute(
                 "revan", target,
                 lambda attempt: _prepare(attempt, path, massmodel, config, self.executable,
-                                         compressed, reference, files, hash_limit_bytes),
+                                         compressed, reference, files, hash_limit_bytes, isolate_settings),
                 timeout=timeout,
             )
         if output_dir is not None:

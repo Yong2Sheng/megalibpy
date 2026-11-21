@@ -79,6 +79,7 @@ def test_explicit_configuration_and_home_isolation(reconstruction, tmp_path, mon
     original = cfg.read_bytes()
     result = Revan(executable=tool).reconstruct(
         source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
+        dependencies=["response.dat"],
     )
     record = read(result)
     assert cfg.read_bytes() == original
@@ -102,7 +103,7 @@ def test_explicit_configuration_and_home_isolation(reconstruction, tmp_path, mon
     assert (result.output_dir / "logs/native-home/.revan.cfg").read_text() == "native saved settings"
 
 
-def test_home_override_occurs_after_setup_and_home_references_rebased(reconstruction, tmp_path, monkeypatch):
+def test_home_override_occurs_after_setup_without_rewriting_config(reconstruction, tmp_path, monkeypatch):
     source, cfg, geometry, tool = reconstruction
     home = tmp_path / "real home"
     home.mkdir()
@@ -117,7 +118,7 @@ def test_home_override_occurs_after_setup_and_home_references_rebased(reconstruc
     assert output["setup_home"] == str(home)
     assert output["home"] == str(result.output_dir / "logs/native-home")
     assert read(result)["runtime"]["executable"]["path"] == str(tool)
-    assert ET.parse(result.output_dir / "inputs/executed.revan.cfg").findtext("AnyPath") == str(home / "calibration.dat")
+    assert ET.parse(result.output_dir / "inputs/executed.revan.cfg").findtext("AnyPath") == "~/calibration.dat"
     assert result.outputs["tra"][0].name == "events.tra"
 
 
@@ -172,11 +173,10 @@ def test_external_evta_creates_experiment_and_retains_input(reconstruction):
     assert evta.read_bytes() == source.read_bytes()
 
 
-@pytest.mark.parametrize("mode", ["bad-xml", "wrong-root", "missing-config", "missing-geometry", "exit", "missing", "sleep"])
+@pytest.mark.parametrize("mode", ["empty-config", "missing-config", "missing-geometry", "exit", "missing", "sleep"])
 def test_failures_keep_attempt_records(reconstruction, tmp_path, mode):
     source, cfg, geometry, tool = reconstruction
-    if mode == "bad-xml": cfg.write_text("not XML")
-    elif mode == "wrong-root": cfg.write_text("<MimrecConfigurationFile/>")
+    if mode == "empty-config": cfg.write_bytes(b"")
     elif mode == "missing-config": cfg.unlink()
     elif mode == "missing-geometry": geometry.unlink()
     else: cfg.write_text(f"<RevanConfigurationFile><TestMode>{mode}</TestMode></RevanConfigurationFile>")
@@ -207,7 +207,7 @@ def test_explicit_destination_new_workspace_and_directory_protection(reconstruct
         Revan(executable=tool).reconstruct(source, output_dir=result.output_dir, config_file=cfg, geometry=geometry)
 
 
-def test_config_resources_and_runtime_expansions(reconstruction, tmp_path):
+def test_config_contents_not_inspected_and_dependencies_explicit(reconstruction, tmp_path):
     source, cfg, geometry, tool = reconstruction
     cfg.write_text('<RevanConfigurationFile><CSRTMVAFile>$(MEGALIB)/response.rsp</CSRTMVAFile>'
                    '<OriginObjectsFile>optional-missing.dat</OriginObjectsFile></RevanConfigurationFile>')
@@ -217,7 +217,7 @@ def test_config_resources_and_runtime_expansions(reconstruction, tmp_path):
         source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
         dependencies=["extra.dat"], hash_limit_bytes=0)
     record = read(result)
-    assert len(record["dependency_capture"]["unresolved_references"]) == 2
+    assert record["dependency_capture"]["scope"] == "top_level_geometry_and_explicit_files"
     assert len(record["dependencies"]) == 2
     assert all(d["sha256"] is None for d in record["dependencies"])
 
@@ -272,11 +272,10 @@ def test_native_legacy_names_and_literal_values_preserved(reconstruction, tmp_pa
     assert (result.output_dir / "inputs/executed.revan.cfg").read_bytes() == content
     record = read(result)["configuration"]
     assert record["original_sha256"] == record["executed_sha256"]
-    assert record["home_path_rewrites"] == []
-    assert record["format"] == "megalib_native_xml_like"
+    assert record["format"] == "native_passthrough"
 
 
-def test_native_home_rewrite_preserves_other_bytes(reconstruction, tmp_path, monkeypatch):
+def test_native_home_paths_remain_literal_and_are_not_discovered(reconstruction, tmp_path, monkeypatch):
     source, cfg, geometry, tool = reconstruction
     home = tmp_path / "home&literal"
     home.mkdir()
@@ -292,20 +291,34 @@ def test_native_home_rewrite_preserves_other_bytes(reconstruction, tmp_path, mon
     result = Revan(executable=tool).reconstruct(
         source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
     executed = (result.output_dir / "inputs/executed.revan.cfg").read_bytes()
-    assert executed == content.replace(b'~/response&data.rsp', str(home / 'response&data.rsp').encode())
+    assert executed == content
     assert b'~/ignored.rsp' in executed
     record = read(result)
-    assert len(record["dependencies"]) == 2
-    edit, = record["configuration"]["home_path_rewrites"]
-    assert edit["field"] == "BayesianComptonFile"
-    assert edit["original"] == "~/response&data.rsp"
-    assert edit["executed"] == str(home / "response&data.rsp")
+    assert len(record["dependencies"]) == 1  # geometry only; no cfg inspection
 
 
-def test_truncated_root_is_rejected_before_launch(reconstruction, tmp_path):
+def test_configuration_syntax_delegated_to_native(reconstruction, tmp_path):
     source, cfg, geometry, tool = reconstruction
-    cfg.write_text('<RevanConfigurationFile><SpectrumBefore)>true</SpectrumBefore)>')
-    with pytest.raises(ExecutionError, match="opening and closing root"):
-        Revan(executable=tool).reconstruct(
-            source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
-    assert not (tmp_path / "run/products/events.tra.gz").exists()
+    content = b"native configuration payload is opaque to Python"
+    cfg.write_bytes(content)
+    result = Revan(executable=tool).reconstruct(
+        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
+    assert (result.output_dir / "inputs/executed.revan.cfg").read_bytes() == content
+    # The stand-in accepts the payload; this is not a claim that Revan accepts it.
+    assert read(result)["configuration"]["format"] == "native_passthrough"
+
+
+def test_isolation_can_be_disabled_without_modifying_config(reconstruction, tmp_path, monkeypatch):
+    source, cfg, geometry, tool = reconstruction
+    home = tmp_path / "original-home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    original = cfg.read_bytes()
+    result = Revan(executable=tool).reconstruct(
+        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
+        isolate_settings=False)
+    assert cfg.read_bytes() == original
+    assert json.loads(result.stdout_path.read_text())["home"] == str(home)
+    assert (home / ".revan.cfg").read_text() == "native saved settings"
+    assert read(result)["tool_environment"] == {}
+    assert read(result)["configuration"]["settings_home"] is None

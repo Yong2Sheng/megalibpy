@@ -46,36 +46,27 @@ to the input event file. Revan selects compression from the output suffix;
 Configuration handling
 -----------------------
 
-``config_file`` and ``geometry`` are required. The adapter does not select the
-caller's ``~/.revan.cfg`` as an implicit configuration. An unreadable file or one
-without a complete outer ``RevanConfigurationFile`` root fails preparation.
-Configuration syntax and settings semantics are delegated to native Revan.
+``config_file`` and ``geometry`` are required. Python checks that the supplied
+configuration is a readable, nonempty file, archives its bytes and passes an
+identical copy to native Revan with ``-c``. It does not parse XML, inspect
+configuration fields, rename tags, rewrite values, or normalize formatting.
 
-MEGAlib uses its own XML-like format rather than a strict standard XML parser.
-For example, its configuration writer and example files contain the legacy tag
-``<SpectrumBefore)>``; native text values are also not necessarily XML-escaped.
-The wrapper therefore does not parse/re-serialize the configuration with a
-standard XML library or silently rename fields. The root-envelope check is not
-a full native syntax or scientific validation.
+MEGAlib uses its own XML-like format. Its writer and example files contain
+``<SpectrumBefore)>``, which standard XML parsers reject. Interpretation belongs
+to MEGAlib, including its handling of unsupported fields or invalid files.
+Native software may diagnose an error or fall back to defaults; passing a file
+explicitly is not a guarantee that every setting was accepted. Inspect logs.
 
-The attempt saves both:
+Both ``inputs/original.revan.cfg`` and ``inputs/executed.revan.cfg`` preserve
+the original bytes, with identical SHA-256 checksums. Comments, whitespace,
+line endings, unknown names and literal values are unchanged.
 
-- ``inputs/original.revan.cfg``: byte-for-byte original input.
-- ``inputs/executed.revan.cfg``: native bytes supplied to Revan, with checksums
-  for both versions. Without HOME-prefix edits this is byte-for-byte identical
-  to the original, including whitespace, line endings, comments, unknown names
-  and literal entity text. HOME-based leaf paths such as ``~/response.dat`` are
-  expanded against the calling Python user's home before native HOME isolation.
-  Only those prefix bytes are replaced; each edit is recorded in
-  ``configuration.home_path_rewrites``. Comments are masked for inspection only
-  and never rewritten as path values.
-
-Relative configuration resources resolve from the original configuration
-file's directory: that directory is used as the child working directory.
-Geometry and event input paths supplied to the Python API resolve from the
-calling Python directory and are passed as absolute CLI arguments. These CLI
-selections override saved file selections in the configuration. Runtime-expanded resource
-paths such as ``$(MEGALIB)/...`` are left for the native environment.
+The native child runs from the original configuration directory so relative
+resource paths retain that base. Geometry and event input paths supplied to the
+Python API resolve from the calling Python directory and are passed as absolute
+CLI arguments, overriding saved file selections. Native environment-variable
+expansion remains MEGAlib's responsibility. Additional resources can be recorded
+explicitly with ``dependencies=[...]``; configuration contents are not scanned.
 
 Changing configuration
 ------------------------
@@ -113,8 +104,15 @@ native settings do not overwrite or mix with the caller's defaults.
 In setup-script mode, the original HOME remains in effect during environment
 initialization. Only after that completes does the bootstrap apply the tool's
 HOME override and execute Revan. The caller's environment is unchanged. The
-private HOME and any native-saved configuration remain in the attempt directory.
-This is settings isolation, not a security sandbox or hermetic environment.
+private HOME and native-saved configuration remain in the attempt directory.
+
+Configuration text is never rewritten. When isolation is enabled, ``~`` or
+``$HOME`` references inside the configuration refer to that private HOME. Use
+absolute resource paths or other runtime variables, or explicitly set
+``isolate_settings=False`` to preserve the original HOME. With isolation
+disabled, Revan can read and overwrite the user's usual ``.revan.cfg``.
+The CLI equivalent is ``--use-user-settings``. This is settings isolation,
+not a security sandbox or hermetic environment.
 
 Explicit inputs and multiple files
 ------------------------------------
@@ -171,12 +169,11 @@ execution ID, manifest path and, for managed executions, ``workspace_dir``.
 The recorded upstream selection contains the exact event path passed to ``-f``;
 its source manifest is snapshotted and hashed by the shared executor.
 
-The geometry, known resource fields and explicit ``dependencies`` use the
+The top-level geometry and explicitly declared ``dependencies`` use the
 configurable hash/copy limit, default 64 MiB. Additional relative dependencies
-are resolved from the configuration directory. Discovery is best effort: an
-unused native setting can contain a missing path or a resource basename rather
-than a file, and unknown/runtime-expanded resources are not automatically
-captured. Geometry include trees are not recursively archived. These limits are
+are resolved from the configuration directory. The configuration is treated as opaque;
+resources referenced inside it and geometry include trees are not automatically
+inspected or recursively archived. These limits are
 recorded in ``dependency_capture``; external inputs must stay stable during use.
 
 Preparation, launch, native exit, timeout and missing nonempty output failures
