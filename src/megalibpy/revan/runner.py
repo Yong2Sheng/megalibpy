@@ -9,22 +9,22 @@ from ..execution.executor import Executor
 from ..execution.provenance import file_record, resolve_upstream, sha256
 
 
-def _input(source):
+def _input(input_data):
     """Return one explicit native input, its lineage reference and experiment."""
     experiment = None
-    if isinstance(source, SimulationWorkspace):
-        experiment = source
-        source = source.select("cosima")
-    if isinstance(source, ExecutionResult):
-        if source.workspace_dir is not None:
-            experiment = SimulationWorkspace(source.workspace_dir)
-        elif json.loads(source.manifest_path.read_text()).get("tool") == "cosima":
-            experiment = SimulationWorkspace(source.output_dir)
-        source = source.as_input("sim")
-    if isinstance(source, ExecutionInput):
-        _, record = resolve_upstream(source)
-        if source.workspace_dir is not None:
-            experiment = SimulationWorkspace(source.workspace_dir)
+    if isinstance(input_data, SimulationWorkspace):
+        experiment = input_data
+        input_data = input_data.select("cosima")
+    if isinstance(input_data, ExecutionResult):
+        if input_data.workspace_dir is not None:
+            experiment = SimulationWorkspace(input_data.workspace_dir)
+        elif json.loads(input_data.manifest_path.read_text()).get("tool") == "cosima":
+            experiment = SimulationWorkspace(input_data.output_dir)
+        input_data = input_data.as_input("sim")
+    if isinstance(input_data, ExecutionInput):
+        _, record = resolve_upstream(input_data)
+        if input_data.workspace_dir is not None:
+            experiment = SimulationWorkspace(input_data.workspace_dir)
         elif experiment is None:
             manifest_path = Path(record["manifest_path"])
             if json.loads(manifest_path.read_text()).get("tool") == "cosima":
@@ -33,9 +33,9 @@ def _input(source):
         if len(paths) != 1:
             raise ValueError("Revan accepts one native input per call. Select a file with "
                              "result.as_input('sim', paths=[...]) rather than guessing a shard.")
-        reference = replace(source, execution_id=record["execution_id"], paths=tuple(paths))
+        reference = replace(input_data, execution_id=record["execution_id"], paths=tuple(paths))
         return paths[0], reference, experiment
-    path = Path(source).expanduser().resolve(strict=True)
+    path = Path(input_data).expanduser().resolve(strict=True)
     if path.is_dir():
         experiment = SimulationWorkspace(path)
         return _input(experiment)
@@ -44,7 +44,7 @@ def _input(source):
     return path, None, experiment
 
 
-def _prepare(attempt, source, geometry, config, executable, compressed, reference,
+def _prepare(attempt, event_file, geometry, config, executable, compressed, reference,
              overrides, isolate_settings):
     original = attempt.root / "inputs/original.revan.cfg"
     original.write_bytes(config.read_bytes())
@@ -57,7 +57,7 @@ def _prepare(attempt, source, geometry, config, executable, compressed, referenc
     if isolate_settings:
         home.mkdir()
     product = attempt.root / "products" / ("events.tra.gz" if compressed else "events.tra")
-    command = [executable, "-c", str(executed), "-f", str(source), "-o", str(product)]
+    command = [executable, "-c", str(executed), "-f", str(event_file), "-o", str(product)]
     if geometry is not None:
         command.extend(("-g", str(geometry)))
     changes = []
@@ -68,7 +68,7 @@ def _prepare(attempt, source, geometry, config, executable, compressed, referenc
         changes.append({"parameter": name, "value": text})
     command.extend(("-n", "-a"))
     return ExecutionPlan(tuple(command), config.parent, {"tra": product.name}, {
-        "input_file": file_record(source, hash_limit=0),
+        "input_file": file_record(event_file, hash_limit=0),
         "configuration": {"original_path": str(config),
                           "original_snapshot": "inputs/original.revan.cfg",
                           "original_sha256": sha256(original),
@@ -105,14 +105,14 @@ class Revan:
         self.runtime = runtime if runtime is not None else MEGAlibRuntime.direct()
         self.executable = str(executable)
 
-    def reconstruct(self, source, *, config_file, geometry=None, workspace=None, output_dir=None,
+    def reconstruct(self, working_space, *, config_file, geometry=None, workspace=None, output_dir=None,
                     task="default", compressed=True, timeout=None, isolate_settings=False,
                     **configuration):
         """Reconstruct one native event file into a recorded ``tra`` product.
 
         Parameters
         ----------
-        source : ExecutionResult or ExecutionInput or SimulationWorkspace or str or pathlib.Path
+        working_space : ExecutionResult or ExecutionInput or SimulationWorkspace or str or pathlib.Path
             Cosima result, explicit manifest/group/subset reference, experiment or
             legacy Cosima directory, or a standalone ``.sim[.gz]``/``.evta[.gz]``.
             Multiple declared input files require explicit selection. A single
@@ -196,7 +196,7 @@ class Revan:
             raise ValueError("compressed must be bool")
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be positive")
-        path, reference, inherited = _input(source)
+        path, reference, inherited = _input(working_space)
         if not path.name.endswith((".sim", ".sim.gz", ".evta", ".evta.gz")):
             raise ValueError("Selected product is not a Revan sim/evta input")
         config = Path(config_file).expanduser().resolve()

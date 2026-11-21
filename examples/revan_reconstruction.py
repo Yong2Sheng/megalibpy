@@ -31,7 +31,7 @@ def main():
     runtime = (MEGAlibRuntime.from_setup_script(args.setup_script)
                if args.setup_script else MEGAlibRuntime.direct())
     result = Revan(runtime).reconstruct(
-        args.input, config_file=args.config, geometry=args.geometry,
+        working_space=args.input, config_file=args.config, geometry=args.geometry,
         workspace=args.workspace, output_dir=args.output, task=args.task,
         compressed=not args.uncompressed, timeout=args.timeout,
         isolate_settings=args.isolate_settings, **configuration,

@@ -17,7 +17,7 @@ A new Cosima experiment and its reconstruction share one root:
        "burst.source", workspace=experiment, seed=12345,
    )
    reconstruction = Revan(runtime).reconstruct(
-       simulation,
+       working_space=simulation,
        config_file="baseline.revan.cfg",
        geometry="detector.geo.setup",
        task="baseline",

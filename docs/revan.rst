@@ -16,7 +16,7 @@ An existing Cosima execution directory can be used directly:
 
    runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
    result = Revan(runtime).reconstruct(
-       "experiments/cosima-smoke-005",
+       working_space="experiments/cosima-smoke-005",
        config_file="configurations/baseline.revan.cfg",
        task="baseline",
    )
@@ -75,7 +75,7 @@ Pass arbitrary native setting paths as Python keyword arguments:
 .. code-block:: python
 
    result = Revan(runtime).reconstruct(
-       "experiments/cosima-smoke-005",
+       working_space="experiments/cosima-smoke-005",
        config_file="configurations/baseline.revan.cfg",
        # geometry=None: no -g; use the configuration's geometry
        TotalEnergy_Min=100,
@@ -129,7 +129,7 @@ A Cosima result with exactly one declared simulation file can be passed directly
 .. code-block:: python
 
    reconstructed = Revan(runtime).reconstruct(
-       cosima_result,
+       working_space=cosima_result,
        config_file="configurations/baseline.revan.cfg",
    )
 
@@ -142,7 +142,7 @@ explicit selection instead of choosing a filename or modification time:
        "sim", paths=[cosima_result.outputs["sim"][0]]
    )
    reconstructed = Revan(runtime).reconstruct(
-       selected_input,
+       working_space=selected_input,
        config_file="configurations/baseline.revan.cfg",
    )
 

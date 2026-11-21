@@ -81,7 +81,7 @@ def test_explicit_configuration_and_home_isolation(reconstruction, tmp_path, mon
     monkeypatch.setenv("HOME", str(home))
     original = cfg.read_bytes()
     result = Revan(executable=tool).reconstruct(
-        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
+        working_space=source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
         isolate_settings=True,
     )
     record = read(result)
@@ -130,7 +130,7 @@ def test_legacy_directory_adopted_without_modification_and_branching(reconstruct
     root = legacy_cosima(tmp_path, source)
     original = (root / "manifest.json").read_bytes()
     runner = Revan(executable=tool)
-    a = runner.reconstruct(root, config_file=cfg, geometry=geometry, task="configuration-a")
+    a = runner.reconstruct(working_space=root, config_file=cfg, geometry=geometry, task="configuration-a")
     b = runner.reconstruct(root, config_file=cfg, geometry=geometry, task="configuration-b")
     assert (root / "manifest.json").read_bytes() == original
     assert a.output_dir == root / "revan/configuration-a/attempt-001"

@@ -108,7 +108,7 @@ from megalibpy import MEGAlibRuntime, Revan
 
 runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
 reconstructed = Revan(runtime).reconstruct(
-    "experiments/cosima-smoke-005",
+    working_space="experiments/cosima-smoke-005",
     config_file="configurations/baseline.revan.cfg",
     task="baseline",
 )
