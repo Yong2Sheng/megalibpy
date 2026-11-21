@@ -3,7 +3,6 @@
 from dataclasses import replace
 import json
 from pathlib import Path
-import shutil
 
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
@@ -46,7 +45,7 @@ def _input(source):
 
 
 def _prepare(attempt, source, geometry, config, executable, compressed, reference,
-             dependencies, hash_limit, isolate_settings):
+             overrides, isolate_settings):
     original = attempt.root / "inputs/original.revan.cfg"
     original.write_bytes(config.read_bytes())
     content = original.read_bytes()
@@ -54,24 +53,21 @@ def _prepare(attempt, source, geometry, config, executable, compressed, referenc
         raise ValueError("Revan configuration file must not be empty")
     executed = attempt.root / "inputs/executed.revan.cfg"
     executed.write_bytes(content)
-    declared = set(dependencies) | {geometry}
-    records = []
-    for index, path in enumerate(sorted(declared)):
-        record = file_record(path, hash_limit=hash_limit)
-        if record["sha256"] is not None:
-            snapshot = attempt.root / "inputs" / f"dependency-{index:04d}{path.suffix}"
-            shutil.copyfile(path, snapshot)
-            if sha256(snapshot) != record["sha256"]:
-                raise RuntimeError(f"Dependency changed during snapshot: {path}")
-            record["snapshot"] = str(snapshot.relative_to(attempt.root))
-        records.append(record)
     home = attempt.root / "logs/native-home"
     if isolate_settings:
         home.mkdir()
     product = attempt.root / "products" / ("events.tra.gz" if compressed else "events.tra")
-    command = (executable, "-g", str(geometry), "-c", str(executed),
-               "-f", str(source), "-o", str(product), "-n", "-a")
-    return ExecutionPlan(command, config.parent, {"tra": product.name}, {
+    command = [executable, "-c", str(executed), "-f", str(source), "-o", str(product)]
+    if geometry is not None:
+        command.extend(("-g", str(geometry)))
+    changes = []
+    for key, value in overrides.items():
+        name = key.replace("_", ".")
+        text = ("true" if value else "false") if isinstance(value, bool) else str(value)
+        command.extend(("-C", f"{name}={text}"))
+        changes.append({"parameter": name, "value": text})
+    command.extend(("-n", "-a"))
+    return ExecutionPlan(tuple(command), config.parent, {"tra": product.name}, {
         "input_file": file_record(source, hash_limit=0),
         "configuration": {"original_path": str(config),
                           "original_snapshot": "inputs/original.revan.cfg",
@@ -82,12 +78,8 @@ def _prepare(attempt, source, geometry, config, executable, compressed, referenc
                           "settings_home": "logs/native-home" if isolate_settings else None,
                           "format": "native_passthrough",
                           "validation": "readable_nonempty_file; native parser handles configuration"},
-        "geometry": str(geometry), "dependencies": records,
-        "dependency_capture": {"complete": False, "scope": "top_level_geometry_and_explicit_files",
-                               "hash_limit_bytes": hash_limit,
-                               "limitations": "Configuration contents are not inspected. Geometry include trees, "
-                               "configuration resources, runtime-expanded paths and native "
-                               "event-file continuations are not recursively archived. External inputs remain live."},
+        "geometry": None if geometry is None else str(geometry),
+        "configuration_overrides": changes,
     }, upstream=() if reference is None else (reference,), environment={"HOME": str(home)} if isolate_settings else {})
 
 
@@ -113,9 +105,9 @@ class Revan:
         self.runtime = runtime if runtime is not None else MEGAlibRuntime.direct()
         self.executable = str(executable)
 
-    def reconstruct(self, source, *, config_file, geometry, workspace=None, output_dir=None,
-                    task="default", compressed=True, timeout=None, dependencies=(),
-                    hash_limit_bytes=64 * 1024 * 1024, isolate_settings=True):
+    def reconstruct(self, source, *, config_file, geometry=None, workspace=None, output_dir=None,
+                    task="default", compressed=True, timeout=None, isolate_settings=False,
+                    **configuration):
         """Reconstruct one native event file into a recorded ``tra`` product.
 
         Parameters
@@ -130,9 +122,11 @@ class Revan:
             bytes are copied unchanged to the execution snapshot and passed to
             Revan via ``-c``. No syntax, field names or values are interpreted.
             Relative resources resolve from this file's parent directory.
-        geometry : str or pathlib.Path
-            Required existing geometry setup file. Relative paths resolve from
-            the calling Python directory. Passed with ``-g``, overriding the cfg.
+        geometry : str or pathlib.Path or None, optional
+            Default none omits ``-g``, using the native configuration's geometry.
+            Otherwise forwarded unchanged to ``-g``; MEGAlib handles path
+            expansion, opening and overriding. Python does not inspect the file.
+            Relative paths use the child cwd (the configuration directory).
         workspace : SimulationWorkspace or str or pathlib.Path or None, optional
             Destination experiment. If omitted, inherit the result's experiment
             or adopt a legacy Cosima directory. For standalone files, create an
@@ -151,24 +145,24 @@ class Revan:
         timeout : float or None, optional
             Positive child-process timeout in seconds, including setup. None waits
             indefinitely. Preparation/final record writing are excluded.
-        dependencies : iterable of str or pathlib.Path, optional
-            Extra resource files to archive; relative paths use the cfg directory.
-        hash_limit_bytes : int or None, optional
-            Dependency hash/copy threshold in bytes, default 64 MiB. None archives
-            all declared resources. Event input contents are not read or copied;
-            their path, size and mtime are recorded.
         isolate_settings : bool, optional
-            Default true gives native Revan a private HOME after setup, protecting
-            the caller's ``.revan.cfg``. Configuration text is never rewritten:
-            HOME-based paths then refer to that private HOME. Use absolute or
-            other runtime-variable paths, or explicitly set false to retain the
-            original HOME and permit Revan to read/write its usual settings.
+            Default false retains native HOME/settings behavior. Explicit true
+            gives the tool a private HOME after setup. Configuration contents
+            remain unchanged, so HOME-based paths then use the private HOME.
+
+        **configuration
+            Native configuration overrides. Each keyword's underscores become
+            dots: ``TotalEnergy_Min=100`` gives ``-C TotalEnergy.Min=100``.
+            Values are passed as one argument without path/value rewriting;
+            booleans become ``true``/``false``, other values use ``str``. Field
+            existence, value validity and external files are MEGAlib's concern.
+            CLI ``-g/-f/-o`` selections take precedence according to native rules.
 
         Returns
         -------
         ExecutionResult
             ``outputs["tra"]`` contains the reconstructed file. The execution
-            manifest records configuration hashes, geometry, runtime and selected
+            manifest records configuration hashes, CLI overrides, runtime and selected
             upstream input. Managed results also expose ``workspace_dir``.
 
         Raises
@@ -180,19 +174,19 @@ class Revan:
         FileExistsError
             An explicit output directory exists or the workspace index is locked.
         ExecutionError
-            Configuration/geometry preparation, launch, execution, timeout or
+            Configuration snapshot preparation, launch, execution, timeout or
             nonempty-output checks fail after an attempt record is established.
         KeyboardInterrupt
             Execution is interrupted; diagnostics are retained.
 
         Notes
         -----
-        By default, native settings are isolated under ``logs/native-home``.
-        HOME changes only for the tool after setup; the parent's environment is
-        unchanged. Disabling isolation allows native writes to usual settings.
+        By default, native Revan uses its usual HOME and settings. Optional
+        isolation changes HOME only for the tool after setup, without altering
+        the parent's environment or rewriting configuration contents.
         No configuration syntax or settings semantics are checked by Python;
-        native Revan may diagnose errors or fall back to defaults. Inspect logs. A zero exit status plus nonempty output is not a scientific
-        check. Dependency capture is incomplete; external files must stay stable.
+        native Revan may diagnose errors or fall back to defaults. Inspect logs.
+        A zero exit status plus nonempty output is not a scientific check. External configuration files are managed by MEGAlib and the caller.
         """
         if workspace is not None and output_dir is not None:
             raise ValueError("workspace and output_dir are mutually exclusive")
@@ -200,22 +194,18 @@ class Revan:
             raise ValueError("isolate_settings must be bool")
         if not isinstance(compressed, bool):
             raise ValueError("compressed must be bool")
-        if hash_limit_bytes is not None and hash_limit_bytes < 0:
-            raise ValueError("hash_limit_bytes must be nonnegative or None")
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be positive")
         path, reference, inherited = _input(source)
         if not path.name.endswith((".sim", ".sim.gz", ".evta", ".evta.gz")):
             raise ValueError("Selected product is not a Revan sim/evta input")
         config = Path(config_file).expanduser().resolve()
-        massmodel = Path(geometry).expanduser().resolve()
-        files = tuple((config.parent / Path(p).expanduser()).resolve() for p in dependencies)
 
         def execute(target):
             return Executor(self.runtime).execute(
                 "revan", target,
-                lambda attempt: _prepare(attempt, path, massmodel, config, self.executable,
-                                         compressed, reference, files, hash_limit_bytes, isolate_settings),
+                lambda attempt: _prepare(attempt, path, geometry, config, self.executable,
+                                         compressed, reference, configuration, isolate_settings),
                 timeout=timeout,
             )
         if output_dir is not None:

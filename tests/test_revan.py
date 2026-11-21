@@ -11,7 +11,10 @@ from megalibpy import Cosima, ExecutionError, MEGAlibRuntime, Revan, SimulationW
 
 
 @pytest.fixture
-def reconstruction(tmp_path):
+def reconstruction(tmp_path, monkeypatch):
+    user_home = tmp_path / "native-user-home"
+    user_home.mkdir()
+    monkeypatch.setenv("HOME", str(user_home))
     config_dir = tmp_path / "configuration files"
     config_dir.mkdir()
     config = config_dir / "reconstruction.cfg"
@@ -79,7 +82,7 @@ def test_explicit_configuration_and_home_isolation(reconstruction, tmp_path, mon
     original = cfg.read_bytes()
     result = Revan(executable=tool).reconstruct(
         source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
-        dependencies=["response.dat"],
+        isolate_settings=True,
     )
     record = read(result)
     assert cfg.read_bytes() == original
@@ -98,8 +101,8 @@ def test_explicit_configuration_and_home_isolation(reconstruction, tmp_path, mon
     assert command[command.index("-o") + 1] == str(result.outputs["tra"][0])
     assert record["cwd"] == str(cfg.parent)
     assert record["input_file"]["hash_policy"] == "size_and_mtime_only"
-    assert len(record["dependencies"]) == 2
-    assert record["dependency_capture"]["complete"] is False
+    assert "dependencies" not in record
+    assert "dependency_capture" not in record
     assert (result.output_dir / "logs/native-home/.revan.cfg").read_text() == "native saved settings"
 
 
@@ -112,7 +115,7 @@ def test_home_override_occurs_after_setup_without_rewriting_config(reconstructio
     setup = tmp_path / "setup.sh"
     setup.write_text('export SETUP_HOME="$HOME"\n')
     result = Revan(MEGAlibRuntime.from_setup_script(setup), executable=tool).reconstruct(
-        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run", compressed=False,
+        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run", compressed=False, isolate_settings=True,
     )
     output = json.loads(result.stdout_path.read_text())
     assert output["setup_home"] == str(home)
@@ -173,12 +176,11 @@ def test_external_evta_creates_experiment_and_retains_input(reconstruction):
     assert evta.read_bytes() == source.read_bytes()
 
 
-@pytest.mark.parametrize("mode", ["empty-config", "missing-config", "missing-geometry", "exit", "missing", "sleep"])
+@pytest.mark.parametrize("mode", ["empty-config", "missing-config", "exit", "missing", "sleep"])
 def test_failures_keep_attempt_records(reconstruction, tmp_path, mode):
     source, cfg, geometry, tool = reconstruction
     if mode == "empty-config": cfg.write_bytes(b"")
     elif mode == "missing-config": cfg.unlink()
-    elif mode == "missing-geometry": geometry.unlink()
     else: cfg.write_text(f"<RevanConfigurationFile><TestMode>{mode}</TestMode></RevanConfigurationFile>")
     experiment = SimulationWorkspace(tmp_path / "experiment")
     with pytest.raises(ExecutionError) as error:
@@ -207,19 +209,41 @@ def test_explicit_destination_new_workspace_and_directory_protection(reconstruct
         Revan(executable=tool).reconstruct(source, output_dir=result.output_dir, config_file=cfg, geometry=geometry)
 
 
-def test_config_contents_not_inspected_and_dependencies_explicit(reconstruction, tmp_path):
-    source, cfg, geometry, tool = reconstruction
-    cfg.write_text('<RevanConfigurationFile><CSRTMVAFile>$(MEGALIB)/response.rsp</CSRTMVAFile>'
-                   '<OriginObjectsFile>optional-missing.dat</OriginObjectsFile></RevanConfigurationFile>')
-    extra = cfg.parent / "extra.dat"
-    extra.write_text("response")
+def test_native_configuration_keywords_become_flags_without_changing_values(reconstruction, tmp_path):
+    source, cfg, _, tool = reconstruction
+    original = cfg.read_bytes()
+    response = "$(MEGALIB)/missing response_file_v2.rsp"
     result = Revan(executable=tool).reconstruct(
-        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
-        dependencies=["extra.dat"], hash_limit_bytes=0)
+        source, config_file=cfg, output_dir=tmp_path / "run",
+        TotalEnergy_Min=100, TotalEnergy_Max=1000,
+        BayesianComptonFile=response, RejectAllBadEvents=True,
+        Unknown_Native_Field="value_with_underscores=a=b", SearchMIPs=False,
+    )
+    actual = json.loads(result.stdout_path.read_text())["argv"]
+    changes = [actual[i + 1] for i, flag in enumerate(actual) if flag == "-C"]
+    assert changes == ["TotalEnergy.Min=100", "TotalEnergy.Max=1000",
+                       f"BayesianComptonFile={response}", "RejectAllBadEvents=true",
+                       "Unknown.Native.Field=value_with_underscores=a=b", "SearchMIPs=false"]
+    assert "-g" not in actual
+    assert cfg.read_bytes() == original
+    assert (result.output_dir / "inputs/executed.revan.cfg").read_bytes() == original
     record = read(result)
-    assert record["dependency_capture"]["scope"] == "top_level_geometry_and_explicit_files"
-    assert len(record["dependencies"]) == 2
-    assert all(d["sha256"] is None for d in record["dependencies"])
+    assert record["configuration_overrides"][2] == {"parameter": "BayesianComptonFile", "value": response}
+    assert "dependencies" not in record
+
+
+@pytest.mark.parametrize("geometry", [None, "$(MEGALIB)/not_local.geo.setup", "relative_model.geo.setup"])
+def test_geometry_is_optional_and_forwarded_without_inspection(reconstruction, tmp_path, geometry):
+    source, cfg, model, tool = reconstruction
+    model.unlink()
+    result = Revan(executable=tool).reconstruct(
+        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
+    actual = json.loads(result.stdout_path.read_text())["argv"]
+    if geometry is None:
+        assert "-g" not in actual
+    else:
+        assert actual[actual.index("-g") + 1] == geometry
+    assert read(result)["geometry"] == geometry
 
 
 def test_cosima_workspace_unique_origin_and_result_handoff(reconstruction, tmp_path):
@@ -294,7 +318,7 @@ def test_native_home_paths_remain_literal_and_are_not_discovered(reconstruction,
     assert executed == content
     assert b'~/ignored.rsp' in executed
     record = read(result)
-    assert len(record["dependencies"]) == 1  # geometry only; no cfg inspection
+    assert "dependencies" not in record
 
 
 def test_configuration_syntax_delegated_to_native(reconstruction, tmp_path):

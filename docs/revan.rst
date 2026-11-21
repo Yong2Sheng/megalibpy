@@ -1,8 +1,7 @@
 Revan event reconstruction
 ===========================
 
-``Revan`` runs native event reconstruction with an explicit geometry and native
-MEGAlib configuration. It accepts a Cosima result, an experiment/legacy Cosima directory,
+``Revan`` runs native event reconstruction with a native configuration and optional geometry override. It accepts a Cosima result, an experiment/legacy Cosima directory,
 an explicit upstream product selection, or a standalone ``sim``/``evta`` file.
 The native MEGAlib installation must provide ``revan``; PyROOT is not imported.
 
@@ -19,7 +18,6 @@ An existing Cosima execution directory can be used directly:
    result = Revan(runtime).reconstruct(
        "experiments/cosima-smoke-005",
        config_file="configurations/baseline.revan.cfg",
-       geometry="massmodel/detector.geo.setup",
        task="baseline",
    )
    print(result.workspace_dir)
@@ -46,7 +44,7 @@ to the input event file. Revan selects compression from the output suffix;
 Configuration handling
 -----------------------
 
-``config_file`` and ``geometry`` are required. Python checks that the supplied
+``config_file`` is required. Python checks that the supplied
 configuration is a readable, nonempty file, archives its bytes and passes an
 identical copy to native Revan with ``-c``. It does not parse XML, inspect
 configuration fields, rename tags, rewrite values, or normalize formatting.
@@ -62,31 +60,47 @@ the original bytes, with identical SHA-256 checksums. Comments, whitespace,
 line endings, unknown names and literal values are unchanged.
 
 The native child runs from the original configuration directory so relative
-resource paths retain that base. Geometry and event input paths supplied to the
-Python API resolve from the calling Python directory and are passed as absolute
-CLI arguments, overriding saved file selections. Native environment-variable
-expansion remains MEGAlib's responsibility. Additional resources can be recorded
-explicitly with ``dependencies=[...]``; configuration contents are not scanned.
+resource paths retain that base. ``geometry=None`` (the default) omits ``-g``;
+Revan uses the geometry selected by its configuration. A supplied geometry is
+forwarded unchanged with ``-g``, allowing native override/path handling. Python
+does not open, validate, hash or archive geometry or other external resources.
+MEGAlib and the caller control native configuration resources; event input and
+output flags remain explicit.
 
 Changing configuration
 ------------------------
 
-Use separate configuration files and task labels for comparisons:
+Pass arbitrary native setting paths as Python keyword arguments:
 
 .. code-block:: python
 
-   a = Revan(runtime).reconstruct(
+   result = Revan(runtime).reconstruct(
        "experiments/cosima-smoke-005",
-       config_file="configurations/a.revan.cfg",
-       geometry="massmodel/detector.geo.setup",
-       task="configuration-a",
+       config_file="configurations/baseline.revan.cfg",
+       # geometry=None: no -g; use the configuration's geometry
+       TotalEnergy_Min=100,
+       TotalEnergy_Max=1000,
+       BayesianComptonFile="$(MEGALIB)/responses/my_response.rsp",
+       task="energy-selection",
    )
-   b = Revan(runtime).reconstruct(
-       "experiments/cosima-smoke-005",
-       config_file="configurations/b.revan.cfg",
-       geometry="massmodel/detector.geo.setup",
-       task="configuration-b",
-   )
+
+These produce repeated native options:
+
+.. code-block:: text
+
+   -C TotalEnergy.Min=100
+   -C TotalEnergy.Max=1000
+   -C BayesianComptonFile=$(MEGALIB)/responses/my_response.rsp
+
+Only keyword names have underscores replaced by dots. Values are separate argv
+items, preserving spaces, underscores, equals signs and native variable syntax;
+booleans become ``true``/``false`` and other values use ``str``. No setting
+whitelist, parameter-path discovery or value validation is performed. Native
+Revan applies the overrides; the original configuration snapshot is unchanged.
+Its CLI geometry/input/output precedence remains native behavior.
+
+Use separate task names to compare settings, whether changing the base file or
+passing different keyword overrides.
 
 Reusing a task label creates the next attempt without overwriting prior results.
 Labels organize executions; the API does not check that configuration contents
@@ -97,22 +111,15 @@ performed. See :doc:`workspaces` for selection and index behavior.
 Native settings isolation
 ---------------------------
 
-Native Revan reads and writes ``~/.revan.cfg``, even when a separate ``-c`` file
-is used. Each attempt supplies its own HOME under ``logs/native-home`` so those
-native settings do not overwrite or mix with the caller's defaults.
+Default execution retains the native HOME and normal settings behavior,
+including Revan's reading/writing of ``~/.revan.cfg``. The wrapper does not
+rewrite configuration paths to compensate for environment changes.
 
-In setup-script mode, the original HOME remains in effect during environment
-initialization. Only after that completes does the bootstrap apply the tool's
-HOME override and execute Revan. The caller's environment is unchanged. The
-private HOME and native-saved configuration remain in the attempt directory.
-
-Configuration text is never rewritten. When isolation is enabled, ``~`` or
-``$HOME`` references inside the configuration refer to that private HOME. Use
-absolute resource paths or other runtime variables, or explicitly set
-``isolate_settings=False`` to preserve the original HOME. With isolation
-disabled, Revan can read and overwrite the user's usual ``.revan.cfg``.
-The CLI equivalent is ``--use-user-settings``. This is settings isolation,
-not a security sandbox or hermetic environment.
+``isolate_settings=True`` is an explicit opt-in: setup still runs with the
+original HOME, then only the native tool receives a private HOME under
+``logs/native-home``. Configuration bytes remain unchanged, so HOME-based paths
+then use that private directory. The caller's environment stays unchanged.
+The CLI equivalent is ``--isolate-settings``.
 
 Explicit inputs and multiple files
 ------------------------------------
@@ -124,7 +131,6 @@ A Cosima result with exactly one declared simulation file can be passed directly
    reconstructed = Revan(runtime).reconstruct(
        cosima_result,
        config_file="configurations/baseline.revan.cfg",
-       geometry="massmodel/detector.geo.setup",
    )
 
 If a declared upstream group has multiple files, the adapter requires an
@@ -138,7 +144,6 @@ explicit selection instead of choosing a filename or modification time:
    reconstructed = Revan(runtime).reconstruct(
        selected_input,
        config_file="configurations/baseline.revan.cfg",
-       geometry="massmodel/detector.geo.setup",
    )
 
 Select the intended native entry file deliberately. A native file may itself
@@ -169,12 +174,10 @@ execution ID, manifest path and, for managed executions, ``workspace_dir``.
 The recorded upstream selection contains the exact event path passed to ``-f``;
 its source manifest is snapshotted and hashed by the shared executor.
 
-The top-level geometry and explicitly declared ``dependencies`` use the
-configurable hash/copy limit, default 64 MiB. Additional relative dependencies
-are resolved from the configuration directory. The configuration is treated as opaque;
-resources referenced inside it and geometry include trees are not automatically
-inspected or recursively archived. These limits are
-recorded in ``dependency_capture``; external inputs must stay stable during use.
+The manifest records the base configuration hashes, actual command flags,
+geometry argument (or null when omitted), and ordered native setting overrides.
+External configuration resources are not interpreted, checked or archived.
+File use and diagnostics belong to native MEGAlib and the caller.
 
 Preparation, launch, native exit, timeout and missing nonempty output failures
 retain logs and manifests through ``ExecutionError``. Workspace indexes retain
@@ -189,8 +192,8 @@ Command-line example
    python examples/revan_reconstruction.py \
      --input experiments/cosima-smoke-005 \
      --config configurations/baseline.revan.cfg \
-     --geometry massmodel/detector.geo.setup \
      --task baseline \
+     --set TotalEnergy_Min=100 \
      --setup-script ~/initialize-megalib.sh
 
 Omit ``--setup-script`` for direct execution. Use ``--workspace`` to choose an

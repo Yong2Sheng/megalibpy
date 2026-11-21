@@ -101,7 +101,7 @@ Keep execution directories outside the public repository.
 ## Reconstructing events with Revan
 
 Continue from an existing Cosima execution directory using an explicit Revan
-configuration and geometry:
+configuration and optional geometry override:
 
 ```python
 from megalibpy import MEGAlibRuntime, Revan
@@ -110,7 +110,6 @@ runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
 reconstructed = Revan(runtime).reconstruct(
     "experiments/cosima-smoke-005",
     config_file="configurations/baseline.revan.cfg",
-    geometry="massmodel/detector.geo.setup",
     task="baseline",
 )
 print(reconstructed.outputs["tra"])
@@ -118,8 +117,8 @@ print(reconstructed.outputs["tra"])
 
 The original simulation remains in place. Reconstruction attempts are stored
 under the same experiment, with configuration snapshots, logs and explicit
-upstream references. By default, native Revan settings use an isolated HOME so they do not
-overwrite your usual `.revan.cfg`.
+upstream references. Native Revan controls external resources and settings; optional HOME isolation
+can be enabled explicitly.
 
 For a new experiment, pass `workspace=SimulationWorkspace("experiments/grb-001")`
 to `Cosima.simulate()` instead of `output_dir`; passing its result to Revan
