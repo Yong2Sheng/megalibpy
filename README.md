@@ -123,8 +123,9 @@ can be enabled explicitly.
 For a new experiment, pass `workspace=SimulationWorkspace("experiments/grb-001")`
 to `Cosima.simulate()` instead of `output_dir`; passing its result to Revan
 continues in that workspace. Separate task names organize different configurations,
-and repeated attempts never overwrite earlier records. Standalone sim/evta files
-are also accepted. See the [Revan guide](docs/revan.rst),
+and repeated attempts never overwrite earlier records. External sim/evta files
+use `sim_path="received/events.sim.gz", output_dir="experiments/received-grb"`;
+this creates the same experiment structure and records the external input in place. See the [Revan guide](docs/revan.rst),
 [workspace guide](docs/workspaces.rst), and
 [command-line example](examples/revan_reconstruction.py) for input selection,
 legacy directories, explicit destinations and capture limits.

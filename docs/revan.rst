@@ -1,8 +1,8 @@
 Revan event reconstruction
 ===========================
 
-``Revan`` runs native event reconstruction with a native configuration and optional geometry override. It accepts a Cosima result, an experiment/legacy Cosima directory,
-an explicit upstream product selection, or a standalone ``sim``/``evta`` file.
+``Revan`` runs native event reconstruction with a native configuration and optional geometry override. Use ``working_space`` for an existing experiment/result, or ``sim_path`` with
+``output_dir`` to start an experiment from an external event file.
 The native MEGAlib installation must provide ``revan``; PyROOT is not imported.
 
 Continue an existing simulation in a notebook
@@ -154,17 +154,48 @@ it does not recursively archive native event-file continuations.
 External files and explicit destinations
 ------------------------------------------
 
-Standalone ``.sim``, ``.sim.gz``, ``.evta`` and ``.evta.gz`` files are accepted.
-Without a destination, an adjacent ``<input-stem>-workspace`` experiment is
-created. External data remain in place and record path/size/mtime rather than
-being read or copied for provenance. A standalone file has no asserted upstream
-execution ID.
+Use exactly one input entry point:
 
-Supply ``workspace=SimulationWorkspace("experiment")`` to choose the experiment,
-or ``output_dir="standalone-reconstruction"`` to use only a fresh execution
-directory without experiment indexing. These two destinations are mutually
-exclusive. ``.tra`` inputs are rejected: those are reconstructed events for a
-subsequent analysis adapter.
+- ``working_space=...`` continues from an experiment/legacy Cosima directory,
+  result object or explicit upstream reference.
+- ``sim_path=...`` receives a standalone ``.sim``, ``.sim.gz``, ``.evta`` or
+  ``.evta.gz`` file and requires ``output_dir=...`` for the experiment root.
+
+For example:
+
+.. code-block:: python
+
+   received = Revan(runtime).reconstruct(
+       sim_path="received/events.sim.gz",
+       output_dir="experiments/received-grb",
+       config_file="configurations/baseline.revan.cfg",
+       task="baseline",
+   )
+
+This creates an experiment index at ``experiments/received-grb/manifest.json``
+and an attempt below ``revan/baseline/attempt-001/``. ``output_dir`` is always
+an experiment root, not a single-execution directory. The external event file
+stays in place; its contents are not read, copied or hashed for provenance.
+Its path is registered as ``external_input`` in the index, with no invented
+Cosima execution or upstream UUID.
+
+Continue or branch within the new experiment through its recorded input:
+
+.. code-block:: python
+
+   alternate = Revan(runtime).reconstruct(
+       working_space="experiments/received-grb",
+       config_file="configurations/baseline.revan.cfg",
+       task="alternate",
+       TotalEnergy_Min=100,
+   )
+
+Reusing the same external input and output root allocates another attempt;
+a different event-file origin is rejected for an already established experiment.
+Existing experiments can optionally be referenced into a new destination with
+``working_space=..., output_dir=...``. There is no separate destination
+``workspace`` parameter. A workspace cannot combine a registered external input
+with another Cosima origin. ``.tra`` files belong to the later analysis adapter.
 
 Records, failures and capture limits
 --------------------------------------
@@ -190,11 +221,12 @@ Command-line example
 .. code-block:: bash
 
    python examples/revan_reconstruction.py \
-     --input experiments/cosima-smoke-005 \
+     --working-space experiments/cosima-smoke-005 \
      --config configurations/baseline.revan.cfg \
      --task baseline \
      --set TotalEnergy_Min=100 \
      --setup-script ~/initialize-megalib.sh
 
-Omit ``--setup-script`` for direct execution. Use ``--workspace`` to choose an
-experiment destination or ``--output`` for a standalone fresh attempt directory.
+Omit ``--setup-script`` for direct execution. For external data use
+``--sim-path received/events.sim.gz --output-dir experiments/received-grb``.
+The input flags are mutually exclusive.

@@ -78,7 +78,7 @@ See :doc:`../workspaces` for the index layout, legacy directory handling and
 the distinction between task identity and execution identity.
 
 .. autoclass:: SimulationWorkspace
-   :members: select, attach_cosima, index_path
+   :members: select, attach_cosima, attach_sim, external_sim_path, index_path
 
 Results and failures
 --------------------

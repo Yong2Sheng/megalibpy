@@ -60,6 +60,22 @@ An existing external Cosima origin can be registered by reference without
 copying it; its location may be relative to the experiment root, including
 ``..`` when outside it. Moving an experiment does not package external data.
 
+External simulation entry point
+--------------------------------
+
+``Revan.reconstruct(sim_path=..., output_dir=..., config_file=...)`` creates or
+continues an experiment whose origin is an external event file. ``output_dir``
+is the experiment root; attempt records use the same ``revan/task/attempt-NNN``
+layout as experiments begun with Cosima. The index stores
+``external_input={"kind": "external_sim", "path": ...}``; no Cosima record is
+invented. The file is referenced in place, not copied or read for content checks.
+
+The experiment can subsequently be reopened with ``working_space=root`` to
+reuse that external input for another reconstruction task. All returned results
+carry this root as ``workspace_dir``. Different origins cannot be silently mixed
+in one workspace. Passing an event file through ``working_space`` is rejected;
+use the explicit ``sim_path`` entry point with ``output_dir``.
+
 Selection and identity
 ------------------------
 

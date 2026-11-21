@@ -81,7 +81,7 @@ def test_explicit_configuration_and_home_isolation(reconstruction, tmp_path, mon
     monkeypatch.setenv("HOME", str(home))
     original = cfg.read_bytes()
     result = Revan(executable=tool).reconstruct(
-        working_space=source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
+        sim_path=source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
         isolate_settings=True,
     )
     record = read(result)
@@ -115,7 +115,7 @@ def test_home_override_occurs_after_setup_without_rewriting_config(reconstructio
     setup = tmp_path / "setup.sh"
     setup.write_text('export SETUP_HOME="$HOME"\n')
     result = Revan(MEGAlibRuntime.from_setup_script(setup), executable=tool).reconstruct(
-        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run", compressed=False, isolate_settings=True,
+        sim_path=source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run", compressed=False, isolate_settings=True,
     )
     output = json.loads(result.stdout_path.read_text())
     assert output["setup_home"] == str(home)
@@ -165,12 +165,13 @@ def test_multiple_files_need_explicit_selection_and_exact_lineage(reconstruction
             result.as_input("sim", paths=[source]), config_file=cfg, geometry=geometry)
 
 
-def test_external_evta_creates_experiment_and_retains_input(reconstruction):
+def test_external_evta_creates_experiment_and_retains_input(reconstruction, tmp_path):
     source, cfg, geometry, tool = reconstruction
     evta = source.with_name("external.evta")
     evta.write_bytes(source.read_bytes())
-    result = Revan(executable=tool).reconstruct(evta, config_file=cfg, geometry=geometry)
-    assert result.workspace_dir == evta.parent / "external-workspace"
+    result = Revan(executable=tool).reconstruct(sim_path=evta, output_dir=tmp_path / "external-workspace",
+                                              config_file=cfg, geometry=geometry)
+    assert result.workspace_dir == tmp_path / "external-workspace"
     assert (result.workspace_dir / "manifest.json").is_file()
     assert read(result)["upstream"] == []
     assert evta.read_bytes() == source.read_bytes()
@@ -184,8 +185,8 @@ def test_failures_keep_attempt_records(reconstruction, tmp_path, mode):
     else: cfg.write_text(f"<RevanConfigurationFile><TestMode>{mode}</TestMode></RevanConfigurationFile>")
     experiment = SimulationWorkspace(tmp_path / "experiment")
     with pytest.raises(ExecutionError) as error:
-        Revan(executable=tool).reconstruct(source, config_file=cfg, geometry=geometry,
-                                         workspace=experiment, timeout=0.15 if mode == "sleep" else None)
+        Revan(executable=tool).reconstruct(sim_path=source, config_file=cfg, geometry=geometry,
+                                         output_dir=experiment.root, timeout=0.15 if mode == "sleep" else None)
     record = json.loads(error.value.manifest_path.read_text())
     assert record["status"] == "failed"
     assert record["execution_id"]
@@ -199,14 +200,14 @@ def test_explicit_destination_new_workspace_and_directory_protection(reconstruct
     source, cfg, geometry, tool = reconstruction
     root = legacy_cosima(tmp_path, source)
     experiment = SimulationWorkspace(tmp_path / "new-experiment")
-    result = Revan(executable=tool).reconstruct(root, workspace=experiment, config_file=cfg, geometry=geometry)
+    result = Revan(executable=tool).reconstruct(root, output_dir=experiment.root, config_file=cfg, geometry=geometry)
     assert result.workspace_dir == experiment.root
     assert experiment.select().output_dir == root
     other = legacy_cosima(tmp_path / "other", source)
     with pytest.raises(ValueError, match="different Cosima"):
-        Revan(executable=tool).reconstruct(other, workspace=experiment, config_file=cfg, geometry=geometry)
-    with pytest.raises(FileExistsError):
-        Revan(executable=tool).reconstruct(source, output_dir=result.output_dir, config_file=cfg, geometry=geometry)
+        Revan(executable=tool).reconstruct(other, output_dir=experiment.root, config_file=cfg, geometry=geometry)
+    with pytest.raises(ValueError, match="supported simulation workspace"):
+        Revan(executable=tool).reconstruct(sim_path=source, output_dir=result.output_dir, config_file=cfg, geometry=geometry)
 
 
 def test_native_configuration_keywords_become_flags_without_changing_values(reconstruction, tmp_path):
@@ -214,7 +215,7 @@ def test_native_configuration_keywords_become_flags_without_changing_values(reco
     original = cfg.read_bytes()
     response = "$(MEGALIB)/missing response_file_v2.rsp"
     result = Revan(executable=tool).reconstruct(
-        source, config_file=cfg, output_dir=tmp_path / "run",
+        sim_path=source, config_file=cfg, output_dir=tmp_path / "run",
         TotalEnergy_Min=100, TotalEnergy_Max=1000,
         BayesianComptonFile=response, RejectAllBadEvents=True,
         Unknown_Native_Field="value_with_underscores=a=b", SearchMIPs=False,
@@ -237,7 +238,7 @@ def test_geometry_is_optional_and_forwarded_without_inspection(reconstruction, t
     source, cfg, model, tool = reconstruction
     model.unlink()
     result = Revan(executable=tool).reconstruct(
-        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
+        sim_path=source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
     actual = json.loads(result.stdout_path.read_text())["argv"]
     if geometry is None:
         assert "-g" not in actual
@@ -291,7 +292,7 @@ def test_native_legacy_names_and_literal_values_preserved(reconstruction, tmp_pa
     ])
     cfg.write_bytes(content)
     result = Revan(executable=tool).reconstruct(
-        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
+        sim_path=source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
     assert (result.output_dir / "inputs/original.revan.cfg").read_bytes() == content
     assert (result.output_dir / "inputs/executed.revan.cfg").read_bytes() == content
     record = read(result)["configuration"]
@@ -313,7 +314,7 @@ def test_native_home_paths_remain_literal_and_are_not_discovered(reconstruction,
                b'</RevanConfigurationFile>\r\n')
     cfg.write_bytes(content)
     result = Revan(executable=tool).reconstruct(
-        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
+        sim_path=source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
     executed = (result.output_dir / "inputs/executed.revan.cfg").read_bytes()
     assert executed == content
     assert b'~/ignored.rsp' in executed
@@ -326,7 +327,7 @@ def test_configuration_syntax_delegated_to_native(reconstruction, tmp_path):
     content = b"native configuration payload is opaque to Python"
     cfg.write_bytes(content)
     result = Revan(executable=tool).reconstruct(
-        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
+        sim_path=source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
     assert (result.output_dir / "inputs/executed.revan.cfg").read_bytes() == content
     # The stand-in accepts the payload; this is not a claim that Revan accepts it.
     assert read(result)["configuration"]["format"] == "native_passthrough"
@@ -339,10 +340,47 @@ def test_isolation_can_be_disabled_without_modifying_config(reconstruction, tmp_
     monkeypatch.setenv("HOME", str(home))
     original = cfg.read_bytes()
     result = Revan(executable=tool).reconstruct(
-        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
+        sim_path=source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run",
         isolate_settings=False)
     assert cfg.read_bytes() == original
     assert json.loads(result.stdout_path.read_text())["home"] == str(home)
     assert (home / ".revan.cfg").read_text() == "native saved settings"
     assert read(result)["tool_environment"] == {}
     assert read(result)["configuration"]["settings_home"] is None
+
+
+@pytest.mark.parametrize("arguments", [{}, {"working_space": "existing", "sim_path": "events.sim"},
+                                      {"sim_path": "events.sim"}])
+def test_entry_points_are_explicit_and_exclusive(reconstruction, tmp_path, arguments):
+    _, cfg, _, tool = reconstruction
+    with pytest.raises(ValueError):
+        Revan(executable=tool).reconstruct(config_file=cfg, **arguments)
+    assert not (tmp_path / "events-workspace").exists()
+
+
+def test_external_sim_root_can_be_reopened_and_keeps_origin(reconstruction, tmp_path):
+    source, cfg, _, tool = reconstruction
+    original = source.read_bytes()
+    runner = Revan(executable=tool)
+    root = tmp_path / "received-grb"
+    first = runner.reconstruct(sim_path=source, output_dir=root, config_file=cfg, task="baseline")
+    assert first.workspace_dir == root
+    assert first.output_dir == root / "revan/baseline/attempt-001"
+    index = json.loads((root / "manifest.json").read_text())
+    assert index["kind"] == "simulation_workspace"
+    assert index["external_input"] == {"kind": "external_sim", "path": str(source)}
+    assert "cosima:simulation" not in index["tasks"]
+    assert read(first)["upstream"] == []
+    second = runner.reconstruct(working_space=root, config_file=cfg, task="alternate", TotalEnergy_Min=100)
+    assert second.output_dir == root / "revan/alternate/attempt-001"
+    assert read(second)["input_file"]["path"] == str(source)
+    assert source.read_bytes() == original
+    assert SimulationWorkspace(root).select("revan", task="baseline").execution_id == first.execution_id
+    other = tmp_path / "other.sim"
+    other.write_bytes(b"another simulation")
+    with pytest.raises(ValueError, match="different external"):
+        runner.reconstruct(sim_path=other, output_dir=root, config_file=cfg)
+    with pytest.raises(ValueError, match="sim_path"):
+        runner.reconstruct(working_space=source, config_file=cfg)
+    with pytest.raises(ValueError, match="external event file"):
+        SimulationWorkspace(root).execute("cosima", "simulation", lambda p: None)

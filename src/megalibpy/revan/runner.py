@@ -9,11 +9,21 @@ from ..execution.executor import Executor
 from ..execution.provenance import file_record, resolve_upstream, sha256
 
 
+def _event_file(path):
+    path = Path(path).expanduser().resolve(strict=True)
+    if not path.is_file() or not path.name.endswith((".sim", ".sim.gz", ".evta", ".evta.gz")):
+        raise ValueError("sim_path requires a .sim[.gz] or .evta[.gz] file")
+    return path
+
+
 def _input(input_data):
     """Return one explicit native input, its lineage reference and experiment."""
     experiment = None
     if isinstance(input_data, SimulationWorkspace):
         experiment = input_data
+        external = experiment.external_sim_path
+        if external is not None:
+            return _event_file(external), None, experiment
         input_data = input_data.select("cosima")
     if isinstance(input_data, ExecutionResult):
         if input_data.workspace_dir is not None:
@@ -39,9 +49,8 @@ def _input(input_data):
     if path.is_dir():
         experiment = SimulationWorkspace(path)
         return _input(experiment)
-    if not path.is_file() or not path.name.endswith((".sim", ".sim.gz", ".evta", ".evta.gz")):
-        raise ValueError("Revan requires a .sim[.gz] or .evta[.gz] file; .tra files belong to Mimrec")
-    return path, None, experiment
+    raise ValueError("working_space expects an experiment directory or result; "
+                     "use sim_path with output_dir for an external event file")
 
 
 def _prepare(attempt, event_file, geometry, config, executable, compressed, reference,
@@ -105,18 +114,25 @@ class Revan:
         self.runtime = runtime if runtime is not None else MEGAlibRuntime.direct()
         self.executable = str(executable)
 
-    def reconstruct(self, working_space, *, config_file, geometry=None, workspace=None, output_dir=None,
+    def reconstruct(self, working_space=None, *, sim_path=None, output_dir=None,
+                    config_file, geometry=None,
                     task="default", compressed=True, timeout=None, isolate_settings=False,
                     **configuration):
         """Reconstruct one native event file into a recorded ``tra`` product.
 
         Parameters
         ----------
-        working_space : ExecutionResult or ExecutionInput or SimulationWorkspace or str or pathlib.Path
-            Cosima result, explicit manifest/group/subset reference, experiment or
-            legacy Cosima directory, or a standalone ``.sim[.gz]``/``.evta[.gz]``.
-            Multiple declared input files require explicit selection. A single
-            native file may itself reference continuation files handled by Revan.
+        working_space : ExecutionResult or ExecutionInput or SimulationWorkspace or str or pathlib.Path or None, optional
+            Existing experiment/legacy Cosima directory, result, or explicit
+            upstream reference. Defaults to none. Supply exactly one of
+            ``working_space`` or ``sim_path``. Multiple declared files require
+            explicit selection. Externally started experiments can be reopened
+            here using their recorded input file.
+        sim_path : str or pathlib.Path or None, optional
+            External ``.sim[.gz]`` or ``.evta[.gz]`` entry file, default none.
+            Requires ``output_dir`` to establish an experiment root. The file
+            stays in place; no simulation contents are read, copied or hashed.
+            Any native continuation references remain MEGAlib's responsibility.
         config_file : str or pathlib.Path
             Required readable, nonempty native MEGAlib configuration. Original
             bytes are copied unchanged to the execution snapshot and passed to
@@ -127,14 +143,13 @@ class Revan:
             Otherwise forwarded unchanged to ``-g``; MEGAlib handles path
             expansion, opening and overriding. Python does not inspect the file.
             Relative paths use the child cwd (the configuration directory).
-        workspace : SimulationWorkspace or str or pathlib.Path or None, optional
-            Destination experiment. If omitted, inherit the result's experiment
-            or adopt a legacy Cosima directory. For standalone files, create an
-            adjacent ``<input-stem>-workspace`` directory. External files remain
-            in place. Mutually exclusive with ``output_dir``.
         output_dir : str or pathlib.Path or None, optional
-            Opt out of experiment management and use this fresh attempt directory.
-            Existing directories are rejected. Defaults to none.
+            Destination experiment root, required with ``sim_path``. Creates
+            ``manifest.json`` and ``revan/<task>/attempt-NNN`` below it; it is
+            not an individual attempt directory. Existing matching experiments
+            can be reused for new attempts. With ``working_space``, omission
+            continues in that experiment; an explicit root records the existing
+            Cosima origin by reference. Defaults to none.
         task : str, optional
             Named reconstruction task, default ``"default"``. Workspace attempts
             are numbered under ``revan/<task>/``. Use a new label for a different
@@ -172,7 +187,7 @@ class Revan:
         FileNotFoundError
             Input selection cannot be resolved before allocation.
         FileExistsError
-            An explicit output directory exists or the workspace index is locked.
+            An attempt path is occupied or the experiment index is locked.
         ExecutionError
             Configuration snapshot preparation, launch, execution, timeout or
             nonempty-output checks fail after an attempt record is established.
@@ -188,15 +203,20 @@ class Revan:
         native Revan may diagnose errors or fall back to defaults. Inspect logs.
         A zero exit status plus nonempty output is not a scientific check. External configuration files are managed by MEGAlib and the caller.
         """
-        if workspace is not None and output_dir is not None:
-            raise ValueError("workspace and output_dir are mutually exclusive")
+        if (working_space is None) == (sim_path is None):
+            raise ValueError("Supply exactly one of working_space or sim_path")
+        if sim_path is not None and output_dir is None:
+            raise ValueError("sim_path requires output_dir for the experiment root")
         if not isinstance(isolate_settings, bool):
             raise ValueError("isolate_settings must be bool")
         if not isinstance(compressed, bool):
             raise ValueError("compressed must be bool")
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be positive")
-        path, reference, inherited = _input(working_space)
+        if sim_path is not None:
+            path, reference, inherited = _event_file(sim_path), None, None
+        else:
+            path, reference, inherited = _input(working_space)
         if not path.name.endswith((".sim", ".sim.gz", ".evta", ".evta.gz")):
             raise ValueError("Selected product is not a Revan sim/evta input")
         config = Path(config_file).expanduser().resolve()
@@ -208,13 +228,11 @@ class Revan:
                                          compressed, reference, configuration, isolate_settings),
                 timeout=timeout,
             )
-        if output_dir is not None:
-            return execute(output_dir)
-        experiment = workspace if isinstance(workspace, SimulationWorkspace) else (
-            SimulationWorkspace(workspace) if workspace is not None else inherited)
+        experiment = SimulationWorkspace(output_dir) if output_dir is not None else inherited
         if experiment is None:
-            stem = path.name.removesuffix(".gz").rsplit(".", 1)[0]
-            experiment = SimulationWorkspace(path.parent / f"{stem}-workspace")
+            raise ValueError("An explicit output_dir is required for this input reference")
+        if reference is None:
+            experiment.attach_sim(path)
         if reference is not None:
             record = json.loads(Path(reference.manifest_path).read_text())
             if record.get("tool") == "cosima":

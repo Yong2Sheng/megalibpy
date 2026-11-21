@@ -24,8 +24,8 @@ class SimulationWorkspace:
 
     Notes
     -----
-    A workspace has one Cosima origin, with retry attempts permitted after
-    failure. Revan tasks may branch under explicit names. Execution manifests
+    A workspace starts from one Cosima origin or one registered external event
+    file. Cosima retry attempts are permitted after failure. Revan tasks may branch under explicit names. Execution manifests
     remain authoritative; the index records locations and identities, not copies
     of execution metadata. Index writes use a short exclusive lock; contention
     raises ``FileExistsError`` rather than silently losing updates. An abandoned
@@ -142,6 +142,8 @@ class SimulationWorkspace:
             raise ValueError("The experiment origin must be a Cosima execution")
         with self._locked():
             data = self._read()
+            if "external_input" in data:
+                raise ValueError("Workspace already starts from an external event file")
             key = "cosima:simulation"
             if key in data["tasks"]:
                 paths = [(self.root / a["manifest"]).resolve()
@@ -154,6 +156,36 @@ class SimulationWorkspace:
                     "attempts": [{"number": 1, "manifest": os.path.relpath(result.manifest_path, self.root),
                                   "execution_id": record.get("execution_id"), "status": "succeeded"}],
                 }
+            write_manifest(self.index_path, data)
+
+    @property
+    def external_sim_path(self):
+        """pathlib.Path or None: External entry file registered for this experiment."""
+        entry = self._read().get("external_input")
+        return None if entry is None else Path(entry["path"])
+
+    def attach_sim(self, sim_path):
+        """Record an external event-file origin without copying its contents.
+
+        Parameters
+        ----------
+        sim_path : str or pathlib.Path
+            Explicit external simulation/event file selected by the adapter.
+
+        Raises
+        ------
+        ValueError
+            A different external file or Cosima origin is already registered.
+        """
+        path = Path(sim_path).expanduser().resolve()
+        with self._locked():
+            data = self._read()
+            if "cosima:simulation" in data["tasks"]:
+                raise ValueError("Workspace already contains a Cosima origin")
+            entry = {"kind": "external_sim", "path": str(path)}
+            if data.get("external_input", entry) != entry:
+                raise ValueError("Workspace already starts from a different external event file")
+            data["external_input"] = entry
             write_manifest(self.index_path, data)
 
     def execute(self, stage, task, operation):
@@ -193,6 +225,8 @@ class SimulationWorkspace:
         key = f"{stage}:{task}"
         with self._locked():
             data = self._read()
+            if stage == "cosima" and "external_input" in data:
+                raise ValueError("Workspace already starts from an external event file")
             entry = data["tasks"].setdefault(key, {
                 "task_id": str(uuid4()), "stage": stage, "name": task, "attempts": [],
             })
