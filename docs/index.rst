@@ -21,5 +21,6 @@ The source code is available on `GitHub <https://github.com/Yong2Sheng/megalibpy
    tutorials/index
    cosima
    revan
+   mimrec
    workspaces
    api/index

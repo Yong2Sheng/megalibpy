@@ -28,9 +28,8 @@ Both runtime modes from :doc:`cosima` are supported. Use ``Revan()`` when the
 current environment is already initialized. Restart a notebook kernel after
 updating an editable installation, and record the tested Git revision.
 
-With a legacy Cosima directory, its original execution manifest and products
-are retained. An additional ``workspace.json`` indexes the experiment, while
-reconstruction records appear below ``revan/baseline/attempt-001/``. The native
+Legacy Cosima directories remain readable and unchanged. To continue from one,
+supply a fresh output_dir; new reconstruction records appear below ``revan/attempt-001/``. The native
 command is equivalent to:
 
 .. code-block:: text
@@ -55,7 +54,7 @@ to MEGAlib, including its handling of unsupported fields or invalid files.
 Native software may diagnose an error or fall back to defaults; passing a file
 explicitly is not a guarantee that every setting was accepted. Inspect logs.
 
-Both ``inputs/original.revan.cfg`` and ``inputs/executed.revan.cfg`` preserve
+The manifest-recorded configuration preserves
 the original bytes, with identical SHA-256 checksums. Comments, whitespace,
 line endings, unknown names and literal values are unchanged.
 
@@ -173,10 +172,10 @@ For example:
    )
 
 This creates an experiment index at ``experiments/received-grb/manifest.json``
-and an attempt below ``revan/baseline/attempt-001/``. ``output_dir`` is always
+and an attempt below ``revan/attempt-001/``. ``output_dir`` is always
 an experiment root, not a single-execution directory. The external event file
 stays in place; its contents are not read, copied or hashed for provenance.
-Its path is registered as ``external_input`` in the index, with no invented
+Its path is registered as ``origin`` in the root manifest, with no invented
 Cosima execution or upstream UUID.
 
 Continue or branch within the new experiment through its recorded input:
@@ -203,7 +202,7 @@ Records, failures and capture limits
 Successful calls return ``ExecutionResult`` with ``outputs["tra"]``, logs,
 execution ID, manifest path and, for managed executions, ``workspace_dir``.
 The recorded upstream selection contains the exact event path passed to ``-f``;
-its source manifest is snapshotted and hashed by the shared executor.
+same-workspace parents use ID links; selected external records are snapshotted and hashed.
 
 The manifest records the base configuration hashes, actual command flags,
 geometry argument (or null when omitted), and ordered native setting overrides.
@@ -230,3 +229,20 @@ Command-line example
 Omit ``--setup-script`` for direct execution. For external data use
 ``--sim-path received/events.sim.gz --output-dir experiments/received-grb``.
 The input flags are mutually exclusive.
+
+Current workspace layout
+------------------------
+
+See :doc:`workspaces` for the authoritative data-oriented layout. Revan calls
+create numbered ``revan/attempt-NNN`` groups without a task directory level.
+The task label remains queryable metadata. All executions are stored in the
+root manifest; use ``result.record`` to read one command by execution ID.
+Mimrec may reuse the selected reconstructed data across extraction and analysis.
+
+Compact recording
+-----------------
+
+See :doc:`workspaces` for the default manifest-based source/config retention,
+temporary native inputs and launch helpers, optional archival mode and keyword-based
+summary capture. Empty logs are removed and their result paths are None. A physical
+configuration snapshot is retained only when runtime.archive_inputs is true.

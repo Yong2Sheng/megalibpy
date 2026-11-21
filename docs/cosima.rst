@@ -63,7 +63,7 @@ loading it executes its Bash commands.
 
 Both modes launch external processes. In setup-script mode, initialization and
 ``exec cosima`` occur in the same child process. The parent Python environment
-and working directory are unchanged. The bootstrap is saved as ``logs/launch.sh``
+and working directory are unchanged. The numbered bootstrap is saved in the Cosima ``logs/`` directory
 and executed as a script file, avoiding multiline ``bash -c`` arguments that can
 confuse shell detection in some ROOT initialization scripts. Common inherited Python and library
 search-path variables are removed before sourcing the script, but this is not
@@ -74,26 +74,22 @@ before starting Python just to combine two Conda environments.
 Configuration and provenance
 ----------------------------
 
-Each call requires a new output directory and creates:
+Each experiment has exactly one Cosima execution, stored at:
 
 .. code-block:: text
 
-   cosima-001/
-   ├── inputs/
-   │   ├── original.source
-   │   ├── executed.source
-   │   ├── setup.sh              # setup-script mode only
-   │   └── dependency-0000.setup # small discovered/declared dependency snapshots
-   ├── logs/
-   │   ├── executable.txt
-   │   ├── launch.sh             # setup-script mode bootstrap
-   │   ├── stdout.log
-   │   └── stderr.log
-   ├── products/
-   │   └── events.inc*.id*.sim.gz
-   └── manifest.json
+   experiment-001/
+   ├── manifest.json             # all experiment execution records
+   └── cosima/
+       ├── logs/                 # numbered stdout/stderr and setup bootstrap
+       └── products/events.inc*.id*.sim.gz
 
-The original source is copied byte for byte. In the execution copy, the single
+Both output_dir and workspace identify an experiment root. Cosima has no attempt
+subdirectory. Repeating simulation, including after failure, requires a new
+workspace. Read a particular command with result.record, not by treating the
+root manifest as a standalone execution. See :doc:`workspaces`.
+
+The original source bytes are recorded in the manifest. In the temporary execution input, the single
 ``FileName`` is redirected to ``products/events``. Comments and other directives
 are retained. Supported relative geometry, orientation-file, and spectrum/beam
 file references are rebased against the original source directory. Cosima runs
@@ -113,8 +109,9 @@ executable checksum identifies the binary; it does not identify every dynamic
 library or substitute for a complete ROOT/Geant4 build record. Native tool
 version information printed by an initialization script is preserved in logs.
 
-The setup script is archived for provenance but executed from its original
-location, preserving scripts that locate resources using ``BASH_SOURCE``.
+The setup script is recorded by original path and hash and sourced from that
+location, preserving scripts that locate resources using BASH_SOURCE. There is
+no separate setup.sh file in the workspace.
 Keep it and external inputs unchanged during execution.
 
 Additional external files can be declared explicitly:
@@ -129,9 +126,9 @@ Additional external files can be declared explicitly:
        hash_limit_bytes=64 * 1024 * 1024,
    )
 
-Small discovered/declared files are hashed and copied; larger ones record size
-and modification time without being reread in full. Set ``hash_limit_bytes=None``
-to hash and archive all discovered/declared files. Manifest and snapshot files
+The default hash limit is zero: nonempty resources are recorded by path, size
+and mtime without being read or copied. Explicit hash_limit_bytes enables
+hashing; copying additionally requires runtime.archive_inputs=True. Manifest and snapshot files
 may contain private paths and configuration: keep execution directories outside
 the public repository and review them before sharing.
 
@@ -139,8 +136,8 @@ First-version limits
 --------------------
 
 * One inline run, ordinary event simulation. Source ``Include`` directives and
-  activation/cross-section jobs are rejected. Revan and Mimrec wrappers are not
-  part of this release of the interface.
+  activation/cross-section jobs are rejected. See the separate Revan and Mimrec
+  guides for reconstruction and analysis.
 * Dependency capture is explicitly incomplete: nested geometry include trees,
   arbitrary file-valued directives, and runtime-expanded paths are not
   automatically archived. External data is still read from its original
@@ -195,27 +192,18 @@ Add ``--setup-script ~/initialize-megalib.sh`` for the separate-runtime mode.
 Execution identity and upstream records
 ---------------------------------------
 
-New manifests use schema version 2. Each execution, including failed attempts,
-has an ``execution_id`` (UUID); successful results also expose
-``result.execution_id``. This identifies an execution independently of the
-output directory name. Repeating a command produces a new identity.
+The root workspace manifest stores independent execution records with UUIDs.
+Use result.execution_id and result.record to select the particular command.
+Cosima has no upstream execution; later native operations retain its exact ID
+and selected sim files. Same-workspace lineage uses ID links without copying
+manifests; external selected records are snapshotted. Legacy schema-1 standalone
+records remain readable, including records without an execution ID.
+See :doc:`workspaces` for group selection and compatibility.
 
-A Cosima simulation has an empty ``upstream`` list. Tool adapters can declare
-explicit input selections using ``ExecutionPlan.upstream`` and
-``result.as_input("sim")``. Before launching, the executor checks the upstream
-record's successful status and selected product group, archives its exact JSON
-in ``inputs/upstream-NNNN.json``, and records the manifest checksum, execution
-ID, and selected file paths. It does not copy or read the product contents.
-The adapter remains responsible for passing those selected files to its native
-command; declaring lineage alone does not change that command.
+Compact recording
+-----------------
 
-Multiple consumers may reference the same upstream execution, and a plan can
-reference multiple upstreams. The executor does not select a globally latest
-result or impose a stage order. Legacy schema-1 manifests can be referenced
-without modification: their identity field is null and their manifest path,
-snapshot, checksum, and explicit product selection are retained.
-
-These are execution-record interfaces, not a workspace scheduler. The current
-Cosima interface still requires a new ``output_dir`` for each execution; it does
-not allocate task directories, enforce one simulation per experiment, or render
-workflow graphs.
+See :doc:`workspaces` for the default manifest-based source/config retention,
+temporary native inputs and launch helpers, optional archival mode and keyword-based
+summary capture. Empty logs are removed and their result paths are None. A physical
+configuration snapshot is retained only when runtime.archive_inputs is true.

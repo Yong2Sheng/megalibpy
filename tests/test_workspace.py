@@ -7,17 +7,17 @@ import pytest
 from megalibpy import SimulationWorkspace
 
 
-def test_failed_allocation_is_retained_and_cosima_can_retry(tmp_path):
+def test_failed_cosima_is_retained_and_cannot_retry(tmp_path):
     experiment = SimulationWorkspace(tmp_path / "experiment")
     def fail(target):
         raise RuntimeError("before executor allocation")
-    for _ in range(2):
-        with pytest.raises(RuntimeError, match="before executor"):
-            experiment.execute("cosima", "simulation", fail)
+    with pytest.raises(RuntimeError, match="before executor"):
+        experiment.execute("cosima", "simulation", fail)
+    with pytest.raises(ValueError, match="new workspace"):
+        experiment.execute("cosima", "simulation", fail)
     data = json.loads(experiment.index_path.read_text())
-    attempts = data["tasks"]["cosima:simulation"]["attempts"]
-    assert [a["number"] for a in attempts] == [1, 2]
-    assert all(a["status"] == "failed" for a in attempts)
+    assert len(data["executions"]) == 1
+    assert next(iter(data["executions"].values()))["status"] == "failed"
     assert not (experiment.root / ".workspace.lock").exists()
 
 

@@ -1,7 +1,7 @@
 # megalibpy
 
 Python tools for editing MEGAlib/Cosima source files, running Cosima simulations,
-and reconstructing events with Revan, with configuration snapshots and execution records.
+reconstructing events with Revan, and selecting/analyzing events with Mimrec, with configuration snapshots and execution records.
 The current parser supports one run with one source per file.
 
 [Read the documentation](https://yong2sheng.github.io/megalibpy/)
@@ -175,3 +175,51 @@ Maintainers can enable hosting under **Settings → Pages → Build and deployme
 → Source → GitHub Actions**. Pull requests build the documentation for validation
 without deploying it. The [Read the Docs configuration](.readthedocs.yaml) is
 also available if a separate Read the Docs project is configured.
+
+## Mimrec event selection and analysis
+
+Use the selected Revan result or select its task from an existing experiment:
+
+```python
+from megalibpy import Mimrec, SimulationWorkspace
+
+experiment = SimulationWorkspace("grb-localization-001")
+reconstructed = experiment.select("revan", task="baseline")
+mimrec = Mimrec(runtime)
+selected = mimrec.extract_events(
+    working_space=reconstructed,
+    config_file="configurations/analysis.mimrec.cfg",
+    task="event-selection",
+)
+image = mimrec.image(
+    working_space=selected,
+    task="image-selected",
+    output_name="image.png",
+)
+print(image.outputs["image"])
+```
+
+Independent `extract_events`, `image`, `spectrum` and `arm` methods prepare native
+`-x/-i/-s/-a` commands. External data uses `tra_path` with an explicit experiment
+`output_dir`. Configurations pass through unchanged; `geometry=None` uses the
+configuration, and keyword overrides become native `-C` arguments. Each command
+records its own execution ID and exact upstream; Mimrec operations share a
+data/configuration group, its configuration snapshot, inputs and logs. ROOT outputs remain
+native files. Component workflows will be added after basic native validation.
+See the [Mimrec guide](docs/mimrec.rst), [API reference](docs/api/index.rst) and
+[command-line example](examples/mimrec_analysis.py).
+
+For a complete simulation → reconstruction → event selection → spectrum/image
+smoke test, use [the full-chain example](examples/end_to_end_smoke.py).
+A workspace has one root manifest and one Cosima simulation under `cosima/`.
+Revan/Mimrec data groups use `stage/attempt-NNN`; see the
+[workspace guide](docs/workspaces.rst) for configuration reuse and old-layout inputs.
+
+For large batches, the default runtime stores source/cfg contents in the root
+manifest instead of retaining separate copies. Cosima references external
+orientation/geometry files without copying or hashing them by default.
+Set `log_mode="summary"` directly on `Cosima.simulate()` to retain stdout from
+its final `Summary for run` line through EOF. The entire summary is preserved,
+without any byte cap or tail fallback; runtime setup has no logging options.
+Empty logs and temporary launch/path handoff files are removed. See the
+[recording guide](docs/workspaces.rst) for archival opt-in and retention details.

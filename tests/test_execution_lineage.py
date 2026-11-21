@@ -18,7 +18,7 @@ def execute(tmp_path, name, *, upstream=(), metadata=None):
                    f"Path({str(workspace.root / 'products/data')!r}).write_text('events')")
         return ExecutionPlan(command, workspace.root, {"events": "data"},
                              metadata or {}, upstream=upstream)
-    return Executor(MEGAlibRuntime.direct()).execute("stand-in", tmp_path / name, prepare)
+    return Executor(MEGAlibRuntime.direct(archive_inputs=True)).execute("stand-in", tmp_path / name, prepare)
 
 
 def test_fan_out_preserves_identity_and_exact_parent_snapshot(tmp_path):
