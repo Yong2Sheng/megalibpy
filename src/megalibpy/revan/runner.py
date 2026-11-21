@@ -4,7 +4,8 @@ from dataclasses import replace
 import json
 from pathlib import Path
 import shutil
-import xml.etree.ElementTree as ET
+
+from .configuration import prepare_configuration
 
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
@@ -57,37 +58,24 @@ def _prepare(attempt, source, geometry, config, executable, compressed, referenc
              dependencies, hash_limit):
     original = attempt.root / "inputs/original.revan.cfg"
     original.write_bytes(config.read_bytes())
-    parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
-    tree = ET.fromstring(original.read_bytes(), parser=parser)
-    if tree.tag != "RevanConfigurationFile":
-        raise ValueError("Expected XML with a RevanConfigurationFile root; refusing native defaults")
+    executed_bytes, leaves, home_edits = prepare_configuration(original.read_bytes(), Path.home())
     unresolved = []
     discovered = set(dependencies) | {geometry}
-    # Relative file resources still resolve from config.parent. Expand explicit
-    # home references before giving Revan a private HOME for its writable settings.
-    for element in tree.iter():
-        if not isinstance(element.tag, str) or len(element) or not element.text:
-            continue
-        value = element.text.strip()
-        for prefix in ("~/", "$HOME/", "${HOME}/"):
-            if value.startswith(prefix):
-                value = str(Path.home() / value[len(prefix):])
-                element.text = value
-                break
-        if element.tag not in _RESOURCE_FIELDS or not value:
+    for field, value in leaves:
+        if field not in _RESOURCE_FIELDS or not value:
             continue
         if "$" in value or "~" in value:
-            unresolved.append({"field": element.tag, "reference": value,
+            unresolved.append({"field": field, "reference": value,
                                "reason": "runtime-expanded reference"})
             continue
         candidate = (config.parent / value).resolve()
         if candidate.is_file():
             discovered.add(candidate)
         else:
-            unresolved.append({"field": element.tag, "reference": value,
+            unresolved.append({"field": field, "reference": value,
                                "reason": "missing or inactive resource/basename"})
     executed = attempt.root / "inputs/executed.revan.cfg"
-    executed.write_bytes(ET.tostring(tree, encoding="utf-8", xml_declaration=True))
+    executed.write_bytes(executed_bytes)
     records = []
     for index, path in enumerate(sorted(discovered)):
         record = file_record(path, hash_limit=hash_limit)
@@ -111,7 +99,10 @@ def _prepare(attempt, source, geometry, config, executable, compressed, referenc
                           "executed_snapshot": "inputs/executed.revan.cfg",
                           "executed_sha256": sha256(executed),
                           "relative_path_base": str(config.parent),
-                          "settings_home": "logs/native-home"},
+                          "settings_home": "logs/native-home",
+                          "format": "megalib_native_xml_like",
+                          "validation": "root_envelope_only; native parser handles settings",
+                          "home_path_rewrites": home_edits},
         "geometry": str(geometry), "dependencies": records,
         "dependency_capture": {"complete": False, "scope": "top_level_geometry_known_resources_and_explicit",
                                "unresolved_references": unresolved, "hash_limit_bytes": hash_limit,
@@ -121,7 +112,7 @@ def _prepare(attempt, source, geometry, config, executable, compressed, referenc
 
 
 class Revan:
-    """Reconstruct native event data with an explicit XML configuration.
+    """Reconstruct native event data with an explicit native MEGAlib configuration.
 
     Parameters
     ----------
@@ -133,8 +124,9 @@ class Revan:
     Notes
     -----
     No PyROOT is imported. Geometry, input and output CLI arguments override
-    saved file selections in the supplied configuration. Unknown configuration
-    elements and comments are retained; no fixed Python settings model is used.
+    saved file selections in the supplied configuration. Native configuration
+    bytes and comments are retained except for recorded HOME-prefix edits; no
+    standard XML serializer or fixed Python settings model is used.
     """
 
     def __init__(self, runtime=None, *, executable="revan"):
@@ -154,11 +146,12 @@ class Revan:
             Multiple declared input files require explicit selection. A single
             native file may itself reference continuation files handled by Revan.
         config_file : str or pathlib.Path
-            Required XML Revan configuration; implicit user defaults are never
-            selected. Original bytes and the executed XML are archived separately.
-            Unknown XML elements/comments survive serialization; formatting may
-            change. Relative resources resolve from this file's parent directory.
-            Explicit HOME-based leaf paths are rebased to the caller's home.
+            Required UTF-8 native MEGAlib configuration with a
+            ``RevanConfigurationFile`` root. This XML-like format need not be
+            valid standard XML. Original and executed bytes are archived; only
+            recorded HOME-prefix edits change the execution copy. Relative
+            resources resolve from this file's parent directory. HOME-based
+            leaf paths are rebased to the caller's home before settings isolation.
         geometry : str or pathlib.Path
             Required existing geometry setup file. Relative paths resolve from
             the calling Python directory. Passed with ``-g``, overriding the cfg.
@@ -213,8 +206,8 @@ class Revan:
         Native settings are isolated under ``logs/native-home``. HOME changes
         only for the native tool, after any setup script completes; neither the
         parent's HOME nor its ``.revan.cfg`` is modified. This is not a sandbox.
-        XML syntax/root are checked, but native settings semantics are not
-        validated. A zero exit status plus nonempty output is not a scientific
+        Only the outer root envelope is checked; configuration syntax and
+        settings semantics are delegated to native Revan. A zero exit status plus nonempty output is not a scientific
         check. Dependency capture is incomplete; external files must stay stable.
         """
         if workspace is not None and output_dir is not None:

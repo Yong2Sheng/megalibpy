@@ -1,8 +1,8 @@
 Revan event reconstruction
 ===========================
 
-``Revan`` runs native event reconstruction with an explicit geometry and XML
-configuration. It accepts a Cosima result, an experiment/legacy Cosima directory,
+``Revan`` runs native event reconstruction with an explicit geometry and native
+MEGAlib configuration. It accepts a Cosima result, an experiment/legacy Cosima directory,
 an explicit upstream product selection, or a standalone ``sim``/``evta`` file.
 The native MEGAlib installation must provide ``revan``; PyROOT is not imported.
 
@@ -47,24 +47,34 @@ Configuration handling
 -----------------------
 
 ``config_file`` and ``geometry`` are required. The adapter does not select the
-caller's ``~/.revan.cfg`` as an implicit configuration. An unreadable, malformed
-or wrong-root configuration fails preparation rather than intentionally falling
-back to native defaults. The expected root is ``RevanConfigurationFile``.
-This checks XML structure, not the scientific validity of reconstruction settings.
+caller's ``~/.revan.cfg`` as an implicit configuration. An unreadable file or one
+without a complete outer ``RevanConfigurationFile`` root fails preparation.
+Configuration syntax and settings semantics are delegated to native Revan.
+
+MEGAlib uses its own XML-like format rather than a strict standard XML parser.
+For example, its configuration writer and example files contain the legacy tag
+``<SpectrumBefore)>``; native text values are also not necessarily XML-escaped.
+The wrapper therefore does not parse/re-serialize the configuration with a
+standard XML library or silently rename fields. The root-envelope check is not
+a full native syntax or scientific validation.
 
 The attempt saves both:
 
 - ``inputs/original.revan.cfg``: byte-for-byte original input.
-- ``inputs/executed.revan.cfg``: XML supplied to Revan, with checksums for both
-  versions. Serialization can change formatting; unknown elements and XML
-  comments are retained. HOME-based leaf paths such as ``~/response.dat`` are
+- ``inputs/executed.revan.cfg``: native bytes supplied to Revan, with checksums
+  for both versions. Without HOME-prefix edits this is byte-for-byte identical
+  to the original, including whitespace, line endings, comments, unknown names
+  and literal entity text. HOME-based leaf paths such as ``~/response.dat`` are
   expanded against the calling Python user's home before native HOME isolation.
+  Only those prefix bytes are replaced; each edit is recorded in
+  ``configuration.home_path_rewrites``. Comments are masked for inspection only
+  and never rewritten as path values.
 
 Relative configuration resources resolve from the original configuration
 file's directory: that directory is used as the child working directory.
 Geometry and event input paths supplied to the Python API resolve from the
 calling Python directory and are passed as absolute CLI arguments. These CLI
-selections override saved file selections in the XML. Runtime-expanded resource
+selections override saved file selections in the configuration. Runtime-expanded resource
 paths such as ``$(MEGALIB)/...`` are left for the native environment.
 
 Changing configuration

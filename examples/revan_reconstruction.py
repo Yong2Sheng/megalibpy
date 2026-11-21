@@ -8,7 +8,7 @@ from megalibpy import MEGAlibRuntime, Revan
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, help="Event file or experiment/Cosima directory")
-    parser.add_argument("--config", required=True, help="Revan XML configuration")
+    parser.add_argument("--config", required=True, help="Native Revan configuration")
     parser.add_argument("--geometry", required=True, help="Geometry setup file")
     destinations = parser.add_mutually_exclusive_group()
     destinations.add_argument("--workspace", help="Destination experiment root")

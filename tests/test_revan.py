@@ -28,14 +28,14 @@ def reconstruction(tmp_path):
     source.write_bytes(b"native data is not inspected by wrapper")
     tool = tmp_path / "fake-revan"
     tool.write_text(f"#!{sys.executable}\n" + '''
-import json, os, pathlib, sys, time
-import xml.etree.ElementTree as ET
+import json, os, pathlib, sys, time, re
 args = sys.argv[1:]
 get = lambda flag: args[args.index(flag) + 1]
 assert '-n' in args and '-a' in args
 cfg = pathlib.Path(get('-c'))
-xml = ET.parse(cfg).getroot()
-mode = xml.findtext('TestMode', 'success')
+content = cfg.read_bytes()
+mode_match = re.search(rb'<TestMode>([^<>]*)</TestMode>', content)
+mode = mode_match[1].decode() if mode_match else 'success'
 home = pathlib.Path(os.environ['HOME'])
 (home / '.revan.cfg').write_text('native saved settings')
 print(json.dumps({'argv': args, 'cwd': str(pathlib.Path.cwd()),
@@ -251,3 +251,61 @@ Path(prefix + '.inc1.id1.sim.gz').write_bytes(b'simulation')
         config_file=cfg, geometry=geometry, task="selected-input")
     assert selected.workspace_dir == experiment.root
     assert selected.output_dir == experiment.root / "revan/selected-input/attempt-001"
+
+
+@pytest.mark.parametrize("eol", [b"\n", b"\r\n"])
+def test_native_legacy_names_and_literal_values_preserved(reconstruction, tmp_path, eol):
+    source, cfg, geometry, tool = reconstruction
+    content = eol.join([
+        b'<?xml version="1.0"?>',
+        b'<!-- preserve <FakeRoot> and raw A&B -->',
+        b'<RevanConfigurationFile>',
+        b'  <SpectrumBefore)>true</SpectrumBefore)>',
+        b'  <UnknownSetting>raw A&B and literal &amp;</UnknownSetting>',
+        b'  <EmptyValue />',
+        b'</RevanConfigurationFile>', b'',
+    ])
+    cfg.write_bytes(content)
+    result = Revan(executable=tool).reconstruct(
+        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
+    assert (result.output_dir / "inputs/original.revan.cfg").read_bytes() == content
+    assert (result.output_dir / "inputs/executed.revan.cfg").read_bytes() == content
+    record = read(result)["configuration"]
+    assert record["original_sha256"] == record["executed_sha256"]
+    assert record["home_path_rewrites"] == []
+    assert record["format"] == "megalib_native_xml_like"
+
+
+def test_native_home_rewrite_preserves_other_bytes(reconstruction, tmp_path, monkeypatch):
+    source, cfg, geometry, tool = reconstruction
+    home = tmp_path / "home&literal"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    (home / "response&data.rsp").write_text("response")
+    content = (b'<RevanConfigurationFile>\r\n'
+               b'<!-- <BayesianComptonFile>~/ignored.rsp</BayesianComptonFile> -->\r\n'
+               b'<SpectrumBefore)>true</SpectrumBefore)>\r\n'
+               b'<BayesianComptonFile> <!-- keep --> ~/response&data.rsp </BayesianComptonFile>\r\n'
+               b'<UnknownSetting>literal &amp;</UnknownSetting>\r\n'
+               b'</RevanConfigurationFile>\r\n')
+    cfg.write_bytes(content)
+    result = Revan(executable=tool).reconstruct(
+        source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
+    executed = (result.output_dir / "inputs/executed.revan.cfg").read_bytes()
+    assert executed == content.replace(b'~/response&data.rsp', str(home / 'response&data.rsp').encode())
+    assert b'~/ignored.rsp' in executed
+    record = read(result)
+    assert len(record["dependencies"]) == 2
+    edit, = record["configuration"]["home_path_rewrites"]
+    assert edit["field"] == "BayesianComptonFile"
+    assert edit["original"] == "~/response&data.rsp"
+    assert edit["executed"] == str(home / "response&data.rsp")
+
+
+def test_truncated_root_is_rejected_before_launch(reconstruction, tmp_path):
+    source, cfg, geometry, tool = reconstruction
+    cfg.write_text('<RevanConfigurationFile><SpectrumBefore)>true</SpectrumBefore)>')
+    with pytest.raises(ExecutionError, match="opening and closing root"):
+        Revan(executable=tool).reconstruct(
+            source, config_file=cfg, geometry=geometry, output_dir=tmp_path / "run")
+    assert not (tmp_path / "run/products/events.tra.gz").exists()
