@@ -164,15 +164,15 @@ class Cosima:
             Supported relative references inside the file are resolved against
             the source file's directory. The original file is never modified.
         output_dir : str or pathlib.Path or None, optional
-            Explicit path to a new execution directory. Missing
-            parent directories are created. The directory must not already
-            exist, and its absolute path cannot contain whitespace or ``$``.
-            Snapshots, logs, products, and ``manifest.json`` are saved here.
+            Experiment root. Missing parents are created; the Cosima stage must
+            not already exist. Its absolute path cannot contain whitespace or
+            ``$``. Creates cosima/inputs, logs and products, plus one root
+            manifest.json. A new experiment is required for every rerun.
             Supply exactly one of ``output_dir`` or ``workspace``.
         workspace : SimulationWorkspace or str or pathlib.Path or None, optional
-            Experiment root. Allocates ``cosima/simulation/attempt-NNN`` and
-            records the attempt in the experiment index. A second successful
-            Cosima simulation in the same experiment is rejected. Defaults to none.
+            Experiment object or root, default none. Writes directly into cosima/
+            without an attempt directory. Exactly one Cosima execution is allowed,
+            including failure; retries need a new workspace.
         seed : int or None, optional
             Positive integer in ``[1, 2147483647]`` passed to Cosima's ``-s``
             option. Defaults to ``None``, which generates and records a random
@@ -281,4 +281,4 @@ class Cosima:
         if workspace is not None:
             experiment = workspace if isinstance(workspace, SimulationWorkspace) else SimulationWorkspace(workspace)
             return experiment.execute("cosima", "simulation", execute)
-        return execute(output_dir)
+        return SimulationWorkspace(output_dir).execute("cosima", "simulation", execute)

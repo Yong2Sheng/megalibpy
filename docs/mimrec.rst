@@ -1,7 +1,7 @@
 Mimrec event selection and analysis
 ===================================
 
-``Mimrec`` wraps four independent native operations. It uses the same runtime,
+``Mimrec`` wraps four independent native operations in reusable data/configuration groups. It uses the same runtime,
 configuration passthrough and experiment records as :doc:`revan`. A native
 MEGAlib installation must provide ``mimrec``; Python does not import PyROOT.
 
@@ -67,10 +67,16 @@ A Mimrec extraction must be passed explicitly as a result, or selected with
 ``experiment.select("mimrec", task="event-selection")``. Directory entry never
 silently switches from Revan to the most recent Mimrec output.
 
-Each call selects events according to its own configuration. Imaging an
-extracted TRA still applies the imaging configuration's native selections;
-choose those settings deliberately. ARM uses native source/test-position and
-fit settings. This wrapper does not derive the source position or fit arrays.
+Passing a selected Mimrec TRA result continues inside its data/configuration
+``mimrec/attempt-NNN`` group. Later image/spectrum/ARM calls may omit config_file
+and inherit the saved configuration, geometry override, keyword overrides and
+original resource cwd. Each native call still has a distinct execution ID and logs.
+Explicit settings changes emit UserWarning and retain an immutable variant,
+without replacing group defaults. No configuration fields are interpreted.
+
+Each call applies its own native selections. Imaging extracted data can apply
+additional selections if its settings differ. ARM uses native source/test-position
+and fit settings. Python does not derive the source position or fit arrays.
 
 External TRA files
 ------------------
@@ -107,7 +113,7 @@ A typical command is:
    mimrec -c EXECUTED_CONFIGURATION -f INPUT -o OUTPUT [-g GEOMETRY] [-C name=value ...] -n -x
 
 The final operation flag is ``-x``, ``-i``, ``-s`` or ``-a``. ``-n`` selects
-batch operation. Original and executed configuration snapshots are byte-identical:
+batch operation. A shared, immutable configuration snapshot preserves the original bytes:
 Python does not parse XML, rewrite paths, repair tags, discover dependencies or
 inspect geometry/resources. The original configuration directory is the child
 working directory. Native logs explain settings/selection errors.
@@ -138,39 +144,30 @@ follow that HOME, without being rewritten.
 Outputs and execution records
 -----------------------------
 
-.. code-block:: text
+Mimrec writes ``mimrec/attempt-NNN`` data/configuration groups, with shared
+``inputs/`` and ``logs/``. Operation/task labels name output directories inside
+the group, e.g. ``event-selected/events.tra.gz``, ``image-selected/image.png``
+and ``spectrum/spectrum.root``. See :doc:`workspaces` for the complete tree.
 
-   grb-localization-001/
-   ├── manifest.json                    # workspace index (legacy roots: workspace.json)
-   ├── cosima/...
-   ├── revan/...
-   └── mimrec/
-       ├── event-selection/attempt-001/
-       │   ├── inputs/                  # original/executed cfg, upstream record
-       │   ├── logs/                    # stdout/stderr, setup bootstrap when used
-       │   ├── products/events.tra.gz
-       │   └── manifest.json
-       └── image-selected/attempt-001/
-           ├── inputs/
-           ├── logs/
-           ├── products/image.root
-           └── manifest.json
+Only the root manifest stores command records. Use result.record to read an
+individual execution by ID. Same-workspace upstreams use ID links; external
+selected execution records are snapshotted. Multiple consumers preserve the
+same extraction ID. Repeated operations keep old products and use numbered names.
 
-Task names identify branches; repeated task calls allocate a new attempt.
-Execution manifests identify the operation, actual input, configuration hashes,
-ordered overrides, command, runtime and exact upstream execution/product subset.
-An extraction can feed image, spectrum and ARM branches without overwriting it.
+Reopen a saved group with ``working_space=experiment, attempt="attempt-001"``.
+A unique successful extraction is selected; multiple successes require an explicit
+result/reference. No implicit latest-result rule is used. A group without
+extraction uses its recorded entry input. Unrelated TRA data needs a new group.
 
-``output_name`` changes the filename inside ``products/``. Event extraction
-accepts ``.tra`` or ``.tra.gz``; the suffix controls native compression. Plot
-outputs default to ``.root`` and remain native ROOT objects/canvases. You may
-request a native-supported plot suffix such as ``.png``; the wrapper does not
-convert ROOT data into arrays or introduce a ROOT dependency into Python.
+``output_name`` chooses a filename in the operation directory. Extraction accepts
+``.tra`` or ``.tra.gz``; native compression follows the suffix. Plot outputs default
+to ``.root`` and remain native objects/canvases; native-supported suffixes such
+as ``.png`` can be requested. No PyROOT or Python ROOT-array conversion is added.
 
-Failures raise ``ExecutionError`` and retain logs, manifests and indexed attempts.
-Timeouts are in seconds. Success requires a zero exit code and the requested
-nonempty output; some native image/ARM failures exit zero without creating a
-file. This is execution validation, not scientific validation.
+Failures retain separate execution records and logs in the same group.
+ExecutionError exposes the root manifest and failed execution_id. Zero native
+exit status and a nonempty requested output establish execution success only;
+native image/ARM failures may exit zero without creating a file.
 
 Scope and next steps
 --------------------

@@ -1,6 +1,6 @@
 """An exclusive directory for one execution attempt."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -15,6 +15,48 @@ class Workspace:
     """
 
     root: Path
+    owner: object = field(default=None, repr=False)
+    execution_id: str | None = None
+    operation: str | None = None
+    number: int = 1
+    product_folder: str = "products"
+
+    @property
+    def inputs_dir(self):
+        return self.root / "inputs"
+
+    @property
+    def logs_dir(self):
+        return self.root / "logs"
+
+    @property
+    def products_dir(self):
+        return self.root / self.product_folder
+
+    def log_path(self, name):
+        if self.owner is None:
+            return self.logs_dir / name
+        return self.logs_dir / f"{self.operation}-{self.number:03d}.{name}"
+
+    def snapshot(self, name, content):
+        """Reuse byte-identical immutable input snapshots within a data group."""
+        from hashlib import sha256
+        from contextlib import nullcontext
+        with self.owner._locked() if self.owner is not None else nullcontext():
+            path = self.inputs_dir / name
+            if path.exists() and path.read_bytes() != content:
+                path = path.with_name(f"{path.stem}-{sha256(content).hexdigest()}{path.suffix}")
+            if not path.exists():
+                with path.open("xb") as stream:
+                    stream.write(content)
+            return path
+
+    def save(self, record):
+        from .provenance import write_manifest
+        if self.owner is None:
+            write_manifest(self.manifest_path, record)
+        else:
+            self.owner._save_execution(self, record)
 
     @classmethod
     def create(cls, output_dir):
@@ -49,4 +91,4 @@ class Workspace:
     @property
     def manifest_path(self):
         """pathlib.Path: Absolute path to ``manifest.json`` in this workspace."""
-        return self.root / "manifest.json"
+        return self.root / "manifest.json" if self.owner is None else self.owner.index_path

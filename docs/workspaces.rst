@@ -1,136 +1,156 @@
 Experiment workspaces
 =====================
 
-``SimulationWorkspace`` groups execution records for one experiment. It is
-separate from the executor's single-attempt directory: a successful or failed
-attempt still has its own inputs, logs, products and manifest.
-
-A new Cosima experiment and its reconstruction share one root:
-
-.. code-block:: python
-
-   from megalibpy import Cosima, MEGAlibRuntime, Revan, SimulationWorkspace
-
-   runtime = MEGAlibRuntime.direct()  # already initialized MEGAlib environment
-   experiment = SimulationWorkspace("experiments/grb-001")
-   simulation = Cosima(runtime).simulate(
-       "burst.source", workspace=experiment, seed=12345,
-   )
-   reconstruction = Revan(runtime).reconstruct(
-       working_space=simulation,
-       config_file="baseline.revan.cfg",
-       geometry="detector.geo.setup",
-       task="baseline",
-   )
-
-Directory layout
-----------------
+A ``SimulationWorkspace`` represents one independent simulation experiment.
+Cosima, Revan and Mimrec are sibling directories. One root ``manifest.json``
+contains the origin, data groups and independent command execution records.
 
 .. code-block:: text
 
-   grb-001/
-   ├── manifest.json                   # experiment index
-   ├── cosima/
-   │   └── simulation/
-   │       └── attempt-001/
-   │           ├── inputs/
-   │           ├── logs/
-   │           ├── products/
-   │           └── manifest.json       # authoritative execution record
-   └── revan/
-       ├── baseline/
-       │   └── attempt-001/
-       │       ├── inputs/
-       │       ├── logs/
-       │       ├── products/
-       │       └── manifest.json
-       └── alternate/
-           └── attempt-001/...
+   grb-localization-001/
+   ├── manifest.json
+   ├── cosima/                       # exactly one simulation, no attempt level
+   │   ├── inputs/
+   │   ├── logs/
+   │   └── products/
+   ├── revan/
+   │   ├── attempt-001/              # one input/configuration group
+   │   │   ├── inputs/
+   │   │   ├── logs/
+   │   │   └── products/events.tra.gz
+   │   └── attempt-002/...           # alternative reconstruction
+   └── mimrec/
+       └── attempt-001/              # shared data and default configuration
+           ├── inputs/executed.mimrec.cfg
+           ├── logs/                 # separate numbered logs per command
+           ├── event-selected/events.tra.gz
+           ├── image-selected/image.png
+           ├── spectrum/spectrum.png
+           └── arm/arm.root
 
-An existing Cosima execution directory is also an experiment root: its original
-``manifest.json`` remains unchanged, and ``workspace.json`` serves as the
-experiment index. New stage/task/attempt folders are added below that same root.
-No migration or repeat simulation is required.
+Directories are created when needed. There are no empty stage directories or
+per-command manifests. ``attempt-NNN`` now identifies a data/configuration group,
+not one invocation of a native program. Each invocation retains its own
+``execution_id``, command, status, logs, exact inputs and output paths.
 
-The index has its own ``kind="simulation_workspace"`` and schema version 1;
-this is distinct from execution-manifest schema 1/2. It stores a workspace UUID,
-stable task IDs, attempt numbers, manifest locations, execution IDs and status.
-The execution manifests remain the source of detailed configuration and lineage.
-An existing external Cosima origin can be registered by reference without
-copying it; its location may be relative to the experiment root, including
-``..`` when outside it. Moving an experiment does not package external data.
+One Cosima per experiment
+-------------------------
 
-External simulation entry point
--------------------------------
+.. code-block:: python
 
-``Revan.reconstruct(sim_path=..., output_dir=..., config_file=...)`` creates or
-continues an experiment whose origin is an external event file. ``output_dir``
-is the experiment root; attempt records use the same ``revan/task/attempt-NNN``
-layout as experiments begun with Cosima. The index stores
-``external_input={"kind": "external_sim", "path": ...}``; no Cosima record is
-invented. The file is referenced in place, not copied or read for content checks.
+   from megalibpy import Cosima, Revan, Mimrec, SimulationWorkspace
 
-The experiment can subsequently be reopened with ``working_space=root`` to
-reuse that external input for another reconstruction task. All returned results
-carry this root as ``workspace_dir``. Different origins cannot be silently mixed
-in one workspace. Passing an event file through ``working_space`` is rejected;
-use the explicit ``sim_path`` entry point with ``output_dir``.
+   experiment = SimulationWorkspace("grb-localization-001")
+   simulated = Cosima(runtime).simulate(
+       "burst.source", workspace=experiment, seed=12345)
+   reconstructed = Revan(runtime).reconstruct(
+       simulated, config_file="baseline.revan.cfg", task="baseline")
 
-Selection and identity
-----------------------
+``Cosima.simulate(output_dir=...)`` also treats its destination as an experiment
+root. It creates ``cosima/inputs``, ``cosima/logs`` and ``cosima/products``.
+A second Cosima call is rejected, including after failure. Different inputs,
+settings, seeds or retries require another workspace. Several native output
+shards are still products of the same unique simulation origin.
 
-A workspace allows one Cosima origin. Another successful or pending Cosima
-execution is rejected; failed/interrupted attempts can be retried. The default
-low-level ``Cosima.simulate(output_dir=...)`` API remains available for
-independent executions outside this experiment rule.
+An external sim/evta file can start at Revan with ``sim_path`` and ``output_dir``.
+An external TRA can start at Mimrec with ``tra_path`` and ``output_dir``. The root
+records its real external origin; no synthetic earlier execution is created,
+and Cosima cannot subsequently be added. Additional external TRA steps preserve
+an existing primary origin.
 
-Stage/task labels use letters, digits, underscores and hyphens. Repeated Revan
-calls under the same task label allocate a new attempt, preserving all older
-records; separate labels organize configuration comparisons. A task ID differs
-from the execution UUID for an individual attempt. Configuration equality is
-not enforced: give different scientific setups different labels.
+Mimrec data groups and configuration reuse
+------------------------------------------
 
-``experiment.select("cosima")`` or ``experiment.select("revan", task="baseline")``
-returns a persisted successful result only when the selection is unambiguous.
-Two successful attempts within a task also require an explicit result/manifest
-reference. No global latest-result selection or modification-time heuristic is
-used. Pass the returned ``ExecutionResult`` or an explicit ``ExecutionInput``
-when choosing a particular execution.
+.. code-block:: python
 
-Managed results carry ``workspace_dir``; ``as_input(group, paths=[...])`` retains
-that experiment hint while pinning an explicit upstream product selection.
-References to legacy executions without UUIDs remain supported.
+   mimrec = Mimrec(runtime)
+   selected = mimrec.extract_events(
+       reconstructed, config_file="analysis.mimrec.cfg", task="event-selected")
+   image = mimrec.image(selected, task="image-selected", output_name="image.png")
+   spectrum = mimrec.spectrum(selected, output_name="spectrum.png")
 
-Failure and concurrency behavior
---------------------------------
+The first call creates ``mimrec/attempt-001`` and establishes its default native
+configuration, explicit geometry selection, overrides and original resource cwd.
+Passing the extraction result continues in that same group. Omitting
+``config_file`` reuses the archived configuration and these defaults; the original
+configuration file is not required to remain available. Native relative resources
+still use the original configuration directory.
 
-Allocation is indexed before the native process starts; completion updates the
-index without discarding failed attempts. Explicit output directories are never
-reused. Short index mutations use an exclusive ``.workspace.lock``; contention
-raises ``FileExistsError`` and can be retried by the caller. Executions do not
-hold that lock for their entire duration.
+Explicit settings that differ from the group's defaults produce a Python
+``UserWarning`` and are recorded for that execution. Different configuration
+bytes are retained in an additional content-addressed snapshot; the default
+snapshot is never replaced. Python compares bytes/hashes, original cwd, literal
+geometry and ordered overrides. It does not parse configuration fields or decide
+whether a change affects projection or event selection.
 
-A forcibly terminated Python process can leave an allocated attempt or stale
-lock. Inspect the execution manifest and confirm that no writer is active before
-manual recovery. Automatic stale-lock recovery, job scheduling, index repair and
-graphical workflow browsing are not provided. The index does not replace
-execution manifests or claim that scientific results have been validated.
+With an explicit ``config_file``, ``geometry=None`` omits ``-g`` and keyword
+settings are the explicitly supplied overrides. With an omitted configuration,
+geometry/overrides inherit the group defaults; supplied keywords update those
+default overrides for this call. None of these changes rewrites the native cfg.
 
-Mimrec branches and external TRA
---------------------------------
+Reopen a group explicitly:
 
-Mimrec uses the same ``mimrec/<task>/attempt-NNN`` layout. Pass a selected
-Revan result into ``Mimrec.extract_events``; pass its selected TRA result into
-``image``, ``spectrum`` or ``arm`` to preserve exact upstream IDs. Each operation
-has its own default task label. A workspace directory selects Revan, never an
-implicit latest Mimrec result.
+.. code-block:: python
 
-``tra_path`` plus ``output_dir`` can start an experiment at Mimrec. An empty
-root registers ``external_input={kind: external_tra, path: ...}``. Existing
-origins are preserved when processing additional external TRA inputs; those
-inputs are recorded in their individual execution manifests.
-``external_sim_path`` and ``external_tra_path`` expose only their matching
-origin kind. No synthetic upstream execution is introduced.
+   image = mimrec.image(
+       working_space=experiment, attempt="attempt-001",
+       task="image-selected", output_name="image.png")
 
-See :doc:`mimrec` for selection, output formats and complete examples. Workflow
-composition and graph visualization remain future work.
+If that group has one successful extraction, it is the input. Multiple successful
+extractions require an explicit result/reference. A group without extraction uses
+its recorded entry input. A different unrelated TRA requires a new group.
+Omitting ``attempt`` and passing a Revan result creates a new Mimrec group;
+passing a selected Mimrec TRA result continues its existing group.
+
+Repeated operations retain previous products, add numbered output filenames and
+write separate numbered stdout/stderr logs in the shared ``logs/`` directory.
+A requested path that belongs to another execution is rejected, never overwritten.
+Task labels name operation output directories within a Mimrec group; they no
+longer sit above its attempt directory. Revan creates a new data group per call;
+its task label remains recorded and queryable.
+
+Central manifest and lineage
+----------------------------
+
+Schema-2 workspace manifests contain ``origin``, ``groups`` and ``executions``.
+Each execution record keeps its own schema, ID, status, runtime, configuration,
+operation, group, logs, outputs and upstream references. ``result.manifest_path``
+points to the root manifest; use ``result.record`` to read that particular
+execution, or select it through an explicit ``ExecutionInput`` with its ID.
+
+.. code-block:: python
+
+   print(image.record["command"])
+   print(image.record["upstream"])
+   reconstructed = experiment.select("revan", task="baseline")
+   selected = experiment.select(
+       "mimrec", attempt="attempt-001", operation="extract_events")
+
+Selection succeeds only for one successful candidate. It never guesses by file
+mtime, directory order or the latest result. Repeated successful commands may
+require retaining their returned result or constructing an explicit ID reference.
+
+Same-workspace parents are referenced by execution ID without copying manifests.
+For external parents, only the selected execution record is snapshotted; products
+stay in place. A selected record's checksum is stable when unrelated executions
+are added to its workspace. Identical configuration/setup snapshots are reused
+within a data group. Event products are not scanned or hashed by Revan/Mimrec.
+
+Manifest allocation/status changes use short exclusive locks and atomic writes.
+The lock is released during native execution. Contention raises ``FileExistsError``;
+an abandoned lock after hard termination requires manual inspection. Failed and
+interrupted commands remain recorded and are never treated as successful results.
+
+Legacy data
+-----------
+
+Old standalone manifests and schema-1 workspace indexes remain readable.
+Their files are not moved or rewritten automatically. New executions targeting
+an old workspace raise a clear read-only-layout error: supply a fresh
+``output_dir`` and an explicit old result/reference instead. The new manifest
+then records the existing origin/upstream by reference without rerunning Cosima.
+There is no automatic in-place migration in this release.
+
+See :doc:`mimrec` for native operations and :doc:`api/index` for signatures.
+The full-chain smoke example is ``examples/end_to_end_smoke.py``. Component
+workflows, study scheduling and graph visualization remain separate future work.

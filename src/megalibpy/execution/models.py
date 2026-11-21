@@ -12,13 +12,14 @@ class ExecutionInput:
     Parameters
     ----------
     manifest_path : pathlib.Path
-        Path to a successful upstream manifest, including legacy records without
-        an execution ID. The executor archives this record before launching.
+        Root workspace manifest, selected by execution_id, or a legacy standalone
+        execution manifest. Local upstreams use ID links; external selected records
+        are snapshotted before launch.
     output_group : str
         Explicit product group to consume, such as ``"sim"`` or ``"tra"``.
     execution_id : str or None, optional
-        Expected upstream identity. Results supply their ID automatically;
-        ``None`` allows references to legacy records without an ID.
+        Expected upstream identity, mandatory for central workspace manifests.
+        Results supply their ID automatically; None supports legacy records.
     paths : tuple of pathlib.Path or None, optional
         Explicit subset of the group's files. ``None`` selects the whole group.
         Relative selections are resolved against the upstream execution root.
@@ -95,7 +96,8 @@ class ExecutionResult:
         Product groups containing sorted absolute file paths. Cosima uses the
         ``"sim"`` group, which may contain multiple files.
     manifest_path : pathlib.Path
-        Absolute path to the JSON manifest, whose status is ``"succeeded"``.
+        Absolute root manifest path for managed executions, or standalone record.
+        Use record to read this execution's status and metadata by ID.
     stdout_path : pathlib.Path
         Absolute path to the native program and initialization stdout log.
     stderr_path : pathlib.Path
@@ -113,7 +115,7 @@ class ExecutionResult:
     Attributes
     ----------
     output_dir : pathlib.Path
-        Execution workspace, containing ``inputs/``, ``logs/``, and ``products/``.
+        Data group directory with shared inputs/logs and operation products.
     outputs : dict of str to tuple of pathlib.Path
         Discovered output files, for example ``result.outputs["sim"]``.
     manifest_path : pathlib.Path
@@ -144,6 +146,16 @@ class ExecutionResult:
     returncode: int = 0
     execution_id: str | None = None
     workspace_dir: Path | None = None
+
+    @property
+    def record(self):
+        """dict: This execution's record, resolved by ID in a central manifest.
+
+        Returns a newly read dictionary. Other workspace executions do not
+        change this result's identity. Legacy standalone manifests are supported.
+        """
+        from .provenance import read_execution
+        return read_execution(self.manifest_path, self.execution_id)[1]
 
     def as_input(self, output_group, *, paths=None):
         """Select a product group for a downstream execution plan.

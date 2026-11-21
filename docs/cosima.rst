@@ -63,7 +63,7 @@ loading it executes its Bash commands.
 
 Both modes launch external processes. In setup-script mode, initialization and
 ``exec cosima`` occur in the same child process. The parent Python environment
-and working directory are unchanged. The bootstrap is saved as ``logs/launch.sh``
+and working directory are unchanged. The numbered bootstrap is saved in the Cosima ``logs/`` directory
 and executed as a script file, avoiding multiline ``bash -c`` arguments that can
 confuse shell detection in some ROOT initialization scripts. Common inherited Python and library
 search-path variables are removed before sourcing the script, but this is not
@@ -74,24 +74,21 @@ before starting Python just to combine two Conda environments.
 Configuration and provenance
 ----------------------------
 
-Each call requires a new output directory and creates:
+Each experiment has exactly one Cosima execution, stored at:
 
 .. code-block:: text
 
-   cosima-001/
-   ├── inputs/
-   │   ├── original.source
-   │   ├── executed.source
-   │   ├── setup.sh              # setup-script mode only
-   │   └── dependency-0000.setup # small discovered/declared dependency snapshots
-   ├── logs/
-   │   ├── executable.txt
-   │   ├── launch.sh             # setup-script mode bootstrap
-   │   ├── stdout.log
-   │   └── stderr.log
-   ├── products/
-   │   └── events.inc*.id*.sim.gz
-   └── manifest.json
+   experiment-001/
+   ├── manifest.json             # all experiment execution records
+   └── cosima/
+       ├── inputs/               # original/executed source and limited snapshots
+       ├── logs/                 # numbered stdout/stderr and setup bootstrap
+       └── products/events.inc*.id*.sim.gz
+
+Both output_dir and workspace identify an experiment root. Cosima has no attempt
+subdirectory. Repeating simulation, including after failure, requires a new
+workspace. Read a particular command with result.record, not by treating the
+root manifest as a standalone execution. See :doc:`workspaces`.
 
 The original source is copied byte for byte. In the execution copy, the single
 ``FileName`` is redirected to ``products/events``. Comments and other directives
@@ -195,27 +192,10 @@ Add ``--setup-script ~/initialize-megalib.sh`` for the separate-runtime mode.
 Execution identity and upstream records
 ---------------------------------------
 
-New manifests use schema version 2. Each execution, including failed attempts,
-has an ``execution_id`` (UUID); successful results also expose
-``result.execution_id``. This identifies an execution independently of the
-output directory name. Repeating a command produces a new identity.
-
-A Cosima simulation has an empty ``upstream`` list. Tool adapters can declare
-explicit input selections using ``ExecutionPlan.upstream`` and
-``result.as_input("sim")``. Before launching, the executor checks the upstream
-record's successful status and selected product group, archives its exact JSON
-in ``inputs/upstream-NNNN.json``, and records the manifest checksum, execution
-ID, and selected file paths. It does not copy or read the product contents.
-The adapter remains responsible for passing those selected files to its native
-command; declaring lineage alone does not change that command.
-
-Multiple consumers may reference the same upstream execution, and a plan can
-reference multiple upstreams. The executor does not select a globally latest
-result or impose a stage order. Legacy schema-1 manifests can be referenced
-without modification: their identity field is null and their manifest path,
-snapshot, checksum, and explicit product selection are retained.
-
-These are execution-record interfaces, not a workspace scheduler. The current
-Cosima interface still requires a new ``output_dir`` for each execution; it does
-not allocate task directories, enforce one simulation per experiment, or render
-workflow graphs.
+The root workspace manifest stores independent execution records with UUIDs.
+Use result.execution_id and result.record to select the particular command.
+Cosima has no upstream execution; later native operations retain its exact ID
+and selected sim files. Same-workspace lineage uses ID links without copying
+manifests; external selected records are snapshotted. Legacy schema-1 standalone
+records remain readable, including records without an execution ID.
+See :doc:`workspaces` for group selection and compatibility.

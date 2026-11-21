@@ -1,12 +1,11 @@
 """Explicit Revan configuration, input lineage and isolated native settings."""
 
 from dataclasses import replace
-import json
 from pathlib import Path
 
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
-from ..execution.provenance import file_record, resolve_upstream, sha256
+from ..execution.provenance import file_record, read_execution, resolve_upstream, sha256
 
 
 def _event_file(path):
@@ -28,7 +27,7 @@ def _input(input_data):
     if isinstance(input_data, ExecutionResult):
         if input_data.workspace_dir is not None:
             experiment = SimulationWorkspace(input_data.workspace_dir)
-        elif json.loads(input_data.manifest_path.read_text()).get("tool") == "cosima":
+        elif read_execution(input_data.manifest_path, input_data.execution_id)[1].get("tool") == "cosima":
             experiment = SimulationWorkspace(input_data.output_dir)
         input_data = input_data.as_input("sim")
     if isinstance(input_data, ExecutionInput):
@@ -37,7 +36,7 @@ def _input(input_data):
             experiment = SimulationWorkspace(input_data.workspace_dir)
         elif experiment is None:
             manifest_path = Path(record["manifest_path"])
-            if json.loads(manifest_path.read_text()).get("tool") == "cosima":
+            if read_execution(manifest_path, input_data.execution_id)[1].get("tool") == "cosima":
                 experiment = SimulationWorkspace(manifest_path.parent)
         paths = [Path(p) for p in record["paths"]]
         if len(paths) != 1:
@@ -55,16 +54,14 @@ def _input(input_data):
 
 def _prepare(attempt, event_file, geometry, config, executable, compressed, reference,
              overrides, isolate_settings):
-    original = attempt.root / "inputs/original.revan.cfg"
-    original.write_bytes(config.read_bytes())
-    content = original.read_bytes()
+    content = config.read_bytes()
     if not content:
         raise ValueError("Revan configuration file must not be empty")
-    executed = attempt.root / "inputs/executed.revan.cfg"
-    executed.write_bytes(content)
-    home = attempt.root / "logs/native-home"
+    executed = attempt.snapshot("executed.revan.cfg", content)
+    original = executed if attempt.owner is not None else attempt.snapshot("original.revan.cfg", content)
+    home = attempt.log_path("native-home")
     if isolate_settings:
-        home.mkdir()
+        home.mkdir(exist_ok=True)
     product = attempt.root / "products" / ("events.tra.gz" if compressed else "events.tra")
     command = [executable, "-c", str(executed), "-f", str(event_file), "-o", str(product)]
     if geometry is not None:
@@ -79,12 +76,12 @@ def _prepare(attempt, event_file, geometry, config, executable, compressed, refe
     return ExecutionPlan(tuple(command), config.parent, {"tra": product.name}, {
         "input_file": file_record(event_file, hash_limit=0),
         "configuration": {"original_path": str(config),
-                          "original_snapshot": "inputs/original.revan.cfg",
+                          "original_snapshot": str(original.relative_to(attempt.root)),
                           "original_sha256": sha256(original),
-                          "executed_snapshot": "inputs/executed.revan.cfg",
+                          "executed_snapshot": str(executed.relative_to(attempt.root)),
                           "executed_sha256": sha256(executed),
                           "relative_path_base": str(config.parent),
-                          "settings_home": "logs/native-home" if isolate_settings else None,
+                          "settings_home": str(home.relative_to(attempt.root)) if isolate_settings else None,
                           "format": "native_passthrough",
                           "validation": "readable_nonempty_file; native parser handles configuration"},
         "geometry": None if geometry is None else str(geometry),
@@ -145,15 +142,17 @@ class Revan:
             Relative paths use the child cwd (the configuration directory).
         output_dir : str or pathlib.Path or None, optional
             Destination experiment root, required with ``sim_path``. Creates
-            ``manifest.json`` and ``revan/<task>/attempt-NNN`` below it; it is
+            ``manifest.json`` and ``revan/attempt-NNN`` below it; it is
             not an individual attempt directory. Existing matching experiments
-            can be reused for new attempts. With ``working_space``, omission
+            can be reused for new data groups. Legacy inputs require a fresh
+            destination; their original directories are read-only. With ``working_space``, omission
             continues in that experiment; an explicit root records the existing
             Cosima origin by reference. Defaults to none.
         task : str, optional
             Named reconstruction task, default ``"default"``. Workspace attempts
-            are numbered under ``revan/<task>/``. Use a new label for a different
-            configuration; records from earlier attempts are never overwritten.
+            are numbered under ``revan/``. Labels remain queryable metadata,
+            without another directory level. Each call creates a new group;
+            records from earlier executions are never overwritten.
         compressed : bool, optional
             Default true produces ``products/events.tra.gz``; false uses ``.tra``.
             Compression is selected through the output suffix, not Cosima flags.
@@ -234,8 +233,8 @@ class Revan:
         if reference is None:
             experiment.attach_sim(path)
         if reference is not None:
-            record = json.loads(Path(reference.manifest_path).read_text())
+            _, record, _ = read_execution(reference.manifest_path, reference.execution_id)
             if record.get("tool") == "cosima":
-                origin = SimulationWorkspace(Path(reference.manifest_path).parent).select("cosima")
+                origin = inherited.select("cosima") if inherited is not None else SimulationWorkspace(Path(reference.manifest_path).parent).select("cosima")
                 experiment.attach_cosima(origin)
         return experiment.execute("revan", task, execute)

@@ -194,7 +194,7 @@ done
 command -v -- "$1" > "$record" || exit 127
 exec "$@"
 '''
-        bootstrap = executable_record.parent / "launch.sh"
+        bootstrap = executable_record.parent / ("launch.sh" if executable_record.name == "executable.txt" else executable_record.stem + ".launch.sh")
         bootstrap.write_text(program, encoding="utf-8")
         return [bash, "--noprofile", "--norc", str(bootstrap),
                 str(self.setup_script), str(executable_record), str(len(overrides)),

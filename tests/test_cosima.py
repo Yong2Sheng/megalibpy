@@ -62,7 +62,7 @@ for number in (1, 2):
 
 
 def manifest(result):
-    return json.loads(result.manifest_path.read_text())
+    return result.record
 
 
 def test_direct_snapshots_relative_files_and_multiple_outputs(inputs, tmp_path):
@@ -124,12 +124,12 @@ def test_failure_and_missing_output_keep_records(inputs, tmp_path, monkeypatch, 
     monkeypatch.setenv("COSIMA_TEST_MODE", mode)
     with pytest.raises(ExecutionError) as error:
         Cosima(executable=executable).simulate(source, output_dir=tmp_path / "run")
-    record = json.loads(error.value.manifest_path.read_text())
+    record = next(iter(json.loads(error.value.manifest_path.read_text())["executions"].values()))
     assert record["status"] == "failed"
     assert record["returncode"] == expected_returncode
     assert record["finished_at"]
     assert 0 < record["seed"] < 2**31
-    assert (tmp_path / "run/logs/stderr.log").is_file()
+    assert (tmp_path / "run/cosima/logs/cosima-001.stderr.log").is_file()
 
 
 def test_setup_failure_does_not_execute_tool(inputs, tmp_path):
@@ -141,8 +141,8 @@ def test_setup_failure_does_not_execute_tool(inputs, tmp_path):
             source, output_dir=tmp_path / "run"
         )
     assert error.value.returncode == 23
-    assert "setup failed" in (tmp_path / "run/logs/stderr.log").read_text()
-    assert not list((tmp_path / "run/products").iterdir())
+    assert "setup failed" in (tmp_path / "run/cosima/logs/cosima-001.stderr.log").read_text()
+    assert not list((tmp_path / "run/cosima/products").iterdir())
 
 
 def test_timeout_kills_child_group(inputs, tmp_path, monkeypatch):
@@ -150,7 +150,7 @@ def test_timeout_kills_child_group(inputs, tmp_path, monkeypatch):
     monkeypatch.setenv("COSIMA_TEST_MODE", "sleep")
     with pytest.raises(ExecutionError, match="timeout") as error:
         Cosima(executable=executable).simulate(source, timeout=0.2, output_dir=tmp_path / "run")
-    assert json.loads(error.value.manifest_path.read_text())["status"] == "failed"
+    assert next(iter(json.loads(error.value.manifest_path.read_text())["executions"].values()))["status"] == "failed"
     time.sleep(0.8)
     assert not (source.parent / "late-child").exists()
 
@@ -159,13 +159,14 @@ def test_missing_executable_is_preparation_failure(inputs, tmp_path):
     source, _ = inputs
     with pytest.raises(ExecutionError, match="Cannot find") as error:
         Cosima(executable="megalibpy-nonexistent-cosima").simulate(source, output_dir=tmp_path / "run")
-    assert json.loads(error.value.manifest_path.read_text())["returncode"] is None
+    assert next(iter(json.loads(error.value.manifest_path.read_text())["executions"].values()))["returncode"] is None
 
 
 def test_existing_workspace_is_not_reused(inputs, tmp_path):
     source, executable = inputs
     directory = tmp_path / "run"
     directory.mkdir()
+    (directory / "cosima").mkdir()
     sentinel = directory / "keep"
     sentinel.write_text("existing data")
     with pytest.raises(FileExistsError):
@@ -178,7 +179,7 @@ def test_input_validation_records_failure(inputs, tmp_path):
     source.write_text(source.read_text() + "Run Second\n")
     with pytest.raises(ExecutionError, match="exactly one") as error:
         Cosima(executable=executable).simulate(source, output_dir=tmp_path / "run")
-    assert json.loads(error.value.manifest_path.read_text())["status"] == "failed"
+    assert next(iter(json.loads(error.value.manifest_path.read_text())["executions"].values()))["status"] == "failed"
 
 
 def test_large_explicit_dependency_is_not_hashed_or_copied(inputs, tmp_path):
@@ -213,12 +214,12 @@ def test_missing_source_and_setup_retain_failure_manifest(inputs, tmp_path):
     source, executable = inputs
     with pytest.raises(ExecutionError) as error:
         Cosima(executable=executable).simulate(tmp_path / "missing.source", output_dir=tmp_path / "missing-source")
-    assert json.loads(error.value.manifest_path.read_text())["error"]["type"] == "FileNotFoundError"
+    assert next(iter(json.loads(error.value.manifest_path.read_text())["executions"].values()))["error"]["type"] == "FileNotFoundError"
     with pytest.raises(ExecutionError) as error:
         Cosima(MEGAlibRuntime.from_setup_script(tmp_path / "missing.sh")).simulate(
             source, output_dir=tmp_path / "missing-setup"
         )
-    assert json.loads(error.value.manifest_path.read_text())["status"] == "failed"
+    assert next(iter(json.loads(error.value.manifest_path.read_text())["executions"].values()))["status"] == "failed"
 
 
 def test_source_include_rejected_without_running(inputs, tmp_path):
@@ -226,7 +227,7 @@ def test_source_include_rejected_without_running(inputs, tmp_path):
     source.write_text(source.read_text() + "Include other.source\n")
     with pytest.raises(ExecutionError, match="Included source"):
         Cosima(executable=executable).simulate(source, output_dir=tmp_path / "run")
-    assert not list((tmp_path / "run/products").iterdir())
+    assert not list((tmp_path / "run/cosima/products").iterdir())
 
 
 def test_setup_uses_script_file_not_multiline_shell_argument(inputs, tmp_path):
@@ -240,7 +241,7 @@ def test_setup_uses_script_file_not_multiline_shell_argument(inputs, tmp_path):
     argv = record["launch_command"]
     assert "-c" not in argv
     assert all("\n" not in argument for argument in argv)
-    bootstrap = result.output_dir / "logs/launch.sh"
+    bootstrap = result.output_dir / record["runtime"]["bootstrap"]["snapshot"]
     assert bootstrap.is_file()
     assert str(bootstrap) in argv
     assert 'source "$1"' in bootstrap.read_text()

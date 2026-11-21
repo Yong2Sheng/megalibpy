@@ -193,8 +193,8 @@ selected = mimrec.extract_events(
 )
 image = mimrec.image(
     working_space=selected,
-    config_file="configurations/analysis.mimrec.cfg",
     task="image-selected",
+    output_name="image.png",
 )
 print(image.outputs["image"])
 ```
@@ -202,8 +202,15 @@ print(image.outputs["image"])
 Independent `extract_events`, `image`, `spectrum` and `arm` methods prepare native
 `-x/-i/-s/-a` commands. External data uses `tra_path` with an explicit experiment
 `output_dir`. Configurations pass through unchanged; `geometry=None` uses the
-configuration, and keyword overrides become native `-C` arguments. Each call
-records its own task/attempt and exact upstream execution. ROOT outputs remain
+configuration, and keyword overrides become native `-C` arguments. Each command
+records its own execution ID and exact upstream; Mimrec operations share a
+data/configuration group, its configuration snapshot, inputs and logs. ROOT outputs remain
 native files. Component workflows will be added after basic native validation.
 See the [Mimrec guide](docs/mimrec.rst), [API reference](docs/api/index.rst) and
 [command-line example](examples/mimrec_analysis.py).
+
+For a complete simulation → reconstruction → event selection → spectrum/image
+smoke test, use [the full-chain example](examples/end_to_end_smoke.py).
+A workspace has one root manifest and one Cosima simulation under `cosima/`.
+Revan/Mimrec data groups use `stage/attempt-NNN`; see the
+[workspace guide](docs/workspaces.rst) for configuration reuse and old-layout inputs.

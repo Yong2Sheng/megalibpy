@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from .errors import ExecutionError
 from .models import ExecutionResult
-from .provenance import capture_upstream, file_record, write_manifest
+from .provenance import capture_upstream, file_record
 from .workspace import Workspace
 
 
@@ -117,33 +117,33 @@ class Executor:
             raise NotImplementedError("MEGAlib execution currently requires a POSIX host")
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be positive")
-        workspace = Workspace.create(output_dir)
+        workspace = output_dir if isinstance(output_dir, Workspace) else Workspace.create(output_dir)
         root = workspace.root
         manifest = {
-            "schema_version": 2, "execution_id": str(uuid4()),
+            "schema_version": 2, "execution_id": workspace.execution_id or str(uuid4()),
             "tool": tool, "status": "preparing", "upstream": [],
             "started_at": _now(), "finished_at": None, "returncode": None,
             "software": {"megalibpy": version("megalibpy"),
                          "python": platform.python_version(), "platform": platform.platform(),
                          "source_revision": _source_revision()},
             "runtime": {"mode": "setup_script" if self.runtime.setup_script else "direct"},
-            "logs": {"stdout": "logs/stdout.log", "stderr": "logs/stderr.log"},
+            "logs": {"stdout": str(workspace.log_path("stdout.log").relative_to(root)),
+                     "stderr": str(workspace.log_path("stderr.log").relative_to(root))},
             "outputs": {},
         }
-        write_manifest(workspace.manifest_path, manifest)
+        workspace.save(manifest)
         process = None
         started = time.monotonic()
-        executable_record = root / "logs/executable.txt"
-        stdout_path, stderr_path = root / "logs/stdout.log", root / "logs/stderr.log"
+        executable_record = workspace.log_path("executable.txt")
+        stdout_path, stderr_path = workspace.log_path("stdout.log"), workspace.log_path("stderr.log")
         stdout_path.touch()
         stderr_path.touch()
         try:
             if self.runtime.setup_script:
                 script = self.runtime.setup_script
-                snapshot = root / "inputs/setup.sh"
-                snapshot.write_bytes(script.read_bytes())
+                snapshot = workspace.snapshot("setup.sh", script.read_bytes())
                 manifest["runtime"]["setup_script"] = {
-                    "original_path": str(script), "snapshot": "inputs/setup.sh",
+                    "original_path": str(script), "snapshot": str(snapshot.relative_to(root)),
                     **file_record(snapshot),
                 }
                 # Execute the original location: scripts may use BASH_SOURCE to
@@ -162,13 +162,13 @@ class Executor:
             manifest["tool_environment"] = plan.environment
             command, env = self.runtime.launch(plan.command, executable_record,
                                               tool_environment=plan.environment)
-            bootstrap = root / "logs/launch.sh"
+            bootstrap = executable_record.parent / ("launch.sh" if workspace.owner is None else executable_record.stem + ".launch.sh")
             if self.runtime.setup_script and bootstrap.is_file():
                 manifest["runtime"]["bootstrap"] = {
-                    "snapshot": "logs/launch.sh", **file_record(bootstrap),
+                    "snapshot": str(bootstrap.relative_to(root)), **file_record(bootstrap),
                 }
             manifest.update(status="running", launch_command=command)
-            write_manifest(workspace.manifest_path, manifest)
+            workspace.save(manifest)
             with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
                 process = subprocess.Popen(
                     command, cwd=plan.cwd, env=env, stdout=out, stderr=err,
@@ -184,7 +184,7 @@ class Executor:
                 raise RuntimeError(f"{tool} exited with status {process.returncode}")
             outputs = {}
             for key, pattern in plan.output_patterns.items():
-                paths = tuple(sorted((root / "products").glob(pattern)))
+                paths = tuple(sorted(workspace.products_dir.glob(pattern)))
                 paths = tuple(p for p in paths if p.is_file() and p.stat().st_size > 0)
                 if not paths:
                     raise RuntimeError(f"No nonempty {key} output matched {pattern!r}")
@@ -205,7 +205,7 @@ class Executor:
             if isinstance(exc, (KeyboardInterrupt, SystemExit)):
                 raise
             raise ExecutionError(manifest["error"]["message"], workspace.manifest_path,
-                                 manifest["returncode"]) from exc
+                                 manifest["returncode"], manifest["execution_id"]) from exc
         finally:
             # Capture the actual tool resolved inside the initialized child.
             try:
@@ -217,6 +217,6 @@ class Executor:
                 manifest["runtime"]["executable_record_error"] = str(exc)
             manifest["finished_at"] = _now()
             manifest["duration_seconds"] = time.monotonic() - started
-            write_manifest(workspace.manifest_path, manifest)
+            workspace.save(manifest)
         return ExecutionResult(root, outputs, workspace.manifest_path, stdout_path, stderr_path,
                                execution_id=manifest["execution_id"])

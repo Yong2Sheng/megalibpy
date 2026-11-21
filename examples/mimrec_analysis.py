@@ -12,7 +12,8 @@ def main():
     inputs.add_argument('--working-space')
     inputs.add_argument('--tra-path')
     parser.add_argument('--output-dir', help='Destination experiment root; required with --tra-path')
-    parser.add_argument('--config', required=True)
+    parser.add_argument('--config', help='Required for new groups; omitted to reuse a saved group')
+    parser.add_argument('--attempt', help='Existing Mimrec group, e.g. attempt-001')
     parser.add_argument('--geometry', default=None)
     parser.add_argument('--task')
     parser.add_argument('--revan-task', help='Select a named Revan task in the input workspace')
@@ -29,7 +30,7 @@ def main():
     if args.revan_task:
         selected = SimulationWorkspace(selected).select('revan', task=args.revan_task)
     options = dict(working_space=selected, tra_path=args.tra_path, output_dir=args.output_dir,
-                   config_file=args.config, geometry=args.geometry, timeout=args.timeout)
+                   config_file=args.config, geometry=args.geometry, timeout=args.timeout, attempt=args.attempt)
     if args.task is not None:
         options['task'] = args.task
     if args.output_name is not None:

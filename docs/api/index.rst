@@ -75,6 +75,7 @@ Mimrec selection and analysis
 -----------------------------
 
 See :doc:`../mimrec` for event extraction, imaging, spectra and ARM.
+Mimrec operations share data/configuration groups; see :doc:`../workspaces`.
 
 .. autoclass:: Mimrec
    :members: extract_events, image, spectrum, arm
