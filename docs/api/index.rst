@@ -71,6 +71,14 @@ settings isolation, input selection and examples.
 .. autoclass:: Revan
    :members: reconstruct
 
+Mimrec selection and analysis
+-----------------------------
+
+See :doc:`../mimrec` for event extraction, imaging, spectra and ARM.
+
+.. autoclass:: Mimrec
+   :members: extract_events, image, spectrum, arm
+
 Experiment workspace
 --------------------
 
@@ -78,7 +86,7 @@ See :doc:`../workspaces` for the index layout, legacy directory handling and
 the distinction between task identity and execution identity.
 
 .. autoclass:: SimulationWorkspace
-   :members: select, attach_cosima, attach_sim, external_sim_path, index_path
+   :members: select, attach_cosima, attach_sim, attach_tra, external_sim_path, external_tra_path, index_path
 
 Results and failures
 --------------------

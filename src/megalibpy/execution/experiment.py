@@ -162,7 +162,35 @@ class SimulationWorkspace:
     def external_sim_path(self):
         """pathlib.Path or None: External entry file registered for this experiment."""
         entry = self._read().get("external_input")
-        return None if entry is None else Path(entry["path"])
+        return Path(entry["path"]) if entry and entry["kind"] == "external_sim" else None
+
+    @property
+    def external_tra_path(self):
+        """pathlib.Path or None: Original external TRA of a Mimrec-started experiment."""
+        entry = self._read().get("external_input")
+        return Path(entry["path"]) if entry and entry["kind"] == "external_tra" else None
+
+    def attach_tra(self, tra_path):
+        """Register a TRA origin only when the experiment has no existing origin.
+
+        Parameters
+        ----------
+        tra_path : str or pathlib.Path
+            Explicit external TRA selected by the adapter. Contents are not copied.
+
+        Notes
+        -----
+        An existing Cosima, external sim or external TRA origin is preserved.
+        Additional TRA inputs belong to individual execution manifests, allowing
+        later background/component steps without replacing the primary origin.
+        No synthetic Cosima or Revan execution is created.
+        """
+        path = Path(tra_path).expanduser().resolve()
+        with self._locked():
+            data = self._read()
+            if not data["tasks"] and "external_input" not in data:
+                data["external_input"] = {"kind": "external_tra", "path": str(path)}
+            write_manifest(self.index_path, data)
 
     def attach_sim(self, sim_path):
         """Record an external event-file origin without copying its contents.

@@ -139,8 +139,8 @@ First-version limits
 --------------------
 
 * One inline run, ordinary event simulation. Source ``Include`` directives and
-  activation/cross-section jobs are rejected. Revan and Mimrec wrappers are not
-  part of this release of the interface.
+  activation/cross-section jobs are rejected. See the separate Revan and Mimrec
+  guides for reconstruction and analysis.
 * Dependency capture is explicitly incomplete: nested geometry include trees,
   arbitrary file-valued directives, and runtime-expanded paths are not
   automatically archived. External data is still read from its original

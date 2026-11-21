@@ -1,7 +1,7 @@
 # megalibpy
 
 Python tools for editing MEGAlib/Cosima source files, running Cosima simulations,
-and reconstructing events with Revan, with configuration snapshots and execution records.
+reconstructing events with Revan, and selecting/analyzing events with Mimrec, with configuration snapshots and execution records.
 The current parser supports one run with one source per file.
 
 [Read the documentation](https://yong2sheng.github.io/megalibpy/)
@@ -175,3 +175,35 @@ Maintainers can enable hosting under **Settings → Pages → Build and deployme
 → Source → GitHub Actions**. Pull requests build the documentation for validation
 without deploying it. The [Read the Docs configuration](.readthedocs.yaml) is
 also available if a separate Read the Docs project is configured.
+
+## Mimrec event selection and analysis
+
+Use the selected Revan result or select its task from an existing experiment:
+
+```python
+from megalibpy import Mimrec, SimulationWorkspace
+
+experiment = SimulationWorkspace("grb-localization-001")
+reconstructed = experiment.select("revan", task="baseline")
+mimrec = Mimrec(runtime)
+selected = mimrec.extract_events(
+    working_space=reconstructed,
+    config_file="configurations/analysis.mimrec.cfg",
+    task="event-selection",
+)
+image = mimrec.image(
+    working_space=selected,
+    config_file="configurations/analysis.mimrec.cfg",
+    task="image-selected",
+)
+print(image.outputs["image"])
+```
+
+Independent `extract_events`, `image`, `spectrum` and `arm` methods prepare native
+`-x/-i/-s/-a` commands. External data uses `tra_path` with an explicit experiment
+`output_dir`. Configurations pass through unchanged; `geometry=None` uses the
+configuration, and keyword overrides become native `-C` arguments. Each call
+records its own task/attempt and exact upstream execution. ROOT outputs remain
+native files. Component workflows will be added after basic native validation.
+See the [Mimrec guide](docs/mimrec.rst), [API reference](docs/api/index.rst) and
+[command-line example](examples/mimrec_analysis.py).
