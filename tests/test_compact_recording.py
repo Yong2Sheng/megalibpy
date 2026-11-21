@@ -64,7 +64,7 @@ def test_compact_full_chain_without_resource_copies_and_summary(native, tmp_path
             raise AssertionError('large orientation file was read by Python')
         return original_read(path)
     monkeypatch.setattr(Path, 'read_bytes', guarded)
-    runtime = MEGAlibRuntime.from_setup_script(setup, log_mode='tail', log_tail_bytes=4096)
+    runtime = MEGAlibRuntime.from_setup_script(setup)
     workspace = SimulationWorkspace(tmp_path/'experiment')
     simulated = Cosima(runtime).simulate(source, workspace=workspace, seed=12345, log_mode='summary')
     record = simulated.record
@@ -81,19 +81,19 @@ def test_compact_full_chain_without_resource_copies_and_summary(native, tmp_path
     executed = decode_content(record['source']['executed'])
     assert str(workspace.root/'cosima/products/events').encode() in executed
     assert decode_content(record['source']['original']) == source.read_bytes()
-    reconstructed = Revan(runtime).reconstruct(simulated, config_file=cfg)
+    reconstructed = Revan(runtime).reconstruct(simulated, config_file=cfg, log_mode="full")
     mimrec = Mimrec(runtime)
-    selected = mimrec.extract_events(reconstructed, config_file=cfg)
+    selected = mimrec.extract_events(reconstructed, config_file=cfg, log_mode="full")
     expected = hashlib.sha256(cfg.read_bytes()).hexdigest()
     cfg.unlink()  # inherited config comes from manifest, not the original file
-    image = mimrec.image(selected, output_name='image.png')
-    spectrum = mimrec.spectrum(selected, output_name='spectrum.png')
+    image = mimrec.image(selected, output_name='image.png', log_mode='full')
+    spectrum = mimrec.spectrum(selected, output_name='spectrum.png', log_mode='full')
     for result in (reconstructed, selected, image, spectrum):
         assert result.record['configuration']['executed_sha256'] == expected
+        assert result.record['configuration_overrides'] == []  # Python log options are not native -C settings
         assert result.record['configuration']['executed_snapshot'] is None
         assert decode_content(result.record['configuration']).startswith(b'opaque native bytes')
         assert result.stderr_path is None
-        assert result.stdout_path.stat().st_size <= 4096
         assert result.stdout_path.read_bytes().endswith(b'FINAL ANALYSIS\n')
         assert result.record['runtime']['executable']['path'].endswith(result.record['tool'])
     assert not list(workspace.root.rglob('*.cfg'))
@@ -112,10 +112,10 @@ def test_compact_full_chain_without_resource_copies_and_summary(native, tmp_path
 
 
 @pytest.mark.parametrize('mode', ['failure','no-summary'])
-def test_summary_missing_keeps_bounded_diagnostic_tail(native, tmp_path, monkeypatch, mode):
+def test_summary_missing_is_explicit_and_does_not_substitute_a_tail(native, tmp_path, monkeypatch, mode):
     source, cfg, setup, _ = native
     monkeypatch.setenv('FAKE_MODE', mode)
-    runtime = MEGAlibRuntime.from_setup_script(setup, log_tail_bytes=2048)
+    runtime = MEGAlibRuntime.from_setup_script(setup)
     workspace = SimulationWorkspace(tmp_path/'experiment')
     if mode == 'failure':
         with pytest.raises(ExecutionError) as error:
@@ -127,8 +127,9 @@ def test_summary_missing_keeps_bounded_diagnostic_tail(native, tmp_path, monkeyp
     else:
         record = Cosima(runtime).simulate(source, workspace=workspace, log_mode='summary').record
     capture = record['logs']['capture']['stdout']
-    assert capture['summary_fallback'] == 'bounded_tail'
-    assert capture['bytes_retained'] <= 2048
+    assert capture['summary_missing']
+    assert capture['bytes_retained'] == 0
+    assert record['logs']['stdout'] is None
     assert not list(workspace.root.rglob('*.source'))
     assert not list(workspace.root.rglob('*.sh'))
 

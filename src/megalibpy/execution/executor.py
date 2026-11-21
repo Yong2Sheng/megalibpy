@@ -78,7 +78,7 @@ class Executor:
     def __init__(self, runtime):
         self.runtime = runtime
 
-    def execute(self, tool, output_dir, prepare, *, timeout=None, log_mode=None):
+    def execute(self, tool, output_dir, prepare, *, timeout=None, log_mode="full"):
         """Prepare a fresh workspace, execute a plan, and validate its outputs.
 
         Parameters
@@ -94,6 +94,10 @@ class Executor:
             Positive time limit in seconds for the child, including any setup
             script. ``None`` waits without a limit. Preparation and final record
             writing are not included in this limit.
+        log_mode : str, optional
+            "full" (default), or "summary" for Cosima. Summary retains stdout
+            from the last native summary marker through EOF without a size cap;
+            stderr is always complete. No marker is recorded as summary_missing.
 
         Returns
         -------
@@ -121,13 +125,11 @@ class Executor:
             raise NotImplementedError("MEGAlib execution currently requires a POSIX host")
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be positive")
-        mode = self.runtime.log_mode if log_mode is None else log_mode
-        if mode not in ("full", "tail", "summary") or (mode == "summary" and tool != "cosima"):
-            raise ValueError("log_mode must be full/tail, or summary for Cosima")
+        mode = log_mode
+        if mode not in ("full", "summary") or (mode == "summary" and tool != "cosima"):
+            raise ValueError("log_mode must be full, or summary for Cosima")
         if not isinstance(self.runtime.archive_inputs, bool):
             raise ValueError("archive_inputs must be bool")
-        if not isinstance(self.runtime.log_tail_bytes, int) or isinstance(self.runtime.log_tail_bytes, bool) or self.runtime.log_tail_bytes <= 0:
-            raise ValueError("log_tail_bytes must be a positive integer")
         workspace = output_dir if isinstance(output_dir, Workspace) else Workspace.create(output_dir)
         workspace = replace(workspace, archive_inputs=self.runtime.archive_inputs)
         root = workspace.root
@@ -193,8 +195,8 @@ class Executor:
                 command, cwd=plan.cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 start_new_session=True,
             )
-            pumps = [StreamLog(process.stdout, stdout_path, mode, self.runtime.log_tail_bytes),
-                     StreamLog(process.stderr, stderr_path, "full" if mode == "full" else "tail", self.runtime.log_tail_bytes)]
+            pumps = [StreamLog(process.stdout, stdout_path, mode),
+                     StreamLog(process.stderr, stderr_path, "full")]
             for pump in pumps:
                 pump.start()
             try:

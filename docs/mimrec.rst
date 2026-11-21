@@ -192,6 +192,6 @@ Compact recording
 -----------------
 
 See :doc:`workspaces` for the default manifest-based source/config retention,
-temporary native inputs and launch helpers, optional archival mode and bounded
-log capture. Empty logs are removed and their result paths are None. A physical
+temporary native inputs and launch helpers, optional archival mode and keyword-based
+summary capture. Empty logs are removed and their result paths are None. A physical
 configuration snapshot is retained only when runtime.archive_inputs is true.

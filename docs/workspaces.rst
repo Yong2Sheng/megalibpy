@@ -176,22 +176,31 @@ created in a temporary directory and removed; actual executable path/hash are
 stored in the manifest. The bootstrap sources the supplied initialization once
 per native command and execs the tool. It is not another initialization routine.
 
-Choose log retention independently:
+Choose log retention on the execution itself:
 
 .. code-block:: python
 
-   runtime = MEGAlibRuntime.from_setup_script(
-       "initialize-megalib.sh", log_mode="tail", log_tail_bytes=65536)
+   runtime = MEGAlibRuntime.from_setup_script("initialize-megalib.sh")
    simulated = Cosima(runtime).simulate(
        "burst.source", workspace=experiment, log_mode="summary")
 
-``full`` (runtime default) streams all output to disk. ``tail`` keeps at most the
-configured byte cap per stream. Cosima's ``summary`` override keeps the last
-``Summary for run`` stdout block within that cap, with a bounded diagnostic-tail
-fallback if it is absent or too long. Tail/summary capture drains both pipes
-concurrently into bounded buffers; it does not first write the full log or load
-it into memory. Missing summary is marked in ``logs.capture`` and does not alter
-native exit-status/output validation.
+MEGAlibRuntime has no logging parameters. Cosima supports ``full`` (default) or
+``summary``. Other operations currently preserve full logs; their native summary
+boundaries have not been defined. These are Python capture options, never native
+MEGAlib flags or configuration overrides.
+
+Summary mode continuously drains stdout and discards data before a line starting
+``Summary for run``. Starting with that line, every byte is streamed to the log
+through EOF, including shutdown text. A later summary marker replaces the earlier
+block. There is no size cap on a summary and no byte-tail retention option.
+Only a short marker overlap is buffered to recognize a keyword split across pipe
+reads; the complete summary is never accumulated in memory. The input read block
+size does not limit the amount of retained content.
+
+If no marker appears, stdout is absent and ``logs.capture.stdout.summary_missing``
+is true. No arbitrary tail is substituted for a summary. Stderr is retained in
+full in either mode; use full stdout when complete diagnostic output is needed.
+The wrapper does not change native exit-status/output validation.
 
 Empty logs are removed, including stderr. Their manifest path and corresponding
 result property are None. Check ``result.stderr_path is not None`` before opening

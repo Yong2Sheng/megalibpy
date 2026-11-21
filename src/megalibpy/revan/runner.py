@@ -103,7 +103,7 @@ class Revan:
     def reconstruct(self, working_space=None, *, sim_path=None, output_dir=None,
                     config_file, geometry=None,
                     task="default", compressed=True, timeout=None, isolate_settings=False,
-                    **configuration):
+                    log_mode="full", **configuration):
         """Reconstruct one native event file into a recorded ``tra`` product.
 
         Parameters
@@ -152,6 +152,12 @@ class Revan:
             Default false retains native HOME/settings behavior. Explicit true
             gives the tool a private HOME after setup. Configuration contents
             remain unchanged, so HOME-based paths then use the private HOME.
+
+        log_mode : str, optional
+            "full" (default) streams complete stdout/stderr without a byte cap.
+            Summary selection is currently available only for Cosima, whose
+            native boundary marker is defined. Empty logs are removed. This
+            Python option is never forwarded as a native -C setting.
 
         **configuration
             Native configuration overrides. Each keyword's underscores become
@@ -214,7 +220,7 @@ class Revan:
                 "revan", target,
                 lambda attempt: _prepare(attempt, path, geometry, config, self.executable,
                                          compressed, reference, configuration, isolate_settings),
-                timeout=timeout,
+                timeout=timeout, log_mode=log_mode,
             )
         experiment = SimulationWorkspace(output_dir) if output_dir is not None else inherited
         if experiment is None:

@@ -156,7 +156,7 @@ class Cosima:
         self.executable = str(executable)
 
     def simulate(self, source_file, *, output_dir=None, workspace=None, seed=None, compressed=True,
-                 timeout=None, dependencies=(), hash_limit_bytes=0, log_mode=None):
+                 timeout=None, dependencies=(), hash_limit_bytes=0, log_mode="full"):
         """Simulate events with Cosima and save an execution record.
 
         Parameters
@@ -203,13 +203,15 @@ class Cosima:
             when runtime.archive_inputs=True and a file is within this hash limit.
             Compact mode never copies geometry/orientation/spectrum dependencies.
             Source bytes and checksums are stored in the manifest by default.
-        log_mode : str or None, optional
-            None (default) uses runtime.log_mode. "full" streams complete logs;
-            "tail" retains up to runtime.log_tail_bytes per stream; "summary"
-            retains the last stdout block starting with "Summary for run" within
-            that byte cap. Missing/oversized summaries fall back to the bounded
-            tail and are marked in logs.capture. No full intermediate log is
-            written in tail/summary modes. Empty stdout/stderr files are removed.
+        log_mode : str, optional
+            "full" (default) streams complete stdout/stderr. "summary" streams
+            stdout from the last line starting "Summary for run " to EOF,
+            including the complete summary and shutdown text without a size cap.
+            Earlier stdout is discarded while reading, not written first.
+            Stderr is always retained in full. If no summary marker appears,
+            stdout is absent and logs.capture marks summary_missing; no arbitrary
+            tail is substituted. Empty logs are removed. This is a Python
+            capture option, not a native MEGAlib flag.
 
         Returns
         -------

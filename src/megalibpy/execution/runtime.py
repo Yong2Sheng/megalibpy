@@ -31,12 +31,6 @@ class MEGAlibRuntime:
         manifest and removes temporary native input files after execution.
         True retains source/configuration snapshots in inputs/. Setup helpers
         and executable-path handoff files are temporary in both modes.
-    log_mode : str, optional
-        Default "full" retains all stdout/stderr. "tail" retains a bounded tail
-        of each stream. Cosima may override this per simulate call with "summary".
-    log_tail_bytes : int, optional
-        Positive byte limit per retained stream in tail/summary mode, default
-        65536. Full mode streams to disk. Empty logs are removed in every mode.
 
     Attributes
     ----------
@@ -58,11 +52,9 @@ class MEGAlibRuntime:
     setup_script: Path | None = None
     bash: str = "bash"
     archive_inputs: bool = False
-    log_mode: str = "full"
-    log_tail_bytes: int = 65536
 
     @classmethod
-    def direct(cls, *, archive_inputs=False, log_mode="full", log_tail_bytes=65536):
+    def direct(cls, *, archive_inputs=False):
         """Select direct execution in the current process environment.
 
         Parameters
@@ -70,10 +62,6 @@ class MEGAlibRuntime:
         archive_inputs : bool, optional
             Default false stores configuration content in the manifest; true
             retains source/config files. Launch helpers are always temporary.
-        log_mode : str, optional
-            "full" (default) or "tail". Cosima accepts its own summary override.
-        log_tail_bytes : int, optional
-            Tail limit in bytes per stream, default 65536; must be positive.
 
         Returns
         -------
@@ -87,10 +75,10 @@ class MEGAlibRuntime:
         >>> runtime.setup_script is None
         True
         """
-        return cls(archive_inputs=archive_inputs, log_mode=log_mode, log_tail_bytes=log_tail_bytes)
+        return cls(archive_inputs=archive_inputs)
 
     @classmethod
-    def from_setup_script(cls, path, *, bash="bash", archive_inputs=False, log_mode="full", log_tail_bytes=65536):
+    def from_setup_script(cls, path, *, bash="bash", archive_inputs=False):
         """Select environment initialization in a separate Bash child.
 
         Parameters
@@ -106,10 +94,6 @@ class MEGAlibRuntime:
         archive_inputs : bool, optional
             False (default) stores source/configuration content in the manifest;
             true retains their files in inputs/. Helpers remain temporary.
-        log_mode : str, optional
-            "full" (default) or "tail"; Cosima can override with summary per call.
-        log_tail_bytes : int, optional
-            Positive byte cap per retained tail, default 65536.
 
         Returns
         -------
@@ -131,7 +115,7 @@ class MEGAlibRuntime:
         >>> runtime.setup_script.is_absolute()
         True
         """
-        return cls(Path(path).expanduser().resolve(), bash, archive_inputs, log_mode, log_tail_bytes)
+        return cls(Path(path).expanduser().resolve(), bash, archive_inputs)
 
     def launch(self, command, executable_record, *, tool_environment=None):
         """Build subprocess arguments and a child environment for an executor.

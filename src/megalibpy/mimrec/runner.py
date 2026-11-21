@@ -108,7 +108,7 @@ class Mimrec:
         self.executable = str(executable)
 
     def _run(self, operation, working_space, tra_path, output_dir, config_file,
-             geometry, task, output_name, timeout, isolate_settings, configuration, attempt):
+             geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode):
         if (working_space is None) == (tra_path is None):
             raise ValueError("Supply exactly one of working_space or tra_path")
         if tra_path is not None and output_dir is None:
@@ -211,13 +211,14 @@ class Mimrec:
                 "mimrec", target,
                 lambda attempt: _prepare(attempt, path, geometry, config, self.executable,
                                          operation, output_name, reference, configuration,
-                                         isolate_settings, config_base, original_path, config_content), timeout=timeout,
+                                         isolate_settings, config_base, original_path, config_content), timeout=timeout, log_mode=log_mode,
             )
         return experiment.execute("mimrec", task, execute, group=group, native_operation=operation)
 
     def extract_events(self, working_space=None, *, tra_path=None, output_dir=None,
                config_file=None, geometry=None, task="extract_events", output_name="events.tra.gz",
-               timeout=None, isolate_settings=False, attempt=None, **configuration):
+               timeout=None, isolate_settings=False, attempt=None,
+               log_mode="full", **configuration):
         """Extract selected events into a native TRA file (``-x``).
 
         Parameters
@@ -269,6 +270,12 @@ class Mimrec:
             Default none inherits the group from a selected Mimrec TRA result,
             or creates a new group for Revan/external input. Reopening a group
             uses its unique successful extraction, or its recorded entry input.
+        log_mode : str, optional
+            "full" (default) streams complete stdout/stderr without a byte cap.
+            Summary selection is currently available only for Cosima, whose
+            native boundary marker is defined. Empty logs are removed. This
+            Python option is never forwarded as a native -C setting.
+
         **configuration
             Native overrides: keyword underscores become dots, e.g.
             ``EventSelections_TimeMode=1`` becomes a separate
@@ -321,11 +328,12 @@ class Mimrec:
         ...     config_file="analysis.mimrec.cfg", task="extract_events")
         """
         return self._run("extract_events", working_space, tra_path, output_dir, config_file,
-                         geometry, task, output_name, timeout, isolate_settings, configuration, attempt)
+                         geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode)
 
     def image(self, working_space=None, *, tra_path=None, output_dir=None,
                config_file=None, geometry=None, task="image", output_name="image.root",
-               timeout=None, isolate_settings=False, attempt=None, **configuration):
+               timeout=None, isolate_settings=False, attempt=None,
+               log_mode="full", **configuration):
         """Reconstruct and save a native image (``-i``).
 
         Parameters
@@ -377,6 +385,12 @@ class Mimrec:
             Default none inherits the group from a selected Mimrec TRA result,
             or creates a new group for Revan/external input. Reopening a group
             uses its unique successful extraction, or its recorded entry input.
+        log_mode : str, optional
+            "full" (default) streams complete stdout/stderr without a byte cap.
+            Summary selection is currently available only for Cosima, whose
+            native boundary marker is defined. Empty logs are removed. This
+            Python option is never forwarded as a native -C setting.
+
         **configuration
             Native overrides: keyword underscores become dots, e.g.
             ``EventSelections_TimeMode=1`` becomes a separate
@@ -429,11 +443,12 @@ class Mimrec:
         ...     config_file="analysis.mimrec.cfg", task="image")
         """
         return self._run("image", working_space, tra_path, output_dir, config_file,
-                         geometry, task, output_name, timeout, isolate_settings, configuration, attempt)
+                         geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode)
 
     def spectrum(self, working_space=None, *, tra_path=None, output_dir=None,
                config_file=None, geometry=None, task="spectrum", output_name="spectrum.root",
-               timeout=None, isolate_settings=False, attempt=None, **configuration):
+               timeout=None, isolate_settings=False, attempt=None,
+               log_mode="full", **configuration):
         """Create a native selected-event energy spectrum (``-s``).
 
         Parameters
@@ -485,6 +500,12 @@ class Mimrec:
             Default none inherits the group from a selected Mimrec TRA result,
             or creates a new group for Revan/external input. Reopening a group
             uses its unique successful extraction, or its recorded entry input.
+        log_mode : str, optional
+            "full" (default) streams complete stdout/stderr without a byte cap.
+            Summary selection is currently available only for Cosima, whose
+            native boundary marker is defined. Empty logs are removed. This
+            Python option is never forwarded as a native -C setting.
+
         **configuration
             Native overrides: keyword underscores become dots, e.g.
             ``EventSelections_TimeMode=1`` becomes a separate
@@ -537,11 +558,12 @@ class Mimrec:
         ...     config_file="analysis.mimrec.cfg", task="spectrum")
         """
         return self._run("spectrum", working_space, tra_path, output_dir, config_file,
-                         geometry, task, output_name, timeout, isolate_settings, configuration, attempt)
+                         geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode)
 
     def arm(self, working_space=None, *, tra_path=None, output_dir=None,
                config_file=None, geometry=None, task="arm", output_name="arm.root",
-               timeout=None, isolate_settings=False, attempt=None, **configuration):
+               timeout=None, isolate_settings=False, attempt=None,
+               log_mode="full", **configuration):
         """Create the native gamma-ray ARM fit and plot (``-a``).
 
         Parameters
@@ -593,6 +615,12 @@ class Mimrec:
             Default none inherits the group from a selected Mimrec TRA result,
             or creates a new group for Revan/external input. Reopening a group
             uses its unique successful extraction, or its recorded entry input.
+        log_mode : str, optional
+            "full" (default) streams complete stdout/stderr without a byte cap.
+            Summary selection is currently available only for Cosima, whose
+            native boundary marker is defined. Empty logs are removed. This
+            Python option is never forwarded as a native -C setting.
+
         **configuration
             Native overrides: keyword underscores become dots, e.g.
             ``EventSelections_TimeMode=1`` becomes a separate
@@ -645,4 +673,4 @@ class Mimrec:
         ...     config_file="analysis.mimrec.cfg", task="arm")
         """
         return self._run("arm", working_space, tra_path, output_dir, config_file,
-                         geometry, task, output_name, timeout, isolate_settings, configuration, attempt)
+                         geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode)

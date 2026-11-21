@@ -217,8 +217,9 @@ Revan/Mimrec data groups use `stage/attempt-NNN`; see the
 
 For large batches, the default runtime stores source/cfg contents in the root
 manifest instead of retaining separate copies. Cosima references external
-orientation/geometry files without copying or hashing them by default. Use
-`MEGAlibRuntime.from_setup_script(..., log_mode="tail")` and
-`Cosima.simulate(..., log_mode="summary")` for bounded logs. Empty logs and
-temporary launch/path handoff files are removed. See the
+orientation/geometry files without copying or hashing them by default.
+Set `log_mode="summary"` directly on `Cosima.simulate()` to retain stdout from
+its final `Summary for run` line through EOF. The entire summary is preserved,
+without any byte cap or tail fallback; runtime setup has no logging options.
+Empty logs and temporary launch/path handoff files are removed. See the
 [recording guide](docs/workspaces.rst) for archival opt-in and retention details.
