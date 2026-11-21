@@ -38,8 +38,9 @@ Continue a selected reconstruction
 
    runtime = MEGAlibRuntime.from_setup_script("megalib-setup.sh")
    experiment = SimulationWorkspace("grb-localization-001")
-   reconstructed = experiment.select("revan", task="baseline")
-   mimrec = Mimrec(runtime)
+   reconstructed = experiment.select("revan", analysis_id="reconstruction-a")
+   mimrec = Mimrec(
+       runtime, revan_analysis_id="reconstruction-a", analysis_id="selection-a")
    selected = mimrec.extract_events(
        working_space=reconstructed,
        config_file="configurations/analysis.mimrec.cfg",
@@ -68,7 +69,7 @@ A Mimrec extraction must be passed explicitly as a result, or selected with
 silently switches from Revan to the most recent Mimrec output.
 
 Passing a selected Mimrec TRA result continues inside its data/configuration
-``mimrec/attempt-NNN`` group. Later image/spectrum/ARM calls may omit config_file
+``mimrec/<analysis_id>`` group. Later image/spectrum/ARM calls may omit config_file
 and inherit the saved configuration, geometry override, keyword overrides and
 original resource cwd. Each native call still has a distinct execution ID and logs.
 Explicit settings changes emit UserWarning and retain an immutable variant,
@@ -144,7 +145,7 @@ follow that HOME, without being rewritten.
 Outputs and execution records
 -----------------------------
 
-Mimrec writes ``mimrec/attempt-NNN`` data/configuration groups, with shared
+Mimrec writes ``mimrec/<analysis_id>`` data/configuration groups, with shared
 ``inputs/`` and ``logs/``. Operation/task labels name output directories inside
 the group, e.g. ``event-selected/events.tra.gz``, ``image-selected/image.png``
 and ``spectrum/spectrum.root``. See :doc:`workspaces` for the complete tree.
@@ -195,3 +196,23 @@ See :doc:`workspaces` for the default manifest-based source/config retention,
 temporary native inputs and launch helpers, optional archival mode and keyword-based
 summary capture. Empty logs are removed and their result paths are None. A physical
 configuration snapshot is retained only when runtime.archive_inputs is true.
+
+Parent and own analysis identifiers
+-----------------------------------
+
+Mimrec(runtime, revan_analysis_id="reconstruction-a", analysis_id="selection-b")
+uses the named Revan reconstruction as its parent and keeps its own data/config
+group under mimrec/selection-b. When analysis_id is omitted, it defaults to the
+provided Revan name. Construct once, then pass the workspace to extract_events,
+image, spectrum or arm without repeating either identifier.
+
+An existing unique successful extraction in the own group is selected first.
+Otherwise its recorded entry is used; a new group selects the supplied Revan
+parent. Actual execution UUIDs remain recorded in upstream, not just names.
+Contradicting the saved parent produces an error; multiple successful candidates
+require an explicit result/reference. The task parameter names an operation's
+output folder, not the analysis. Constructors do not run MEGAlib or create files.
+
+Use analysis_id="attempt-001" and the corresponding Revan parent name to reopen
+existing numbered groups without moving their products. Unbound result-based
+calls remain supported. See :doc:`workspaces` for complete rules.

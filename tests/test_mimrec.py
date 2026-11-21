@@ -365,3 +365,155 @@ def test_central_execution_directory_cannot_escape_workspace(analysis, tmp_path)
     selected.manifest_path.write_text(json.dumps(data))
     with pytest.raises(ValueError, match='within the workspace'):
         resolve_upstream(selected.as_input('tra'))
+
+
+def test_analysis_id_binds_group_without_repeating_identifier(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    runner = Mimrec(executable=tool, analysis_id='baseline')
+    root = tmp_path/'experiment'
+    assert not root.exists()
+    selected = runner.extract_events(tra_path=tra, output_dir=root, config_file=cfg, task='event-selected')
+    spectrum = runner.spectrum(selected, output_name='spectrum.png')
+    image = runner.image(working_space=root, task='image-selected', output_name='image.png')
+    assert selected.output_dir == spectrum.output_dir == image.output_dir == root/'mimrec/baseline'
+    assert selected.outputs['tra'][0] == root/'mimrec/baseline/event-selected/events.tra.gz'
+    assert read(image)['upstream'][0]['execution_id'] == selected.execution_id
+    assert read(spectrum)['upstream'][0]['execution_id'] == selected.execution_id
+    assert read(image)['configuration']['executed_sha256'] == read(selected)['configuration']['executed_sha256']
+    assert len({selected.execution_id,spectrum.execution_id,image.execution_id}) == 3
+    # Existing automatic groups continue working alongside user-named groups.
+    automatic = Mimrec(executable=tool).extract_events(tra_path=tra, output_dir=root, config_file=cfg)
+    assert automatic.output_dir.name == 'attempt-001'
+
+
+def test_two_named_analysis_groups_and_cross_workspace_scope(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    root = tmp_path/'experiment'
+    a = Mimrec(executable=tool, analysis_id='selection-a')
+    b = Mimrec(executable=tool, analysis_id='selection-b')
+    selected_a = a.extract_events(tra_path=tra, output_dir=root, config_file=cfg)
+    cfg_b = cfg.with_name('alternative.cfg')
+    cfg_b.write_bytes(b'another native configuration')
+    selected_b = b.extract_events(tra_path=tra, output_dir=root, config_file=cfg_b)
+    assert selected_a.output_dir != selected_b.output_dir
+    assert read(selected_a)['configuration']['executed_sha256'] != read(selected_b)['configuration']['executed_sha256']
+    assert a.image(selected_a).output_dir == selected_a.output_dir
+    assert b.spectrum(selected_b).output_dir == selected_b.output_dir
+    with pytest.raises(ValueError, match='different TRA input'):
+        a.image(selected_b)
+    other = a.extract_events(tra_path=tra, output_dir=tmp_path/'another-experiment', config_file=cfg_b)
+    assert other.output_dir == tmp_path/'another-experiment/mimrec/selection-a'
+
+
+@pytest.mark.parametrize('identifier', ['', '../outside', '/absolute', 'a/b', 'a b', 3])
+def test_invalid_analysis_id_is_rejected(identifier):
+    with pytest.raises(ValueError, match='analysis_id'):
+        Mimrec(analysis_id=identifier)
+
+
+def test_bound_analysis_id_reopens_old_numbered_group_and_rejects_conflict(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    selected = Mimrec(executable=tool).extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
+    reopened = Mimrec(executable=tool, analysis_id='attempt-001')
+    image = reopened.image(working_space=selected.workspace_dir)
+    assert image.output_dir == selected.output_dir
+    with pytest.raises(ValueError, match='conflicts'):
+        reopened.image(selected, attempt='attempt-002')
+
+
+def test_revan_and_mimrec_analysis_branches_keep_exact_chain(analysis, tmp_path):
+    _, cfg, tool = analysis
+    sim = tmp_path/'received.sim'
+    sim.write_bytes(b'one simulation origin')
+    root = tmp_path/'experiment'
+    a = Revan(executable=tool, analysis_id='branch-a').reconstruct(
+        sim_path=sim, output_dir=root, config_file=cfg)
+    b = Revan(executable=tool, analysis_id='branch-b').reconstruct(
+        working_space=root, config_file=cfg, TotalEnergy_Min=100)
+    ma = Mimrec(executable=tool, revan_analysis_id='branch-a')
+    mb = Mimrec(executable=tool, revan_analysis_id='branch-b')
+    selected_a = ma.extract_events(working_space=root, config_file=cfg)
+    selected_b = mb.extract_events(working_space=root, config_file=cfg)
+    image_a = ma.image(working_space=root)
+    image_b = mb.image(working_space=root)
+    for selected, reconstructed, image, identifier in (
+            (selected_a,a,image_a,'branch-a'), (selected_b,b,image_b,'branch-b')):
+        assert read(selected)['upstream'][0]['execution_id'] == reconstructed.execution_id
+        assert read(image)['upstream'][0]['execution_id'] == selected.execution_id
+        assert read(selected)['analysis_id'] == identifier
+        assert read(reconstructed)['analysis_id'] == identifier
+        assert SimulationWorkspace(root).select('revan', analysis_id=identifier).execution_id == reconstructed.execution_id
+        assert SimulationWorkspace(root).select('mimrec', analysis_id=identifier, operation='image').execution_id == image.execution_id
+    assert read(a)['configuration_overrides'] == []
+    assert read(b)['configuration_overrides'] == [{'parameter':'TotalEnergy.Min','value':'100'}]
+    assert json.loads((root/'manifest.json').read_text())['origin']['path'] == str(sim)
+
+
+def test_different_mimrec_names_can_share_one_explicit_revan_parent(analysis, tmp_path):
+    _, cfg, tool = analysis
+    sim = tmp_path/'events.sim'
+    sim.write_bytes(b'one origin')
+    root = tmp_path/'experiment'
+    reconstructed = Revan(executable=tool, analysis_id='reconstruction').reconstruct(
+        sim_path=sim, output_dir=root, config_file=cfg)
+    for name in ('selection-a','selection-b'):
+        runner = Mimrec(executable=tool, analysis_id=name)
+        selected = runner.extract_events(reconstructed, config_file=cfg)
+        image = runner.image(working_space=root)
+        assert read(selected)['upstream'][0]['execution_id'] == reconstructed.execution_id
+        assert read(image)['upstream'][0]['execution_id'] == selected.execution_id
+    # Reopening an image-only group preserves its explicitly registered parent,
+    # even though there is no same-name Revan group and no extraction output.
+    direct = Mimrec(executable=tool, analysis_id='projection-only')
+    image = direct.image(reconstructed, config_file=cfg)
+    spectrum = direct.spectrum(working_space=root)
+    assert read(image)['upstream'][0]['execution_id'] == reconstructed.execution_id
+    assert read(spectrum)['upstream'][0]['execution_id'] == reconstructed.execution_id
+    with pytest.raises(ValueError, match='revan_analysis_id is required'):
+        Mimrec(executable=tool, analysis_id='missing').image(working_space=root, config_file=cfg)
+
+
+def test_multiple_successful_extractions_require_explicit_execution(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    root = tmp_path/'experiment'
+    runner = Mimrec(executable=tool, analysis_id='baseline')
+    first = runner.extract_events(tra_path=tra, output_dir=root, config_file=cfg)
+    second = runner.extract_events(tra_path=tra, output_dir=root)
+    with pytest.raises(ValueError, match='found 2'):
+        runner.image(working_space=root)
+    image = runner.image(second)
+    assert read(image)['upstream'][0]['execution_id'] == second.execution_id
+    assert read(image)['upstream'][0]['execution_id'] != first.execution_id
+
+
+def test_explicit_revan_parent_and_independent_mimrec_analysis_names(analysis, tmp_path):
+    _, cfg, tool = analysis
+    sim = tmp_path/'events.sim'
+    sim.write_bytes(b'sim')
+    root = tmp_path/'experiment'
+    a = Revan(executable=tool, analysis_id='reconstruction-a').reconstruct(
+        sim_path=sim, output_dir=root, config_file=cfg)
+    b = Revan(executable=tool, analysis_id='reconstruction-b').reconstruct(
+        working_space=root, config_file=cfg)
+    for own in (None, 'selection-loose', 'selection-strict'):
+        runner = Mimrec(executable=tool, revan_analysis_id='reconstruction-a', analysis_id=own)
+        name = own or 'reconstruction-a'
+        assert runner.analysis_id == name
+        selected = runner.extract_events(working_space=root, config_file=cfg)
+        image = runner.image(working_space=root)
+        assert selected.output_dir == root/'mimrec'/name
+        assert read(selected)['revan_analysis_id'] == 'reconstruction-a'
+        assert read(selected)['analysis_id'] == name
+        assert read(selected)['upstream'][0]['execution_id'] == a.execution_id
+        assert read(image)['upstream'][0]['execution_id'] == selected.execution_id
+        assert read(image)['revan_analysis_id'] == 'reconstruction-a'
+        with pytest.raises(ValueError, match='Revan analysis mismatch'):
+            runner.extract_events(b)
+    with pytest.raises(ValueError, match='Revan analysis mismatch'):
+        Mimrec(executable=tool, revan_analysis_id='reconstruction-b', analysis_id='selection-loose').image(working_space=root)
+
+
+@pytest.mark.parametrize('identifier', ['', '../escape', 'a/b', 3])
+def test_invalid_revan_parent_identifier_is_rejected(identifier):
+    with pytest.raises(ValueError, match='revan_analysis_id'):
+        Mimrec(revan_analysis_id=identifier)

@@ -7,6 +7,8 @@ from megalibpy import MEGAlibRuntime, Mimrec, SimulationWorkspace
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--revan-analysis-id', default=None, help='Explicit upstream Revan analysis name')
+    parser.add_argument('--analysis-id', default=None, help='Bind a workspace-local analysis group')
     parser.add_argument('operation', choices=['extract_events', 'image', 'spectrum', 'arm'])
     inputs = parser.add_mutually_exclusive_group(required=True)
     inputs.add_argument('--working-space')
@@ -35,7 +37,7 @@ def main():
         options['task'] = args.task
     if args.output_name is not None:
         options['output_name'] = args.output_name
-    result = getattr(Mimrec(runtime), args.operation)(**options)
+    result = getattr(Mimrec(runtime, revan_analysis_id=args.revan_analysis_id, analysis_id=args.analysis_id), args.operation)(**options)
     print('Workspace:', result.workspace_dir)
     print('Manifest:', result.manifest_path)
     print('Stdout log:', result.stdout_path)

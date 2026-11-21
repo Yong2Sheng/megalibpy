@@ -10,6 +10,7 @@ def main():
     inputs = parser.add_mutually_exclusive_group(required=True)
     inputs.add_argument("--working-space", help="Existing experiment or Cosima directory")
     inputs.add_argument("--sim-path", help="External sim/evta file; requires --output-dir")
+    parser.add_argument('--analysis-id', default=None, help='Bind a workspace-local analysis group')
     parser.add_argument("--config", required=True, help="Native Revan configuration")
     parser.add_argument("--geometry", help="Optional -g override; otherwise use configuration geometry")
     parser.add_argument("--set", action="append", default=[], metavar="PATH=VALUE",
@@ -32,7 +33,7 @@ def main():
         configuration[key] = value
     runtime = (MEGAlibRuntime.from_setup_script(args.setup_script)
                if args.setup_script else MEGAlibRuntime.direct())
-    result = Revan(runtime).reconstruct(
+    result = Revan(runtime, analysis_id=args.analysis_id).reconstruct(
         working_space=args.working_space, sim_path=args.sim_path, output_dir=args.output_dir,
         config_file=args.config, geometry=args.geometry, task=args.task,
         compressed=not args.uncompressed, timeout=args.timeout,

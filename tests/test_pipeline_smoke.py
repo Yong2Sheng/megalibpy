@@ -43,12 +43,14 @@ else:
     assert {p.name for p in root.iterdir()} == {'manifest.json','cosima','revan','mimrec'}
     assert list(root.rglob('manifest.json')) == [root/'manifest.json']
     assert not (root/'cosima/attempt-001').exists()
+    assert all(r['analysis_id'] == 'baseline' for r in records[1:])
+    assert records[1]['data_group'] == 'revan/baseline'
     assert records[3]['data_group'] == records[4]['data_group'] == records[2]['data_group']
     assert records[3]['upstream'][0]['execution_id'] == records[2]['execution_id']
     assert records[4]['upstream'][0]['execution_id'] == records[2]['execution_id']
     assert all('manifest_snapshot' not in u for r in records for u in r['upstream'])
-    assert (root/'mimrec/attempt-001/spectrum/spectrum.png').is_file()
-    assert (root/'mimrec/attempt-001/image-selected/image.png').is_file()
+    assert (root/'mimrec/baseline/spectrum/spectrum.png').is_file()
+    assert (root/'mimrec/baseline/image-selected/image.png').is_file()
     assert records[2]['configuration']['content'] == config.read_text()
     assert all(r['configuration']['content'] == config.read_text() for r in records[2:])
     assert not list(root.rglob('*.cfg'))

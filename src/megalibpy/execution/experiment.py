@@ -105,7 +105,7 @@ class SimulationWorkspace:
             raise ValueError(f"Expected one successful {stage} result; found {len(successful)}")
         return self._result(*successful[0])
 
-    def select(self, stage="cosima", *, task=None, attempt=None, operation=None):
+    def select(self, stage="cosima", *, task=None, analysis_id=None, attempt=None, operation=None):
         """Select a unique successful execution, never an implicit latest result.
 
         Parameters
@@ -114,7 +114,11 @@ class SimulationWorkspace:
             Stage, default ``"cosima"``.
         task : str or None, optional
             Exact operation/task label; None considers all labels.
+        analysis_id : str or None, optional
+            Workspace-local Revan/Mimrec group name. None selects all groups.
+            Use operation as well when a Mimrec group has several operations.
         attempt : str or None, optional
+            Legacy group selector; conflicts with a different analysis_id.
             Data group basename, e.g. ``"attempt-001"``. Default none.
         operation : str or None, optional
             Native operation, e.g. ``"extract_events"`` or ``"image"``. Default none.
@@ -130,8 +134,14 @@ class SimulationWorkspace:
             No successful execution exists or the choice is ambiguous. Repeated
             successful operations require an explicit saved result/reference.
         """
+        if analysis_id is not None:
+            if attempt is not None and attempt != analysis_id:
+                raise ValueError("analysis_id conflicts with attempt")
+            attempt = analysis_id
         data = self._read()
         if data.get("schema_version") != 2 or data.get("kind") != "simulation_workspace":
+            if analysis_id is not None:
+                raise ValueError("Named analysis selection requires a schema-2 workspace; select a legacy result explicitly")
             return self._select_legacy(data, stage, task)
         origin = data.get("origin", {})
         if stage == "cosima" and origin.get("kind") == "cosima_reference":
@@ -258,7 +268,7 @@ class SimulationWorkspace:
             data = self._writable()
             previous = data["executions"][workspace.execution_id]
             record = {**record, **{k: previous[k] for k in
-                      ("task", "operation", "data_group", "execution_dir", "number", "reserved_output")}}
+                      ("task", "operation", "data_group", "execution_dir", "number", "reserved_output", "analysis_id")}}
             data["executions"][workspace.execution_id] = record
             group = data["groups"][record["data_group"]]
             if "origin" not in data and record.get("upstream"):
@@ -268,6 +278,8 @@ class SimulationWorkspace:
             if "input_file" in record and "input_file" not in group:
                 group["input_file"] = record["input_file"]
                 group["input_reference"] = record.get("upstream", [None])[0] if record.get("upstream") else None
+            if record.get("revan_analysis_id") is not None:
+                group.setdefault("revan_analysis_id", record["revan_analysis_id"])
             if "configuration" in record and "defaults" not in group:
                 group["defaults"] = {"configuration": record["configuration"],
                                      "geometry": record.get("geometry"),
@@ -296,7 +308,8 @@ class SimulationWorkspace:
         operation : callable
             Receives a managed Workspace and returns ExecutionResult.
         group : str or None, optional
-            Explicit existing stage-relative group; None allocates a new one.
+            Explicit stage-relative group name; creates it when absent. None
+            allocates a numbered group. Named groups never affect numeric allocation.
         native_operation : str or None, optional
             Native operation identity; defaults to stage.
 
@@ -328,16 +341,23 @@ class SimulationWorkspace:
                 group = "cosima"
             elif group is None:
                 number = 1 + max((int(Path(k).name.split('-')[-1]) for k in data["groups"]
-                                  if k.startswith(stage + '/')), default=0)
+                                  if k.startswith(stage + '/') and
+                                  re.fullmatch(r"attempt-[0-9]+", Path(k).name)), default=0)
                 group = f"{stage}/attempt-{number:03d}"
-            elif group not in data["groups"] or data["groups"][group]["stage"] != stage:
-                raise ValueError("Select an existing data group in the requested stage")
+            else:
+                parts = Path(group).parts
+                if len(parts) != 2 or parts[0] != stage or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", parts[1]):
+                    raise ValueError("Group must be a safe stage-relative name")
+                if group in data["groups"] and data["groups"][group]["stage"] != stage:
+                    raise ValueError("Select a data group in the requested stage")
             if group not in data["groups"]:
                 root = self.root / group
                 root.mkdir(parents=True, exist_ok=False)
                 for folder in ("inputs", "logs"):
                     (root / folder).mkdir()
                 data["groups"][group] = {"stage": stage, "group_id": str(uuid4())}
+            if stage in ("revan", "mimrec"):
+                data["groups"][group].setdefault("analysis_id", Path(group).name)
             root = self.root / group
             number = 1 + sum(r["data_group"] == group and r["operation"] == native_operation
                              for r in data["executions"].values())
@@ -348,7 +368,8 @@ class SimulationWorkspace:
             data["executions"][execution_id] = {
                 "execution_id": execution_id, "tool": stage, "status": "allocated",
                 "task": task, "operation": native_operation, "data_group": group,
-                "execution_dir": group, "number": number, "reserved_output": None}
+                "execution_dir": group, "number": number, "reserved_output": None,
+                "analysis_id": Path(group).name if stage in ("revan", "mimrec") else None}
             if stage == "cosima":
                 data["origin"] = {"kind": "cosima", "execution_id": execution_id}
             write_manifest(self.index_path, data)

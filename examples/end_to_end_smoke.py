@@ -14,6 +14,8 @@ def main():
     parser.add_argument('--mimrec-config', required=True)
     parser.add_argument('--geometry', default=None)
     parser.add_argument('--setup-script', default=None)
+    parser.add_argument('--analysis-id', default='baseline', help='Workspace-local Revan analysis name')
+    parser.add_argument('--mimrec-analysis-id', default=None, help='Mimrec name; defaults to the Revan analysis name')
     parser.add_argument('--archive-inputs', action='store_true', help='Retain source/cfg snapshots; default stores them in manifest')
     parser.add_argument('--cosima-log-mode', choices=['full','summary'], default='summary')
     parser.add_argument('--seed', type=int, default=12345)
@@ -33,10 +35,10 @@ def main():
         files = tuple(p for p in files if p.name == args.sim_entry)
     if len(files) != 1:
         parser.error('Select exactly one Cosima entry using --sim-entry; completed simulation is retained')
-    reconstructed = Revan(runtime).reconstruct(
+    reconstructed = Revan(runtime, analysis_id=args.analysis_id).reconstruct(
         simulated.as_input('sim', paths=files), config_file=args.revan_config,
         geometry=args.geometry, task='baseline', timeout=args.timeout)
-    mimrec = Mimrec(runtime)
+    mimrec = Mimrec(runtime, revan_analysis_id=args.analysis_id, analysis_id=args.mimrec_analysis_id)
     selected = mimrec.extract_events(
         reconstructed, config_file=args.mimrec_config, geometry=args.geometry,
         task='event-selected', timeout=args.timeout)

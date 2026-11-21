@@ -13,12 +13,12 @@ contains the origin, data groups and independent command execution records.
    │   ├── logs/
    │   └── products/
    ├── revan/
-   │   ├── attempt-001/              # one input/configuration group
+   │   ├── reconstruction-a/              # one input/configuration group
    │   │   │   ├── logs/
    │   │   └── products/events.tra.gz
-   │   └── attempt-002/...           # alternative reconstruction
+   │   └── reconstruction-b/...           # alternative reconstruction
    └── mimrec/
-       └── attempt-001/              # shared data and default configuration
+       └── selection-a/              # shared data and default configuration
            ├── logs/                 # separate numbered logs per command
            ├── event-selected/events.tra.gz
            ├── image-selected/image.png
@@ -26,8 +26,9 @@ contains the origin, data groups and independent command execution records.
            └── arm/arm.root
 
 Directories are created when needed. There are no empty stage directories or
-per-command manifests. ``attempt-NNN`` now identifies a data/configuration group,
-not one invocation of a native program. Each invocation retains its own
+per-command manifests. Named analysis groups identify data/configuration context,
+not one invocation of a native program. Unbound adapters retain automatic
+attempt-NNN grouping for compatibility. Each invocation retains its own
 ``execution_id``, command, status, logs, exact inputs and output paths.
 
 One Cosima per experiment
@@ -40,8 +41,9 @@ One Cosima per experiment
    experiment = SimulationWorkspace("grb-localization-001")
    simulated = Cosima(runtime).simulate(
        "burst.source", workspace=experiment, seed=12345)
-   reconstructed = Revan(runtime).reconstruct(
-       simulated, config_file="baseline.revan.cfg", task="baseline")
+   revan = Revan(runtime, analysis_id="reconstruction-a")
+   reconstructed = revan.reconstruct(
+       simulated, config_file="baseline.revan.cfg")
 
 ``Cosima.simulate(output_dir=...)`` also treats its destination as an experiment
 root. It creates ``cosima/inputs``, ``cosima/logs`` and ``cosima/products``.
@@ -60,13 +62,14 @@ Mimrec data groups and configuration reuse
 
 .. code-block:: python
 
-   mimrec = Mimrec(runtime)
+   mimrec = Mimrec(
+       runtime, revan_analysis_id="reconstruction-a", analysis_id="selection-a")
    selected = mimrec.extract_events(
        reconstructed, config_file="analysis.mimrec.cfg", task="event-selected")
    image = mimrec.image(selected, task="image-selected", output_name="image.png")
    spectrum = mimrec.spectrum(selected, output_name="spectrum.png")
 
-The first call creates ``mimrec/attempt-001`` and records its default native
+The first call creates ``mimrec/selection-a`` and records its default native
 configuration, explicit geometry selection, overrides and original resource cwd.
 Passing the extraction result continues in that same group. Omitting
 ``config_file`` reuses the manifest-recorded configuration and these defaults; the original
@@ -85,26 +88,52 @@ settings are the explicitly supplied overrides. With an omitted configuration,
 geometry/overrides inherit the group defaults; supplied keywords update those
 default overrides for this call. None of these changes rewrites the native cfg.
 
-Reopen a group explicitly:
+Reopen a named analysis without repeating identifiers:
 
 .. code-block:: python
 
+   mimrec = Mimrec(
+       runtime, revan_analysis_id="reconstruction-a", analysis_id="selection-a")
    image = mimrec.image(
-       working_space=experiment, attempt="attempt-001",
-       task="image-selected", output_name="image.png")
+       working_space=experiment, task="image-selected", output_name="image.png")
 
-If that group has one successful extraction, it is the input. Multiple successful
-extractions require an explicit result/reference. A group without extraction uses
-its recorded entry input. A different unrelated TRA requires a new group.
-Omitting ``attempt`` and passing a Revan result creates a new Mimrec group;
-passing a selected Mimrec TRA result continues its existing group.
+Input selection first uses the own Mimrec group's unique successful extraction.
+If none exists, it uses that group's exact registered input; for a new group it
+selects the explicit upstream ``revan_analysis_id``. Multiple candidates raise
+ambiguity errors; directory contents and mtimes never choose an upstream.
 
-Repeated operations retain previous products, add numbered output filenames and
-write separate numbered stdout/stderr logs in the shared ``logs/`` directory.
-A requested path that belongs to another execution is rejected, never overwritten.
-Task labels name operation output directories within a Mimrec group; they no
-longer sit above its attempt directory. Revan creates a new data group per call;
-its task label remains recorded and queryable.
+``revan_analysis_id`` names the upstream reconstruction; ``analysis_id`` names
+the Mimrec group. Omitting the latter defaults it to the former:
+
+.. code-block:: python
+
+   same_name = Mimrec(runtime, revan_analysis_id="reconstruction-a")
+   # own directory: mimrec/reconstruction-a
+   loose = Mimrec(runtime, revan_analysis_id="reconstruction-a", analysis_id="loose")
+   strict = Mimrec(runtime, revan_analysis_id="reconstruction-a", analysis_id="strict")
+
+Both differently named analyses can start from the same Revan result. A supplied
+parent name must match actual provenance, including when a result is passed
+explicitly or an existing extraction is reused. A named new Mimrec group entered
+through a workspace requires the Revan parent name; an explicit result can serve
+as the exact parent instead. External TRA input needs no invented Revan ID.
+
+Names are local to a workspace and stage, use letters/digits/underscores/hyphens,
+and start with a letter or digit. Constructors create no files and launch no
+commands. A runner can be reused with the same names in independent workspaces.
+Existing numbered groups can be reopened by using their basename as analysis_id;
+files are not renamed or moved.
+
+``task`` is distinct: for Mimrec it names an operation's output directory such as
+``event-selected`` or ``image-selected``. It does not select the analysis group.
+For Revan it remains a queryable operation label. An execution_id identifies one
+actual native command; each rerun gets another UUID and numbered output files.
+Reusing a named analysis never overwrites earlier products. Config variants
+produce a warning and preserve the saved baseline.
+
+Without bound names, Revan calls still allocate numbered groups, and Mimrec
+results carry group context as before. The method-level attempt selector is a
+legacy explicit selector; a value conflicting with a bound analysis_id is rejected.
 
 Central manifest and lineage
 ----------------------------
@@ -119,9 +148,9 @@ execution, or select it through an explicit ``ExecutionInput`` with its ID.
 
    print(image.record["command"])
    print(image.record["upstream"])
-   reconstructed = experiment.select("revan", task="baseline")
+   reconstructed = experiment.select("revan", analysis_id="reconstruction-a")
    selected = experiment.select(
-       "mimrec", attempt="attempt-001", operation="extract_events")
+       "mimrec", analysis_id="selection-a", operation="extract_events")
 
 Selection succeeds only for one successful candidate. It never guesses by file
 mtime, directory order or the latest result. Repeated successful commands may

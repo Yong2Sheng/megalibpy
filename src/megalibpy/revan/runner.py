@@ -2,10 +2,13 @@
 
 from dataclasses import replace
 from pathlib import Path
+import hashlib
+import re
+import warnings
 
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
-from ..execution.provenance import configuration_snapshot, file_record, read_execution, resolve_upstream
+from ..execution.provenance import configuration_snapshot, decode_content, file_record, read_execution, resolve_upstream, sha256
 
 
 def _event_file(path):
@@ -53,12 +56,15 @@ def _input(input_data):
 
 
 def _prepare(attempt, event_file, geometry, config, executable, compressed, reference,
-             overrides, isolate_settings):
-    executed, config_record = configuration_snapshot(attempt, config, "revan")
+             overrides, isolate_settings, config_content=None, config_base=None, original_path=None):
+    executed, config_record = configuration_snapshot(attempt, config, "revan", content=config_content, cwd=config_base, original_path=original_path)
     home = attempt.log_path("native-home")
     if isolate_settings:
         home.mkdir(exist_ok=True)
-    product = attempt.root / "products" / ("events.tra.gz" if compressed else "events.tra")
+    number = f"-{attempt.number:03d}" if attempt.number > 1 else ""
+    product = attempt.products_dir / (f"events{number}.tra.gz" if compressed else f"events{number}.tra")
+    if attempt.owner is not None:
+        attempt.owner._claim_product(attempt, product)
     command = [executable, "-c", str(executed), "-f", str(event_file), "-o", str(product)]
     if geometry is not None:
         command.extend(("-g", str(geometry)))
@@ -69,7 +75,7 @@ def _prepare(attempt, event_file, geometry, config, executable, compressed, refe
         command.extend(("-C", f"{name}={text}"))
         changes.append({"parameter": name, "value": text})
     command.extend(("-n", "-a"))
-    return ExecutionPlan(tuple(command), config.parent, {"tra": product.name}, {
+    return ExecutionPlan(tuple(command), config_base or config.parent, {"tra": product.name}, {
         "input_file": file_record(event_file, hash_limit=0),
         "configuration": {**config_record,
                           "settings_home": str(home.relative_to(attempt.root)) if isolate_settings else None},
@@ -85,6 +91,12 @@ class Revan:
     ----------
     runtime : MEGAlibRuntime or None, optional
         Shared direct/setup-script runtime. ``None`` selects direct execution.
+    analysis_id : str or None, optional
+        Workspace-local reconstruction analysis name, default none. A bound name
+        writes all calls to revan/<analysis_id> and reuses its recorded defaults
+        when config_file is omitted. None creates a numbered group per call.
+        Names use letters, digits, underscores and hyphens, starting with a
+        letter/digit. Construction creates no files and launches no process.
     executable : str or pathlib.Path, optional
         Native executable name or path, default ``"revan"``.
 
@@ -96,12 +108,16 @@ class Revan:
     fixed Python settings model is used.
     """
 
-    def __init__(self, runtime=None, *, executable="revan"):
+    def __init__(self, runtime=None, *, analysis_id=None, executable="revan"):
+        if analysis_id is not None and (not isinstance(analysis_id, str) or
+                                        not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", analysis_id)):
+            raise ValueError("analysis_id must contain letters, digits, '_' or '-' and start with a letter/digit")
+        self.analysis_id = analysis_id
         self.runtime = runtime if runtime is not None else MEGAlibRuntime.direct()
         self.executable = str(executable)
 
     def reconstruct(self, working_space=None, *, sim_path=None, output_dir=None,
-                    config_file, geometry=None,
+                    config_file=None, geometry=None,
                     task="default", compressed=True, timeout=None, isolate_settings=False,
                     log_mode="full", **configuration):
         """Reconstruct one native event file into a recorded ``tra`` product.
@@ -119,13 +135,16 @@ class Revan:
             Requires ``output_dir`` to establish an experiment root. The file
             stays in place; no simulation contents are read, copied or hashed.
             Any native continuation references remain MEGAlib's responsibility.
-        config_file : str or pathlib.Path
-            Required readable, nonempty native MEGAlib configuration. Original
+        config_file : str or pathlib.Path or None, optional
+            Readable, nonempty native MEGAlib configuration, required for a new
+            analysis. None (default) restores a bound analysis group's saved
+            bytes, original cwd, geometry and overrides. Original
             bytes are copied unchanged to the execution snapshot and passed to
             Revan via ``-c``. No syntax, field names or values are interpreted.
             Relative resources resolve from this file's parent directory.
         geometry : str or pathlib.Path or None, optional
-            Default none omits ``-g``, using the native configuration's geometry.
+            With explicit config_file, None (default) omits -g and uses the cfg
+            geometry. With inherited configuration it reuses the bound defaults.
             Otherwise forwarded unchanged to ``-g``; MEGAlib handles path
             expansion, opening and overriding. Python does not inspect the file.
             Relative paths use the child cwd (the configuration directory).
@@ -140,8 +159,9 @@ class Revan:
         task : str, optional
             Named reconstruction task, default ``"default"``. Workspace attempts
             are numbered under ``revan/``. Labels remain queryable metadata,
-            without another directory level. Each call creates a new group;
-            records from earlier executions are never overwritten.
+            without another directory level. With analysis_id bound, repeated
+            calls share that group and use numbered non-overwriting output files.
+            Without a bound ID, each call creates a new numbered group.
         compressed : bool, optional
             Default true produces ``products/events.tra.gz``; false uses ``.tra``.
             Compression is selected through the output suffix, not Cosima flags.
@@ -188,6 +208,12 @@ class Revan:
         KeyboardInterrupt
             Execution is interrupted; diagnostics are retained.
 
+        Warns
+        -----
+        UserWarning
+            Settings differ from a bound analysis group's defaults. The variant
+            is recorded without replacing its saved baseline.
+
         Notes
         -----
         By default, native Revan uses its usual HOME and settings. Optional
@@ -213,18 +239,55 @@ class Revan:
             path, reference, inherited = _input(working_space)
         if not path.name.endswith((".sim", ".sim.gz", ".evta", ".evta.gz")):
             raise ValueError("Selected product is not a Revan sim/evta input")
-        config = Path(config_file).expanduser().resolve()
+        experiment = SimulationWorkspace(output_dir) if output_dir is not None else inherited
+        if experiment is None:
+            raise ValueError("An explicit output_dir is required for this input reference")
+        group = "revan/" + self.analysis_id if self.analysis_id is not None else None
+        existing = group is not None and group in experiment._writable()["groups"]
+        defaults = experiment.group_defaults(group) if existing else None
+        if existing:
+            entry = experiment._writable()["groups"][group]
+            if "input_file" in entry and entry["input_file"]["path"] != str(path):
+                raise ValueError("A different sim/evta input requires a new Revan analysis_id")
+        config_content = None
+        config_base = None
+        original_path = None
+        if config_file is None:
+            if defaults is None:
+                raise ValueError("config_file is required when creating a Revan analysis group")
+            saved = defaults["configuration"]
+            config_content = decode_content(saved) if saved.get("content") is not None else None
+            config = Path(saved["original_path"]) if config_content is not None else experiment.root/group/saved["executed_snapshot"]
+            config_base = Path(saved["relative_path_base"])
+            original_path = saved["original_path"]
+            if geometry is None:
+                geometry = defaults["geometry"]
+            inherited_overrides = {p["parameter"].replace(".", "_"): p["value"]
+                                   for p in defaults["configuration_overrides"]}
+            inherited_overrides.update(configuration)
+            configuration = inherited_overrides
+        else:
+            config = Path(config_file).expanduser().resolve()
+        if defaults is not None:
+            changes = [{"parameter": k.replace("_", "."),
+                        "value": ("true" if v else "false") if isinstance(v, bool) else str(v)}
+                       for k,v in configuration.items()]
+            digest = hashlib.sha256(config_content).hexdigest() if config_content is not None else sha256(config)
+            if (digest != defaults["configuration"]["executed_sha256"] or
+                    (None if geometry is None else str(geometry)) != defaults["geometry"] or
+                    changes != defaults["configuration_overrides"] or
+                    str(config_base or config.parent) != defaults["configuration"]["relative_path_base"]):
+                warnings.warn("Revan settings differ from this analysis group's defaults; "
+                              "the variant is recorded without replacing defaults.", UserWarning, stacklevel=2)
 
         def execute(target):
             return Executor(self.runtime).execute(
                 "revan", target,
                 lambda attempt: _prepare(attempt, path, geometry, config, self.executable,
-                                         compressed, reference, configuration, isolate_settings),
+                                         compressed, reference, configuration, isolate_settings,
+                                         config_content, config_base, original_path),
                 timeout=timeout, log_mode=log_mode,
             )
-        experiment = SimulationWorkspace(output_dir) if output_dir is not None else inherited
-        if experiment is None:
-            raise ValueError("An explicit output_dir is required for this input reference")
         if reference is None:
             experiment.attach_sim(path)
         if reference is not None:
@@ -232,4 +295,4 @@ class Revan:
             if record.get("tool") == "cosima":
                 origin = inherited.select("cosima") if inherited is not None else SimulationWorkspace(Path(reference.manifest_path).parent).select("cosima")
                 experiment.attach_cosima(origin)
-        return experiment.execute("revan", task, execute)
+        return experiment.execute("revan", task, execute, group=group)

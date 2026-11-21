@@ -223,3 +223,21 @@ its final `Summary for run` line through EOF. The entire summary is preserved,
 without any byte cap or tail fallback; runtime setup has no logging options.
 Empty logs and temporary launch/path handoff files are removed. See the
 [recording guide](docs/workspaces.rst) for archival opt-in and retention details.
+
+Analysis branches can be bound once on the tool objects:
+
+```python
+revan = Revan(runtime, analysis_id="reconstruction-a")
+reconstructed = revan.reconstruct(
+    working_space=simulated, config_file="baseline.revan.cfg")
+mimrec = Mimrec(
+    runtime, revan_analysis_id="reconstruction-a", analysis_id="selection-b")
+selected = mimrec.extract_events(
+    working_space=experiment, config_file="analysis.mimrec.cfg", task="event-selected")
+spectrum = mimrec.spectrum(working_space=experiment, output_name="spectrum.png")
+```
+
+Omitting Mimrec's own `analysis_id` defaults it to `revan_analysis_id`. Existing
+extracted events in the own analysis are reused as input; otherwise the registered
+entry or explicit Revan parent is selected. `task` names an operation output
+folder; `execution_id` identifies one native command. See the workspace guide.

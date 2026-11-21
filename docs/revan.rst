@@ -1,12 +1,12 @@
 Revan event reconstruction
-===========================
+==========================
 
 ``Revan`` runs native event reconstruction with a native configuration and optional geometry override. Use ``working_space`` for an existing experiment/result, or ``sim_path`` with
 ``output_dir`` to start an experiment from an external event file.
 The native MEGAlib installation must provide ``revan``; PyROOT is not imported.
 
 Continue an existing simulation in a notebook
-----------------------------------------------
+---------------------------------------------
 
 An existing Cosima execution directory can be used directly:
 
@@ -41,7 +41,7 @@ to the input event file. Revan selects compression from the output suffix;
 ``compressed=False`` produces ``events.tra`` instead of ``events.tra.gz``.
 
 Configuration handling
------------------------
+----------------------
 
 ``config_file`` is required. Python checks that the supplied
 configuration is a readable, nonempty file, archives its bytes and passes an
@@ -67,7 +67,7 @@ MEGAlib and the caller control native configuration resources; event input and
 output flags remain explicit.
 
 Changing configuration
-------------------------
+----------------------
 
 Pass arbitrary native setting paths as Python keyword arguments:
 
@@ -108,7 +108,7 @@ No automatic configuration optimization, queueing or branch visualization is
 performed. See :doc:`workspaces` for selection and index behavior.
 
 Native settings isolation
----------------------------
+-------------------------
 
 Default execution retains the native HOME and normal settings behavior,
 including Revan's reading/writing of ``~/.revan.cfg``. The wrapper does not
@@ -121,7 +121,7 @@ then use that private directory. The caller's environment stays unchanged.
 The CLI equivalent is ``--isolate-settings``.
 
 Explicit inputs and multiple files
-------------------------------------
+----------------------------------
 
 A Cosima result with exactly one declared simulation file can be passed directly:
 
@@ -151,7 +151,7 @@ wrapper does not claim to merge independently generated simulation shards, and
 it does not recursively archive native event-file continuations.
 
 External files and explicit destinations
-------------------------------------------
+----------------------------------------
 
 Use exactly one input entry point:
 
@@ -197,7 +197,7 @@ Existing experiments can optionally be referenced into a new destination with
 with another Cosima origin. ``.tra`` files belong to the later analysis adapter.
 
 Records, failures and capture limits
---------------------------------------
+------------------------------------
 
 Successful calls return ``ExecutionResult`` with ``outputs["tra"]``, logs,
 execution ID, manifest path and, for managed executions, ``workspace_dir``.
@@ -215,7 +215,7 @@ failed attempts. Output checks are operational only; no image, event content or
 scientific validation is performed by this adapter.
 
 Command-line example
-----------------------
+--------------------
 
 .. code-block:: bash
 
@@ -234,7 +234,8 @@ Current workspace layout
 ------------------------
 
 See :doc:`workspaces` for the authoritative data-oriented layout. Revan calls
-create numbered ``revan/attempt-NNN`` groups without a task directory level.
+use ``revan/<analysis_id>`` when bound, or numbered ``revan/attempt-NNN``
+groups when unbound, without a task directory level.
 The task label remains queryable metadata. All executions are stored in the
 root manifest; use ``result.record`` to read one command by execution ID.
 Mimrec may reuse the selected reconstructed data across extraction and analysis.
@@ -246,3 +247,25 @@ See :doc:`workspaces` for the default manifest-based source/config retention,
 temporary native inputs and launch helpers, optional archival mode and keyword-based
 summary capture. Empty logs are removed and their result paths are None. A physical
 configuration snapshot is retained only when runtime.archive_inputs is true.
+
+Named reconstruction analyses
+-----------------------------
+
+Bind a stable workspace-local analysis_id when constructing Revan:
+
+.. code-block:: python
+
+   revan = Revan(runtime, analysis_id="reconstruction-a")
+   reconstructed = revan.reconstruct(
+       working_space=cosima_result, config_file="baseline.revan.cfg")
+
+The directory is revan/reconstruction-a. A second constructor with another ID
+creates an independent reconstruction branch from the same Cosima data.
+Repeated calls on one named analysis reuse saved settings when config_file is
+omitted, retain distinct execution IDs and write numbered non-overwriting
+products. Explicit setting changes warn and retain the baseline. A different
+sim/evta entry requires another analysis ID.
+
+Mimrec can select this parent through revan_analysis_id. Its own analysis_id may
+be different, enabling several selection/imaging branches per reconstruction.
+See :doc:`workspaces` for the distinction between analysis_id, task and execution_id.

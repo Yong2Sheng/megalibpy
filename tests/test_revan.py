@@ -381,3 +381,55 @@ def test_external_sim_root_can_be_reopened_and_keeps_origin(reconstruction, tmp_
         runner.reconstruct(working_space=source, config_file=cfg)
     with pytest.raises(ValueError, match="origin"):
         SimulationWorkspace(root).execute("cosima", "simulation", lambda p: None)
+
+
+def test_revan_analysis_binding_branching_defaults_and_non_overwrite(reconstruction, tmp_path):
+    source, cfg, geometry, tool = reconstruction
+    root = tmp_path/'experiment'
+    runner = Revan(executable=tool, analysis_id='baseline')
+    assert not root.exists()
+    first = runner.reconstruct(sim_path=source, output_dir=root, config_file=cfg, geometry=geometry)
+    original = first.outputs['tra'][0].read_bytes()
+    cfg.unlink()
+    second = runner.reconstruct(working_space=root)
+    assert first.output_dir == second.output_dir == root/'revan/baseline'
+    assert first.outputs['tra'][0].name == 'events.tra.gz'
+    assert second.outputs['tra'][0].name == 'events-002.tra.gz'
+    assert first.outputs['tra'][0].read_bytes() == original
+    assert read(second)['configuration']['executed_sha256'] == read(first)['configuration']['executed_sha256']
+    assert read(second)['geometry'] == str(geometry)
+    assert read(second)['analysis_id'] == 'baseline'
+    with pytest.raises(ValueError, match='found 2'):
+        SimulationWorkspace(root).select('revan', analysis_id='baseline')
+    cfg_b = tmp_path/'b.cfg'
+    cfg_b.write_bytes(b'native alternative configuration')
+    alternative = Revan(executable=tool, analysis_id='alternative').reconstruct(
+        working_space=root, config_file=cfg_b)
+    assert alternative.output_dir == root/'revan/alternative'
+    assert SimulationWorkspace(root).select('revan', analysis_id='alternative').execution_id == alternative.execution_id
+    assert len(json.loads((root/'manifest.json').read_text())['groups']) == 2
+    automatic = Revan(executable=tool).reconstruct(working_space=root, config_file=cfg_b)
+    assert automatic.output_dir.name == 'attempt-001'
+
+
+def test_revan_analysis_change_warns_and_different_input_is_rejected(reconstruction, tmp_path):
+    source, cfg, _, tool = reconstruction
+    root = tmp_path/'experiment'
+    runner = Revan(executable=tool, analysis_id='baseline')
+    first = runner.reconstruct(sim_path=source, output_dir=root, config_file=cfg)
+    with pytest.warns(UserWarning, match='settings differ'):
+        changed = runner.reconstruct(working_space=root, TotalEnergy_Min=100)
+    assert read(changed)['configuration_overrides'] == [{'parameter':'TotalEnergy.Min','value':'100'}]
+    again = runner.reconstruct(working_space=root)
+    assert read(again)['configuration_overrides'] == []
+    assert read(first)['configuration_overrides'] == []
+    other = tmp_path/'other.sim'
+    other.write_bytes(b'other input')
+    with pytest.raises(ValueError, match='different sim/evta'):
+        runner.reconstruct(sim_path=other, output_dir=root, config_file=cfg)
+
+
+@pytest.mark.parametrize('identifier', ['', '../escape', 'a/b', 'space name', 2])
+def test_invalid_revan_analysis_id_is_rejected(identifier):
+    with pytest.raises(ValueError, match='analysis_id'):
+        Revan(analysis_id=identifier)
