@@ -209,6 +209,19 @@ native files. Component workflows will be added after basic native validation.
 See the [Mimrec guide](docs/mimrec.rst), [API reference](docs/api/index.rst) and
 [command-line example](examples/mimrec_analysis.py).
 
+Read numerical ROOT products into memory with `extract_spectrum(result_or_path,
+runtime=runtime)` and `extract_image(result_or_path, runtime=runtime)`, imported
+from `megalibpy`. PyROOT runs in a separate ROOT-compatible Python process;
+the analysis environment never imports another environment's PyROOT.
+Spectrum results preserve bin edges, contents and units; `total_counts`
+integrates verified counts/keV by bin width. Image `peak_position` is the maximum
+pixel's native bin center, while `peak_galactic_position` is provided separately
+only when the file contains a verified coordinate mapping. Neither is a centroid.
+Use `list_root_objects` and an explicit `object_path` for files with multiple
+histograms. No additional data files are saved by these functions. See the
+[ROOT extraction guide](docs/mimrec.rst#extract-numerical-root-results) for examples
+and the limits of units and projection detection.
+
 For a complete simulation → reconstruction → event selection → spectrum/image
 smoke test, use [the full-chain example](examples/end_to_end_smoke.py).
 A workspace has one root manifest and one Cosima simulation under `cosima/`.

@@ -81,6 +81,32 @@ names its Revan parent and own analysis; see :doc:`../workspaces`.
 .. autoclass:: Mimrec
    :members: extract_events, image, spectrum, arm
 
+Mimrec ROOT data extraction
+---------------------------
+
+These functions read files on demand in an isolated ROOT Python subprocess.
+See :doc:`../mimrec` for units, object selection and coordinate limits.
+
+.. autofunction:: list_root_objects
+
+.. autofunction:: extract_spectrum
+
+.. autofunction:: extract_image
+
+.. autoclass:: ROOTObject
+   :members:
+
+.. autoclass:: HistogramAxis
+   :members:
+
+.. autoclass:: SpectrumData
+   :members:
+
+.. autoclass:: ImageData
+   :members:
+
+.. autoexception:: ROOTExtractionError
+
 Experiment workspace
 --------------------
 

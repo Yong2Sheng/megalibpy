@@ -165,7 +165,8 @@ extraction uses its recorded entry input. Unrelated TRA data needs a new group.
 ``output_name`` chooses a filename in the operation directory. Extraction accepts
 ``.tra`` or ``.tra.gz``; native compression follows the suffix. Plot outputs default
 to ``.root`` and remain native objects/canvases; native-supported suffixes such
-as ``.png`` can be requested. No PyROOT or Python ROOT-array conversion is added.
+as ``.png`` can be requested. The native runner does not load PyROOT; the
+separate extraction functions below read ROOT products on demand.
 
 Failures retain separate execution records and logs in the same group.
 ExecutionError exposes the root manifest and failed execution_id. Zero native
@@ -178,8 +179,9 @@ Scope and next steps
 These are independent operations. Component merging, ``add_external_components``,
 reusable workflows and repeated localization studies are planned separately.
 No automatic background selection, time alignment or flux/exposure scaling is
-performed. ROOT object discovery and scientific result extraction are also
-separate future work. See :doc:`api/index` for full signatures.
+performed. Spectrum/image bin extraction is available below; centroid fitting,
+ARM fitting and other scientific inference remain separate work.
+See :doc:`api/index` for full signatures.
 
 A command-line example is provided in ``examples/mimrec_analysis.py``:
 
@@ -242,3 +244,140 @@ again. These are new Mimrec executions, not a conversion of the PNG:
 
 The files remain in the same Mimrec analysis group and the manifest records each
 new execution. Existing PNG products remain available.
+
+Extract numerical ROOT results
+------------------------------
+
+``extract_spectrum`` and ``extract_image`` accept either a returned
+``ExecutionResult`` or a ROOT filename. They return NumPy arrays and metadata
+in memory, without creating CSV, TSV, PNG or persistent cache files. They do
+not modify the input file, workspace or manifest, and do not rerun Mimrec.
+
+PyROOT is loaded **only in a separate subprocess**. Keep the analysis environment
+(for example Python 3.12) separate from the MEGAlib/ROOT environment (for example
+Python 3.10). The child runs a standalone bundled reader using only the standard
+library and PyROOT; it does not require megalibpy or its analysis dependencies.
+Do not add the other environment's PyROOT site-packages to the analysis Python.
+uproot alone cannot read the Canvas contents of the verified Mimrec samples.
+
+For a setup script that activates MEGAlib and its ROOT-compatible Python:
+
+.. code-block:: python
+
+   from megalibpy import (
+       MEGAlibRuntime, extract_spectrum, extract_image, list_root_objects,
+   )
+
+   runtime = MEGAlibRuntime.from_setup_script("megalib-setup.sh")
+   # spectrum_root/image_root are the native ExecutionResult objects above.
+   spectrum = extract_spectrum(spectrum_root, runtime=runtime)
+   energy_edges = spectrum.axis.edges
+   spectral_values = spectrum.values
+   print(spectrum.axis.unit, spectrum.value_unit, spectrum.total_counts)
+
+   image = extract_image(image_root, runtime=runtime)
+   print(image.peak_position)           # original histogram (x, y) bin center
+   print(image.peak_galactic_position)  # verified (l, b) in degrees, or None
+   print(image.coordinate_system, image.projection)
+
+By default setup mode resolves ``python`` after sourcing the script. If the
+script does not activate the matching Python, supply
+``root_python="/path/to/root-environment/bin/python"`` as well. Direct mode
+defaults to the calling Python executable, still in a child process; use
+``root_python`` to select a different ROOT-compatible interpreter. The child
+requires Python >=3.10. Each call has a 120-second timeout by default; pass
+``timeout=None`` to disable it. Native/setup diagnostics are isolated from the
+structured response. All temporary transport files are removed after the call.
+
+Spectrum units and counts
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``spectrum.axis.edges`` has N+1 energy edges; ``axis.widths`` and ``axis.centers``
+are derived without assuming uniform or logarithmic bins. ``values`` contains
+the original N regular-bin contents. ROOT titles are retained verbatim;
+bracketed units are preserved, and absent units remain unknown.
+
+For the native ``counts / keV`` spectrum with ``Energy [keV]``, total counts is:
+
+.. math::
+
+   N = \sum_i h_i (E_{i+1} - E_i).
+
+``total_counts`` applies this only to recognized exact count-density labels
+(``counts/keV``, ``count/keV``, ``cts/keV``, ignoring whitespace/case), with a
+``keV`` X unit. Exact count labels (``counts``, ``count``, ``cts``) are summed
+without multiplying by widths. Unknown labels, rates, normalized histograms,
+or inconsistent energy units raise ``ValueError`` when total_counts is requested.
+They remain extractable without silently assigning a count interpretation.
+This relies on the histogram's labels: mislabeled data cannot be validated by
+this reader. No exposure or flux scaling is performed. Underflow/overflow
+contents are returned separately in ``flow_values`` and excluded from counts.
+
+Image coordinates and peak definition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``image.values`` has shape ``(Nx, Ny)`` and uses ``values[ix, iy]``. The X/Y edges
+retain native histogram coordinates. ``peak_position`` is the arithmetic center
+of the unique maximum finite pixel; it is **not a centroid**, a fitted position
+or a sub-pixel estimate. NaN/Inf pixels are excluded from peak selection. Tied
+maxima or an image without finite pixels raise ``ValueError`` on peak access.
+
+For plotting the unmodified native grid, the caller can explicitly use:
+
+.. code-block:: python
+
+   import matplotlib.pyplot as plt
+   plt.pcolormesh(image.x_axis.edges, image.y_axis.edges, image.values.T)
+
+The verified rectangular Galactic Mimrec image stores reversed pixel contents
+and a separate ``TGaxis`` for longitude. The reader inspects this axis's actual
+endpoints and label range to recover an affine mapping, rather than copying
+the old sign-change rule. ``peak_galactic_position`` applies that mapping and
+wraps longitude to [0, 360). This supports nonzero longitude offsets too.
+The histogram bins themselves remain unchanged.
+
+A Galactic Latitude [deg] Y axis and a unique, explicit, linear Galactic
+Longitude [deg] TGaxis spanning the histogram are required for that mapping.
+Unrecognized, nonlinear and Hammer projections stay ``unknown`` and return
+None for ``peak_galactic_position``. There is no inferred SkyCoord frame,
+equatorial transformation or inverse Hammer projection.
+This behavior follows the official
+`MImageGalactic implementation <https://github.com/zoglauer/megalib/blob/11b797167eecb88ae84b63a852edf5a466d964ae/src/mimrec/src/MImageGalactic.cxx>`_.
+The native spectrum density normalization is implemented in
+`MInterfaceMimrec <https://github.com/zoglauer/megalib/blob/11b797167eecb88ae84b63a852edf5a466d964ae/src/mimrec/src/MInterfaceMimrec.cxx>`_.
+
+Selecting ROOT objects explicitly
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The reader recursively visits TDirectory keys, Canvas and nested Pad primitives,
+identifies TH1/TH2 by ROOT inheritance and dimension, and excludes profiles and
+TH3. It does not depend on key order or fixed primitive indices. Every stored key
+cycle remains a candidate; multiple matching histograms require explicit choice:
+
+.. code-block:: python
+
+   objects = list_root_objects("spectrum.root", runtime=runtime)
+   for obj in objects:
+       print(obj.object_path, obj.class_name, obj.x_title, obj.y_title)
+
+   spectrum = extract_spectrum(
+       "spectrum.root", runtime=runtime,
+       object_path="c1;1/EnergySpectrum",  # use the path actually listed above
+   )
+
+Selectors include directory key cycles and the Canvas/Pad hierarchy. Names are
+URL-escaped; repeated primitive names have explicit occurrence suffixes. A
+result containing multiple ROOT products also requires an explicit file path.
+Neither file modification times nor a latest-cycle heuristic select data.
+
+Verified scope
+~~~~~~~~~~~~~~
+
+The 2026-11-22 implementation was checked locally with a Python 3.12 caller and
+a separate Python 3.10/ROOT reader against user-supplied native Mimrec Canvas
+spectrum and rectangular Galactic image files. This validates bin extraction
+for those samples; it does not establish every MEGAlib version/projection or
+scientific localization accuracy. Portable tests cover numerical contracts;
+real ROOT integration tests generate synthetic files when
+``MEGALIBPY_ROOT_PYTHON`` identifies a ROOT-compatible executable. The normal
+CI environment does not install ROOT and skips those optional integration tests.
