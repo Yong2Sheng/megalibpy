@@ -381,3 +381,9 @@ scientific localization accuracy. Portable tests cover numerical contracts;
 real ROOT integration tests generate synthetic files when
 ``MEGALIBPY_ROOT_PYTHON`` identifies a ROOT-compatible executable. The normal
 CI environment does not install ROOT and skips those optional integration tests.
+
+The user subsequently verified both extraction APIs on Palmetto: spectrum
+``total_counts`` agrees with the event-extraction log, and the image
+``peak_galactic_position`` lies close to the injected source coordinates.
+This validates the tested spectrum and rectangular Galactic image workflow;
+it does not establish a localization uncertainty or coverage of other projections.
