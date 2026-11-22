@@ -153,7 +153,9 @@ and ``spectrum/spectrum.root``. See :doc:`workspaces` for the complete tree.
 Only the root manifest stores command records. Use result.record to read an
 individual execution by ID. Same-workspace upstreams use ID links; external
 selected execution records are snapshotted. Multiple consumers preserve the
-same extraction ID. Repeated operations keep old products and use numbered names.
+same extraction ID. Repeated operations keep old products. Requested filenames are retained unless
+the exact output path exists or is reserved in the manifest; only conflicts gain
+-002, -003, etc. before the extension. Log numbering counts executions separately.
 
 Reopen a saved group with ``working_space=experiment, attempt="attempt-001"``.
 A unique successful extraction is selected; multiple successes require an explicit
@@ -216,3 +218,27 @@ output folder, not the analysis. Constructors do not run MEGAlib or create files
 Use analysis_id="attempt-001" and the corresponding Revan parent name to reopen
 existing numbered groups without moving their products. Unbound result-based
 calls remain supported. See :doc:`workspaces` for complete rules.
+
+ROOT data and rendered plots
+----------------------------
+
+For numerical spectrum or localization analysis, retain ``spectrum.root`` and
+``image.root`` (the method defaults). The full-chain smoke example defaults to
+these ROOT products. Passing ``output_name="spectrum.png"`` or
+``output_name="image.png"`` asks native Mimrec to save a rendered image instead;
+it does not also save a ROOT file. PNG pixels do not preserve the histogram bins
+and metadata required for numerical analysis.
+
+To recover ROOT products after a PNG-only run, reuse the exact successful
+extraction result and the saved configuration; Cosima and Revan need not run
+again. These are new Mimrec executions, not a conversion of the PNG:
+
+.. code-block:: python
+
+   spectrum_root = mimrec.spectrum(
+       working_space=selected, output_name="spectrum.root")
+   image_root = mimrec.image(
+       working_space=selected, task="image-selected", output_name="image.root")
+
+The files remain in the same Mimrec analysis group and the manifest records each
+new execution. Existing PNG products remain available.

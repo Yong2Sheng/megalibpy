@@ -49,8 +49,8 @@ else:
     assert records[3]['upstream'][0]['execution_id'] == records[2]['execution_id']
     assert records[4]['upstream'][0]['execution_id'] == records[2]['execution_id']
     assert all('manifest_snapshot' not in u for r in records for u in r['upstream'])
-    assert (root/'mimrec/baseline/spectrum/spectrum.png').is_file()
-    assert (root/'mimrec/baseline/image-selected/image.png').is_file()
+    assert (root/'mimrec/baseline/spectrum/spectrum.root').is_file()
+    assert (root/'mimrec/baseline/image-selected/image.root').is_file()
     assert records[2]['configuration']['content'] == config.read_text()
     assert all(r['configuration']['content'] == config.read_text() for r in records[2:])
     assert not list(root.rglob('*.cfg'))

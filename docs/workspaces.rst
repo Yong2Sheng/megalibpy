@@ -21,8 +21,8 @@ contains the origin, data groups and independent command execution records.
        └── selection-a/              # shared data and default configuration
            ├── logs/                 # separate numbered logs per command
            ├── event-selected/events.tra.gz
-           ├── image-selected/image.png
-           ├── spectrum/spectrum.png
+           ├── image-selected/image.root
+           ├── spectrum/spectrum.root
            └── arm/arm.root
 
 Directories are created when needed. There are no empty stage directories or
@@ -85,8 +85,8 @@ Mimrec data groups and configuration reuse
        revan_analysis_id="reconstruction-a", analysis_id="selection-a")
    selected = mimrec.extract_events(
        config_file="analysis.mimrec.cfg", task="event-selected")
-   image = mimrec.image(task="image-selected", output_name="image.png")
-   spectrum = mimrec.spectrum(output_name="spectrum.png")
+   image = mimrec.image(task="image-selected", output_name="image.root")
+   spectrum = mimrec.spectrum(output_name="spectrum.root")
 
 The first call creates ``mimrec/selection-a`` and records its default native
 configuration, explicit geometry selection, overrides and original resource cwd.
@@ -115,7 +115,7 @@ Reopen a named analysis without repeating identifiers:
        runtime, working_space=experiment,
        revan_analysis_id="reconstruction-a", analysis_id="selection-a")
    image = mimrec.image(
-       task="image-selected", output_name="image.png")
+       task="image-selected", output_name="image.root")
 
 Input selection first uses the own Mimrec group's unique successful extraction.
 If none exists, it uses that group's exact registered input; for a new group it
@@ -147,7 +147,12 @@ files are not renamed or moved.
 ``task`` is distinct: for Mimrec it names an operation's output directory such as
 ``event-selected`` or ``image-selected``. It does not select the analysis group.
 For Revan it remains a queryable operation label. An execution_id identifies one
-actual native command; each rerun gets another UUID and numbered output files.
+actual native command; each rerun gets another UUID and independent log number.
+Output names depend on the requested path, not operation count: spectrum.png
+and spectrum.root can both keep their names. Only an existing or manifest-reserved
+path receives a suffix such as spectrum-002.root, then spectrum-003.root.
+The same filename in another output directory does not conflict. Recorded
+reservations remain protected even when the corresponding file has been removed.
 Reusing a named analysis never overwrites earlier products. Config variants
 produce a warning and preserve the saved baseline.
 

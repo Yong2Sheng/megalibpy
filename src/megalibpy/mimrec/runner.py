@@ -85,13 +85,9 @@ def _prepare(attempt, event_file, geometry, config, executable, operation, outpu
     home = attempt.log_path("native-home")
     if isolate_settings:
         home.mkdir(exist_ok=True)
-    if attempt.owner is not None and attempt.number > 1:
-        path = Path(output_name)
-        suffix = ".tra.gz" if output_name.endswith(".tra.gz") else path.suffix
-        output_name = f"{output_name[:-len(suffix)]}-{attempt.number:03d}{suffix}"
     product = attempt.products_dir / output_name
     if attempt.owner is not None:
-        attempt.owner._claim_product(attempt, product)
+        product = attempt.owner._claim_product(attempt, product)
     command = [executable, "-c", str(executed), "-f", str(event_file), "-o", str(product)]
     if geometry is not None:
         command.extend(("-g", str(geometry)))
@@ -337,7 +333,9 @@ class Mimrec:
             checks or snapshots are performed by Python.
         task : str, optional
             Task label, default ``"extract_events"``. Labels name output directories inside a data group. Repeated
-            operations get independent execution IDs and numbered output filenames.
+            operations get independent execution IDs. Requested output filenames are
+            preserved unless already present or reserved; conflicts use -002,
+            -003, etc. before the extension. Log numbering remains independent.
         output_name : str, optional
             Filename inside this group's task output directory, default
             ``"events.tra.gz"``. Extraction requires ``.tra`` or ``.tra.gz``;
@@ -457,7 +455,9 @@ class Mimrec:
             checks or snapshots are performed by Python.
         task : str, optional
             Task label, default ``"image"``. Labels name output directories inside a data group. Repeated
-            operations get independent execution IDs and numbered output filenames.
+            operations get independent execution IDs. Requested output filenames are
+            preserved unless already present or reserved; conflicts use -002,
+            -003, etc. before the extension. Log numbering remains independent.
         output_name : str, optional
             Filename inside this group's task output directory, default
             ``"image.root"``. Extraction requires ``.tra`` or ``.tra.gz``;
@@ -577,7 +577,9 @@ class Mimrec:
             checks or snapshots are performed by Python.
         task : str, optional
             Task label, default ``"spectrum"``. Labels name output directories inside a data group. Repeated
-            operations get independent execution IDs and numbered output filenames.
+            operations get independent execution IDs. Requested output filenames are
+            preserved unless already present or reserved; conflicts use -002,
+            -003, etc. before the extension. Log numbering remains independent.
         output_name : str, optional
             Filename inside this group's task output directory, default
             ``"spectrum.root"``. Extraction requires ``.tra`` or ``.tra.gz``;
@@ -697,7 +699,9 @@ class Mimrec:
             checks or snapshots are performed by Python.
         task : str, optional
             Task label, default ``"arm"``. Labels name output directories inside a data group. Repeated
-            operations get independent execution IDs and numbered output filenames.
+            operations get independent execution IDs. Requested output filenames are
+            preserved unless already present or reserved; conflicts use -002,
+            -003, etc. before the extension. Log numbering remains independent.
         output_name : str, optional
             Filename inside this group's task output directory, default
             ``"arm.root"``. Extraction requires ``.tra`` or ``.tra.gz``;

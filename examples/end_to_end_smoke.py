@@ -21,8 +21,8 @@ def main():
     parser.add_argument('--seed', type=int, default=12345)
     parser.add_argument('--timeout', type=float, default=None, help='Timeout per native command in seconds')
     parser.add_argument('--sim-entry', default=None, help='Exact output basename when Cosima declares multiple sim files')
-    parser.add_argument('--spectrum-name', default='spectrum.png')
-    parser.add_argument('--image-name', default='image.png')
+    parser.add_argument('--spectrum-name', default='spectrum.root')
+    parser.add_argument('--image-name', default='image.root')
     args = parser.parse_args()
     if Path(args.workspace).expanduser().exists():
         parser.error('--workspace must be a fresh path; historical results are never overwritten')

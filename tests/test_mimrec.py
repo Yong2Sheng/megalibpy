@@ -294,14 +294,14 @@ def test_record_hash_is_stable_across_workspace_growth(analysis, tmp_path):
     assert before['execution_id'] == after['execution_id']
 
 
-def test_output_collision_is_rejected_without_overwrite(analysis, tmp_path):
+def test_output_collision_is_numbered_without_overwrite(analysis, tmp_path):
     tra, cfg, tool = analysis
     runner = Mimrec(MEGAlibRuntime.direct(archive_inputs=True), executable=tool)
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     image = runner.image(selected, task='plots', output_name='same.root')
     original = image.outputs['image'][0].read_bytes()
-    with pytest.raises(ExecutionError, match='reserved'):
-        runner.spectrum(selected, task='plots', output_name='same.root')
+    spectrum = runner.spectrum(selected, task='plots', output_name='same.root')
+    assert spectrum.outputs['spectrum'][0].name == 'same-002.root'
     assert image.outputs['image'][0].read_bytes() == original
 
 
@@ -564,3 +564,38 @@ def test_bound_workspace_external_tra_entry_and_conflicting_result(analysis, tmp
         runner.image(elsewhere)
     with pytest.raises(ValueError, match='exactly one'):
         runner.image(root, tra_path=tra)
+
+
+def test_output_names_are_independent_of_operation_numbers(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    runner = Mimrec(executable=tool)
+    selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
+    png = runner.spectrum(selected, output_name='spectrum.png')
+    root = runner.spectrum(selected, output_name='spectrum.root')
+    other = runner.spectrum(selected, output_name='custom.root')
+    another_dir = runner.spectrum(selected, task='other', output_name='spectrum.root')
+    repeat = runner.spectrum(selected, output_name='spectrum.root')
+    assert png.outputs['spectrum'][0].name == 'spectrum.png'
+    assert root.outputs['spectrum'][0].name == 'spectrum.root'
+    assert other.outputs['spectrum'][0].name == 'custom.root'
+    assert another_dir.outputs['spectrum'][0].name == 'spectrum.root'
+    assert repeat.outputs['spectrum'][0].name == 'spectrum-002.root'
+    assert root.record['number'] == 2
+    assert repeat.record['number'] == 5
+    assert root.stdout_path.name == 'spectrum-002.stdout.log'
+
+
+def test_output_reservations_and_existing_numbered_files_are_preserved(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    runner = Mimrec(executable=tool)
+    selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
+    first = runner.image(selected)
+    original = first.outputs['image'][0]
+    original.unlink()  # Its recorded reservation must still not be reused.
+    occupied = original.with_name('image-002.root')
+    occupied.write_bytes(b'externally supplied result')
+    repeated = runner.image(selected)
+    assert repeated.outputs['image'][0].name == 'image-003.root'
+    assert occupied.read_bytes() == b'externally supplied result'
+    second = runner.extract_events(selected)
+    assert second.outputs['tra'][0].name == 'events-002.tra.gz'

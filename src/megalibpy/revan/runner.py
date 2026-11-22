@@ -62,10 +62,9 @@ def _prepare(attempt, event_file, geometry, config, executable, compressed, refe
     home = attempt.log_path("native-home")
     if isolate_settings:
         home.mkdir(exist_ok=True)
-    number = f"-{attempt.number:03d}" if attempt.number > 1 else ""
-    product = attempt.products_dir / (f"events{number}.tra.gz" if compressed else f"events{number}.tra")
+    product = attempt.products_dir / ("events.tra.gz" if compressed else "events.tra")
     if attempt.owner is not None:
-        attempt.owner._claim_product(attempt, product)
+        product = attempt.owner._claim_product(attempt, product)
     command = [executable, "-c", str(executed), "-f", str(event_file), "-o", str(product)]
     if geometry is not None:
         command.extend(("-g", str(geometry)))
@@ -171,7 +170,7 @@ class Revan:
             Named reconstruction task, default ``"default"``. Workspace attempts
             are numbered under ``revan/``. Labels remain queryable metadata,
             without another directory level. With analysis_id bound, repeated
-            calls share that group and use numbered non-overwriting output files.
+            calls share that group; only occupied output filenames gain numeric suffixes.
             Without a bound ID, each call creates a new numbered group.
         compressed : bool, optional
             Default true produces ``products/events.tra.gz``; false uses ``.tra``.

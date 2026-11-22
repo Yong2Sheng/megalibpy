@@ -287,14 +287,21 @@ class SimulationWorkspace:
             write_manifest(self.index_path, data)
 
     def _claim_product(self, workspace, path):
+        """Reserve the requested filename, numbering only occupied paths."""
         with self._locked():
             data = self._writable()
-            relative = str(path.relative_to(self.root))
-            if path.exists() or any(r.get("reserved_output") == relative
-                                    for r in data["executions"].values()):
-                raise FileExistsError(f"Output already exists or is reserved: {path}")
-            data["executions"][workspace.execution_id]["reserved_output"] = relative
+            reserved = {r.get("reserved_output") for r in data["executions"].values()}
+            suffix = ".tra.gz" if path.name.endswith(".tra.gz") else path.suffix
+            stem = path.name[:-len(suffix)] if suffix else path.name
+            candidate = path
+            number = 2
+            while (candidate.exists() or candidate.is_symlink() or
+                   str(candidate.relative_to(self.root)) in reserved):
+                candidate = path.with_name(f"{stem}-{number:03d}{suffix}")
+                number += 1
+            data["executions"][workspace.execution_id]["reserved_output"] = str(candidate.relative_to(self.root))
             write_manifest(self.index_path, data)
+            return candidate
 
     def execute(self, stage, task, operation, *, group=None, native_operation=None):
         """Allocate a command in a data group and persist it in the root manifest.
