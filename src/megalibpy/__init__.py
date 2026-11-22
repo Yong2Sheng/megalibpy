@@ -11,7 +11,10 @@ from importlib.metadata import version
 from .cosima import Cosima
 from .execution import ExecutionError, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from .revan import Revan
-from .mimrec import Mimrec
+from .mimrec import (
+    Mimrec, HistogramAxis, ImageData, ROOTExtractionError, ROOTObject, SpectrumData,
+    extract_image, extract_spectrum, list_root_objects,
+)
 from .megalib_source import BaseParams, MEGAlibSource, Run, RunConfig, Source
 from .test_data import test_data_path as test_data
 
@@ -21,4 +24,6 @@ __all__ = [
     "BaseParams", "MEGAlibSource", "RunConfig", "Run", "Source", "test_data",
     "Cosima", "MEGAlibRuntime", "ExecutionResult", "ExecutionError",
     "Revan", "Mimrec", "SimulationWorkspace",
+    "HistogramAxis", "ImageData", "ROOTExtractionError", "ROOTObject", "SpectrumData",
+    "extract_image", "extract_spectrum", "list_root_objects",
 ]

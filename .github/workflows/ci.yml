@@ -134,7 +134,7 @@ jobs:
       cancel-in-progress: false
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}previews/pr-${{ steps.preview.outputs.number }}/
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}previews/pr-${{ steps.preview.outputs.number }}/
     defaults:
       run:
         shell: micromamba-shell {0}
@@ -224,8 +224,27 @@ jobs:
       - name: Upload regular site and isolated preview
         uses: actions/upload-pages-artifact@v5
         with:
+          # A failed-job rerun must not leave two equally named candidates.
+          name: github-pages-preview-${{ github.run_attempt }}
           path: _site/
 
       - name: Deploy documentation preview
         id: deployment
         uses: actions/deploy-pages@v5
+        continue-on-error: true
+        with:
+          artifact_name: github-pages-preview-${{ github.run_attempt }}
+
+      # The artifact service can briefly omit a successfully uploaded artifact.
+      # Retry deployment against the same artifact, without uploading it again.
+      - name: Wait for preview artifact metadata after deployment failure
+        if: steps.deployment.outcome == 'failure'
+        shell: bash
+        run: sleep 10
+
+      - name: Retry documentation preview deployment
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages-preview-${{ github.run_attempt }}
