@@ -26,6 +26,12 @@ class MEGAlibRuntime:
         Bash command name or executable path, defaulting to ``"bash"``.
         Used only in setup-script mode.
 
+    archive_inputs : bool, optional
+        False (default) records native source/configuration bytes in the root
+        manifest and removes temporary native input files after execution.
+        True retains source/configuration snapshots in inputs/. Setup helpers
+        and executable-path handoff files are temporary in both modes.
+
     Attributes
     ----------
     setup_script : pathlib.Path or None
@@ -45,10 +51,17 @@ class MEGAlibRuntime:
 
     setup_script: Path | None = None
     bash: str = "bash"
+    archive_inputs: bool = False
 
     @classmethod
-    def direct(cls):
+    def direct(cls, *, archive_inputs=False):
         """Select direct execution in the current process environment.
+
+        Parameters
+        ----------
+        archive_inputs : bool, optional
+            Default false stores configuration content in the manifest; true
+            retains source/config files. Launch helpers are always temporary.
 
         Returns
         -------
@@ -62,10 +75,10 @@ class MEGAlibRuntime:
         >>> runtime.setup_script is None
         True
         """
-        return cls()
+        return cls(archive_inputs=archive_inputs)
 
     @classmethod
-    def from_setup_script(cls, path, *, bash="bash"):
+    def from_setup_script(cls, path, *, bash="bash", archive_inputs=False):
         """Select environment initialization in a separate Bash child.
 
         Parameters
@@ -78,6 +91,9 @@ class MEGAlibRuntime:
         bash : str, optional
             Bash executable name or path, defaulting to ``"bash"``. Login and
             interactive startup files are not automatically loaded.
+        archive_inputs : bool, optional
+            False (default) stores source/configuration content in the manifest;
+            true retains their files in inputs/. Helpers remain temporary.
 
         Returns
         -------
@@ -99,7 +115,7 @@ class MEGAlibRuntime:
         >>> runtime.setup_script.is_absolute()
         True
         """
-        return cls(Path(path).expanduser().resolve(), bash)
+        return cls(Path(path).expanduser().resolve(), bash, archive_inputs)
 
     def launch(self, command, executable_record, *, tool_environment=None):
         """Build subprocess arguments and a child environment for an executor.
@@ -112,8 +128,9 @@ class MEGAlibRuntime:
             Destination for the resolved executable path. Its parent directory
             must exist. Direct mode writes it immediately; setup-script mode
             writes it from the Bash child just before ``exec``. Setup mode also
-            saves the fixed bootstrap program to ``launch.sh`` beside this file,
-            avoiding multiline commands in the shell's argument list.
+            creates launch.sh beside this file in the executor's temporary
+            directory, avoiding multiline shell argument lists. Both files are
+            removed after the command; executable identity goes to the manifest.
         tool_environment : dict of str to str or None, optional
             Overrides applied only to the native tool, after setup completes.
             ``None`` leaves the initialized environment unchanged.
@@ -194,7 +211,7 @@ done
 command -v -- "$1" > "$record" || exit 127
 exec "$@"
 '''
-        bootstrap = executable_record.parent / "launch.sh"
+        bootstrap = executable_record.parent / ("launch.sh" if executable_record.name == "executable.txt" else executable_record.stem + ".launch.sh")
         bootstrap.write_text(program, encoding="utf-8")
         return [bash, "--noprofile", "--norc", str(bootstrap),
                 str(self.setup_script), str(executable_record), str(len(overrides)),

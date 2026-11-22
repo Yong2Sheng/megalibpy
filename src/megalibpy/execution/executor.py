@@ -1,6 +1,9 @@
 """Run tools with bounded log memory and persistent failure diagnostics."""
 
 from datetime import datetime, timezone
+from dataclasses import replace
+from contextlib import nullcontext
+import tempfile
 from importlib.metadata import version
 import os
 from pathlib import Path
@@ -12,7 +15,8 @@ from uuid import uuid4
 
 from .errors import ExecutionError
 from .models import ExecutionResult
-from .provenance import capture_upstream, file_record, write_manifest
+from .logs import StreamLog
+from .provenance import capture_upstream, encode_content, file_record
 from .workspace import Workspace
 
 
@@ -74,7 +78,7 @@ class Executor:
     def __init__(self, runtime):
         self.runtime = runtime
 
-    def execute(self, tool, output_dir, prepare, *, timeout=None):
+    def execute(self, tool, output_dir, prepare, *, timeout=None, log_mode="full"):
         """Prepare a fresh workspace, execute a plan, and validate its outputs.
 
         Parameters
@@ -90,6 +94,10 @@ class Executor:
             Positive time limit in seconds for the child, including any setup
             script. ``None`` waits without a limit. Preparation and final record
             writing are not included in this limit.
+        log_mode : str, optional
+            "full" (default), or "summary" for Cosima. Summary retains stdout
+            from the last native summary marker through EOF without a size cap;
+            stderr is always complete. No marker is recorded as summary_missing.
 
         Returns
         -------
@@ -117,34 +125,45 @@ class Executor:
             raise NotImplementedError("MEGAlib execution currently requires a POSIX host")
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be positive")
-        workspace = Workspace.create(output_dir)
+        mode = log_mode
+        if mode not in ("full", "summary") or (mode == "summary" and tool != "cosima"):
+            raise ValueError("log_mode must be full, or summary for Cosima")
+        if not isinstance(self.runtime.archive_inputs, bool):
+            raise ValueError("archive_inputs must be bool")
+        workspace = output_dir if isinstance(output_dir, Workspace) else Workspace.create(output_dir)
+        workspace = replace(workspace, archive_inputs=self.runtime.archive_inputs)
         root = workspace.root
         manifest = {
-            "schema_version": 2, "execution_id": str(uuid4()),
+            "schema_version": 2, "execution_id": workspace.execution_id or str(uuid4()),
             "tool": tool, "status": "preparing", "upstream": [],
             "started_at": _now(), "finished_at": None, "returncode": None,
             "software": {"megalibpy": version("megalibpy"),
                          "python": platform.python_version(), "platform": platform.platform(),
                          "source_revision": _source_revision()},
             "runtime": {"mode": "setup_script" if self.runtime.setup_script else "direct"},
-            "logs": {"stdout": "logs/stdout.log", "stderr": "logs/stderr.log"},
+            "logs": {"stdout": str(workspace.log_path("stdout.log").relative_to(root)),
+                     "stderr": str(workspace.log_path("stderr.log").relative_to(root))},
             "outputs": {},
         }
-        write_manifest(workspace.manifest_path, manifest)
+        workspace.save(manifest)
         process = None
         started = time.monotonic()
-        executable_record = root / "logs/executable.txt"
-        stdout_path, stderr_path = root / "logs/stdout.log", root / "logs/stderr.log"
-        stdout_path.touch()
-        stderr_path.touch()
+        temporary = None
+        executable_record = None
+        pumps = []
+        stdout_path, stderr_path = workspace.log_path("stdout.log"), workspace.log_path("stderr.log")
+        with workspace.owner._locked() if workspace.owner is not None else nullcontext():
+            workspace.logs_dir.mkdir(exist_ok=True)
+            stdout_path.touch()
+            stderr_path.touch()
         try:
             if self.runtime.setup_script:
                 script = self.runtime.setup_script
-                snapshot = root / "inputs/setup.sh"
-                snapshot.write_bytes(script.read_bytes())
+                content = script.read_bytes()
                 manifest["runtime"]["setup_script"] = {
-                    "original_path": str(script), "snapshot": "inputs/setup.sh",
-                    **file_record(snapshot),
+                    "original_path": str(script), "snapshot": None,
+                    **file_record(script), "retention": "manifest" if self.runtime.archive_inputs else "reference",
+                    **(encode_content(content) if self.runtime.archive_inputs else {}),
                 }
                 # Execute the original location: scripts may use BASH_SOURCE to
                 # locate installation files. The snapshot is an audit artifact.
@@ -160,31 +179,44 @@ class Executor:
             manifest.update(command=list(plan.command), cwd=str(plan.cwd),
                             output_patterns=plan.output_patterns, **plan.metadata)
             manifest["tool_environment"] = plan.environment
+            temporary = tempfile.TemporaryDirectory(prefix="megalibpy-launch-")
+            executable_record = Path(temporary.name) / "executable.txt"
             command, env = self.runtime.launch(plan.command, executable_record,
                                               tool_environment=plan.environment)
-            bootstrap = root / "logs/launch.sh"
+            bootstrap = executable_record.parent / "launch.sh"
             if self.runtime.setup_script and bootstrap.is_file():
                 manifest["runtime"]["bootstrap"] = {
-                    "snapshot": "logs/launch.sh", **file_record(bootstrap),
+                    "snapshot": None, **encode_content(bootstrap.read_bytes()),
+                    "retention": "temporary_removed_after_execution",
                 }
             manifest.update(status="running", launch_command=command)
-            write_manifest(workspace.manifest_path, manifest)
-            with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
-                process = subprocess.Popen(
-                    command, cwd=plan.cwd, env=env, stdout=out, stderr=err,
-                    start_new_session=True,
-                )
-                try:
-                    manifest["returncode"] = process.wait(timeout=timeout)
-                except (subprocess.TimeoutExpired, KeyboardInterrupt):
-                    _stop(process)
-                    manifest["returncode"] = process.returncode
-                    raise
+            workspace.save(manifest)
+            process = subprocess.Popen(
+                command, cwd=plan.cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                start_new_session=True,
+            )
+            pumps = [StreamLog(process.stdout, stdout_path, mode),
+                     StreamLog(process.stderr, stderr_path, "full")]
+            for pump in pumps:
+                pump.start()
+            try:
+                manifest["returncode"] = process.wait(timeout=timeout)
+            except (subprocess.TimeoutExpired, KeyboardInterrupt):
+                _stop(process)
+                manifest["returncode"] = process.returncode
+                raise
+            for pump in pumps:
+                pump.join(timeout=3)
+            if any(pump.is_alive() for pump in pumps):
+                _stop(process)
+                raise RuntimeError("Native child left log pipes open after exit")
+            if any(pump.error is not None for pump in pumps):
+                raise RuntimeError(f"Log capture failed: {[str(p.error) for p in pumps if p.error]}")
             if process.returncode != 0:
                 raise RuntimeError(f"{tool} exited with status {process.returncode}")
             outputs = {}
             for key, pattern in plan.output_patterns.items():
-                paths = tuple(sorted((root / "products").glob(pattern)))
+                paths = tuple(sorted(workspace.products_dir.glob(pattern)))
                 paths = tuple(p for p in paths if p.is_file() and p.stat().st_size > 0)
                 if not paths:
                     raise RuntimeError(f"No nonempty {key} output matched {pattern!r}")
@@ -205,18 +237,38 @@ class Executor:
             if isinstance(exc, (KeyboardInterrupt, SystemExit)):
                 raise
             raise ExecutionError(manifest["error"]["message"], workspace.manifest_path,
-                                 manifest["returncode"]) from exc
+                                 manifest["returncode"], manifest["execution_id"]) from exc
         finally:
             # Capture the actual tool resolved inside the initialized child.
             try:
-                if executable_record.is_file():
+                if executable_record is not None and executable_record.is_file():
                     executable = Path(executable_record.read_text().strip())
                     if executable.is_file():
                         manifest["runtime"]["executable"] = file_record(executable)
             except OSError as exc:
                 manifest["runtime"]["executable_record_error"] = str(exc)
+            for pump in pumps:
+                pump.join(timeout=3)
+            if pumps:
+                manifest["logs"]["capture"] = {"stdout": pumps[0].metadata(), "stderr": pumps[1].metadata()}
+            with workspace.owner._locked() if workspace.owner is not None else nullcontext():
+                for key, path in (("stdout", stdout_path), ("stderr", stderr_path)):
+                    if not path.exists() or path.stat().st_size == 0:
+                        path.unlink(missing_ok=True)
+                        manifest["logs"][key] = None
+                for path in workspace.transient_files:
+                    path.unlink(missing_ok=True)
+                for folder in (workspace.inputs_dir, workspace.logs_dir):
+                    try:
+                        folder.rmdir()
+                    except OSError:
+                        pass
+            if temporary is not None:
+                temporary.cleanup()
             manifest["finished_at"] = _now()
             manifest["duration_seconds"] = time.monotonic() - started
-            write_manifest(workspace.manifest_path, manifest)
-        return ExecutionResult(root, outputs, workspace.manifest_path, stdout_path, stderr_path,
+            workspace.save(manifest)
+        return ExecutionResult(root, outputs, workspace.manifest_path,
+                               stdout_path if manifest["logs"]["stdout"] is not None else None,
+                               stderr_path if manifest["logs"]["stderr"] is not None else None,
                                execution_id=manifest["execution_id"])
