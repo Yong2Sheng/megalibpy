@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 from uuid import uuid4
 
-from .models import ExecutionResult
+from .models import ExecutionInput, ExecutionResult
 from .provenance import read_execution, resolve_upstream, write_manifest
 from .workspace import Workspace
 
@@ -385,3 +385,37 @@ class SimulationWorkspace:
                     record["status"] = "failed"
                     write_manifest(self.index_path, data)
             raise
+
+
+def _bound_workspace(value):
+    """Normalize a constructor-bound experiment root without creating files."""
+    if value is None:
+        return None
+    workspace = value if isinstance(value, SimulationWorkspace) else SimulationWorkspace(value)
+    workspace._read()  # Reject a stage/group/product directory inside a workspace.
+    if workspace.root.exists() and not workspace.root.is_dir():
+        raise ValueError("working_space must be an experiment root directory")
+    return workspace.root
+
+
+def _workspace_arguments(bound, working_space, external_path, output_dir):
+    """Apply a bound root while preserving exact per-call input selection."""
+    if bound is None:
+        return working_space, output_dir
+    if output_dir is not None and Path(output_dir).expanduser().resolve() != bound:
+        raise ValueError("output_dir conflicts with the object's bound working_space")
+    if working_space is not None:
+        if isinstance(working_space, SimulationWorkspace):
+            root = working_space.root
+        elif isinstance(working_space, (ExecutionInput, ExecutionResult)):
+            root = working_space.workspace_dir
+            if root is None:
+                raise ValueError("Input has no workspace root; use an unbound object for legacy imports")
+            root = Path(root).expanduser().resolve()
+        else:
+            root = Path(working_space).expanduser().resolve()
+        if root != bound:
+            raise ValueError("working_space conflicts with the object's bound working_space")
+    elif external_path is None:
+        working_space = bound
+    return working_space, bound

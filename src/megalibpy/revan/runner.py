@@ -8,6 +8,7 @@ import warnings
 
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
+from ..execution.experiment import _bound_workspace, _workspace_arguments
 from ..execution.provenance import configuration_snapshot, decode_content, file_record, read_execution, resolve_upstream, sha256
 
 
@@ -91,6 +92,14 @@ class Revan:
     ----------
     runtime : MEGAlibRuntime or None, optional
         Shared direct/setup-script runtime. ``None`` selects direct execution.
+    working_space : SimulationWorkspace or str or pathlib.Path or None, optional
+        Experiment root, default none. Bind the directory containing the root
+        manifest and sibling cosima/, revan/ and mimrec/ directories, never a
+        stage, analysis or product directory. Calls can omit working_space;
+        explicit results/references must belong to this same root. External
+        event-file calls use this root as their destination when output_dir is
+        omitted. Construction reads metadata but creates no files or processes.
+        Conflicting per-call workspace/output_dir values raise ValueError.
     analysis_id : str or None, optional
         Workspace-local reconstruction analysis name, default none. A bound name
         writes all calls to revan/<analysis_id> and reuses its recorded defaults
@@ -108,11 +117,12 @@ class Revan:
     fixed Python settings model is used.
     """
 
-    def __init__(self, runtime=None, *, analysis_id=None, executable="revan"):
+    def __init__(self, runtime=None, *, working_space=None, analysis_id=None, executable="revan"):
         if analysis_id is not None and (not isinstance(analysis_id, str) or
                                         not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", analysis_id)):
             raise ValueError("analysis_id must contain letters, digits, '_' or '-' and start with a letter/digit")
         self.analysis_id = analysis_id
+        self.working_space = _bound_workspace(working_space)
         self.runtime = runtime if runtime is not None else MEGAlibRuntime.direct()
         self.executable = str(executable)
 
@@ -125,14 +135,15 @@ class Revan:
         Parameters
         ----------
         working_space : ExecutionResult or ExecutionInput or SimulationWorkspace or str or pathlib.Path or None, optional
+            Defaults to the constructor-bound root, if supplied. Otherwise none.
             Existing experiment/legacy Cosima directory, result, or explicit
-            upstream reference. Defaults to none. Supply exactly one of
+            upstream reference. Without a bound root, supply exactly one of
             ``working_space`` or ``sim_path``. Multiple declared files require
             explicit selection. Externally started experiments can be reopened
             here using their recorded input file.
         sim_path : str or pathlib.Path or None, optional
             External ``.sim[.gz]`` or ``.evta[.gz]`` entry file, default none.
-            Requires ``output_dir`` to establish an experiment root. The file
+            Requires ``output_dir`` or a constructor-bound working_space root. The file
             stays in place; no simulation contents are read, copied or hashed.
             Any native continuation references remain MEGAlib's responsibility.
         config_file : str or pathlib.Path or None, optional
@@ -223,6 +234,8 @@ class Revan:
         native Revan may diagnose errors or fall back to defaults. Inspect logs.
         A zero exit status plus nonempty output is not a scientific check. External configuration files are managed by MEGAlib and the caller.
         """
+        working_space, output_dir = _workspace_arguments(
+            self.working_space, working_space, sim_path, output_dir)
         if (working_space is None) == (sim_path is None):
             raise ValueError("Supply exactly one of working_space or sim_path")
         if sim_path is not None and output_dir is None:

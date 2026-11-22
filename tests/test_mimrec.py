@@ -517,3 +517,50 @@ def test_explicit_revan_parent_and_independent_mimrec_analysis_names(analysis, t
 def test_invalid_revan_parent_identifier_is_rejected(identifier):
     with pytest.raises(ValueError, match='revan_analysis_id'):
         Mimrec(revan_analysis_id=identifier)
+
+
+def test_bound_workspace_full_chain_and_independent_selections(analysis, tmp_path):
+    _, cfg, tool = analysis
+    sim = tmp_path/'events.sim'
+    sim.write_bytes(b'sim')
+    root = tmp_path/'experiment'
+    revan = Revan(working_space=root, executable=tool, analysis_id='reconstruction-a')
+    assert revan.working_space == root
+    assert not root.exists()
+    reconstructed = revan.reconstruct(sim_path=sim, config_file=cfg)
+    for identifier in ('selection-a', 'selection-b'):
+        mimrec = Mimrec(working_space=SimulationWorkspace(root), executable=tool,
+                        revan_analysis_id='reconstruction-a', analysis_id=identifier)
+        selected = mimrec.extract_events(config_file=cfg)
+        cfg_bytes = cfg.read_bytes()
+        cfg.unlink()
+        image = mimrec.image()
+        spectrum = mimrec.spectrum(selected)
+        cfg.write_bytes(cfg_bytes)
+        assert read(selected)['upstream'][0]['execution_id'] == reconstructed.execution_id
+        assert read(image)['upstream'][0]['execution_id'] == selected.execution_id
+        assert read(spectrum)['upstream'][0]['execution_id'] == selected.execution_id
+        assert image.output_dir == root/'mimrec'/identifier
+    assert revan.reconstruct().output_dir == root/'revan/reconstruction-a'
+    for nested in (root/'mimrec', root/'mimrec/selection-a', root/'mimrec/selection-a/spectrum'):
+        with pytest.raises(ValueError, match='workspace root'):
+            Mimrec(working_space=nested)
+    with pytest.raises(ValueError, match='bound working_space'):
+        mimrec.image(working_space=tmp_path/'different')
+    with pytest.raises(ValueError, match='bound working_space'):
+        revan.reconstruct(output_dir=tmp_path/'different')
+    assert not (tmp_path/'different').exists()
+
+
+def test_bound_workspace_external_tra_entry_and_conflicting_result(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    root = tmp_path/'external-root'
+    runner = Mimrec(working_space=root, executable=tool, analysis_id='external')
+    selected = runner.extract_events(tra_path=tra, config_file=cfg)
+    assert runner.image().record['upstream'][0]['execution_id'] == selected.execution_id
+    elsewhere = Mimrec(executable=tool).extract_events(
+        tra_path=tra, output_dir=tmp_path/'elsewhere', config_file=cfg)
+    with pytest.raises(ValueError, match='bound working_space'):
+        runner.image(elsewhere)
+    with pytest.raises(ValueError, match='exactly one'):
+        runner.image(root, tra_path=tra)

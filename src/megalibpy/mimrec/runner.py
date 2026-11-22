@@ -9,6 +9,7 @@ import re
 
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
+from ..execution.experiment import _bound_workspace, _workspace_arguments
 from ..execution.provenance import configuration_snapshot, decode_content, file_record, read_execution, resolve_upstream, sha256
 
 
@@ -119,6 +120,14 @@ class Mimrec:
     ----------
     runtime : MEGAlibRuntime or None, optional
         Direct or setup-script runtime. None selects direct execution.
+    working_space : SimulationWorkspace or str or pathlib.Path or None, optional
+        Experiment root, default none. Bind the directory containing the root
+        manifest and sibling cosima/, revan/ and mimrec/ directories, never a
+        stage, analysis or product directory. Calls can omit working_space;
+        explicit results/references must belong to this same root. External
+        event-file calls use this root as their destination when output_dir is
+        omitted. Construction reads metadata but creates no files or processes.
+        Conflicting per-call workspace/output_dir values raise ValueError.
     revan_analysis_id : str or None, optional
         Explicit upstream Revan analysis name. Workspace entry selects this
         Revan group when the Mimrec group has no successful extraction or saved
@@ -145,17 +154,18 @@ class Mimrec:
     configuration semantics, geometry and external resources. Each call runs
     one native operation with an independent execution record in a shared data group.
     A bound analysis_id avoids repeating group selection; actual input data still
-    comes from each call's working_space/tra_path. task names an operation output
+    comes from the bound workspace or each call's explicit input. task names an operation output
     folder inside that group. None preserves result-based automatic grouping.
     """
 
-    def __init__(self, runtime=None, *, revan_analysis_id=None, analysis_id=None, executable="mimrec"):
+    def __init__(self, runtime=None, *, working_space=None, revan_analysis_id=None, analysis_id=None, executable="mimrec"):
         for name, value in (("analysis_id", analysis_id), ("revan_analysis_id", revan_analysis_id)):
             if value is not None and (not isinstance(value, str) or
                                       not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", value)):
                 raise ValueError(f"{name} must contain letters, digits, '_' or '-' and start with a letter/digit")
         self.revan_analysis_id = revan_analysis_id
         self.analysis_id = analysis_id if analysis_id is not None else revan_analysis_id
+        self.working_space = _bound_workspace(working_space)
         self.runtime = runtime if runtime is not None else MEGAlibRuntime.direct()
         self.executable = str(executable)
 
@@ -165,6 +175,8 @@ class Mimrec:
             if attempt is not None and attempt != self.analysis_id:
                 raise ValueError("attempt conflicts with the Mimrec object's analysis_id")
             attempt = self.analysis_id
+        working_space, output_dir = _workspace_arguments(
+            self.working_space, working_space, tra_path, output_dir)
         if (working_space is None) == (tra_path is None):
             raise ValueError("Supply exactly one of working_space or tra_path")
         if tra_path is not None and output_dir is None:
@@ -295,15 +307,17 @@ class Mimrec:
         Parameters
         ----------
         working_space : SimulationWorkspace or ExecutionResult or ExecutionInput or str or pathlib.Path or None, optional
+            Defaults to the constructor-bound root, if supplied. Otherwise none.
             Existing experiment directory, selected Revan result, or selected
-            Mimrec extraction result/reference. Default none. Supply exactly
+            Mimrec extraction result/reference. Without a bound root, supply exactly
             one of this and ``tra_path``. A directory selects its unique successful
             Revan attempt; multiple branches require an explicit selection.
             A TRA-origin experiment without Revan tasks uses its original TRA.
-            To use a Mimrec extraction, pass its result explicitly.
+            A named Mimrec group uses its unique successful extraction first;
+            pass an explicit result to select among multiple extractions.
         tra_path : str or pathlib.Path or None, optional
             External ``.tra`` or ``.tra.gz`` file, default none. Requires
-            ``output_dir``. Data stays in place and is not read, copied or hashed.
+            ``output_dir`` or a constructor-bound working_space. Data stays in place and is not read, copied or hashed.
             Native include/continuation handling belongs to MEGAlib.
         output_dir : str or pathlib.Path or None, optional
             Destination experiment root, default none continues in the selected
@@ -413,15 +427,17 @@ class Mimrec:
         Parameters
         ----------
         working_space : SimulationWorkspace or ExecutionResult or ExecutionInput or str or pathlib.Path or None, optional
+            Defaults to the constructor-bound root, if supplied. Otherwise none.
             Existing experiment directory, selected Revan result, or selected
-            Mimrec extraction result/reference. Default none. Supply exactly
+            Mimrec extraction result/reference. Without a bound root, supply exactly
             one of this and ``tra_path``. A directory selects its unique successful
             Revan attempt; multiple branches require an explicit selection.
             A TRA-origin experiment without Revan tasks uses its original TRA.
-            To use a Mimrec extraction, pass its result explicitly.
+            A named Mimrec group uses its unique successful extraction first;
+            pass an explicit result to select among multiple extractions.
         tra_path : str or pathlib.Path or None, optional
             External ``.tra`` or ``.tra.gz`` file, default none. Requires
-            ``output_dir``. Data stays in place and is not read, copied or hashed.
+            ``output_dir`` or a constructor-bound working_space. Data stays in place and is not read, copied or hashed.
             Native include/continuation handling belongs to MEGAlib.
         output_dir : str or pathlib.Path or None, optional
             Destination experiment root, default none continues in the selected
@@ -531,15 +547,17 @@ class Mimrec:
         Parameters
         ----------
         working_space : SimulationWorkspace or ExecutionResult or ExecutionInput or str or pathlib.Path or None, optional
+            Defaults to the constructor-bound root, if supplied. Otherwise none.
             Existing experiment directory, selected Revan result, or selected
-            Mimrec extraction result/reference. Default none. Supply exactly
+            Mimrec extraction result/reference. Without a bound root, supply exactly
             one of this and ``tra_path``. A directory selects its unique successful
             Revan attempt; multiple branches require an explicit selection.
             A TRA-origin experiment without Revan tasks uses its original TRA.
-            To use a Mimrec extraction, pass its result explicitly.
+            A named Mimrec group uses its unique successful extraction first;
+            pass an explicit result to select among multiple extractions.
         tra_path : str or pathlib.Path or None, optional
             External ``.tra`` or ``.tra.gz`` file, default none. Requires
-            ``output_dir``. Data stays in place and is not read, copied or hashed.
+            ``output_dir`` or a constructor-bound working_space. Data stays in place and is not read, copied or hashed.
             Native include/continuation handling belongs to MEGAlib.
         output_dir : str or pathlib.Path or None, optional
             Destination experiment root, default none continues in the selected
@@ -649,15 +667,17 @@ class Mimrec:
         Parameters
         ----------
         working_space : SimulationWorkspace or ExecutionResult or ExecutionInput or str or pathlib.Path or None, optional
+            Defaults to the constructor-bound root, if supplied. Otherwise none.
             Existing experiment directory, selected Revan result, or selected
-            Mimrec extraction result/reference. Default none. Supply exactly
+            Mimrec extraction result/reference. Without a bound root, supply exactly
             one of this and ``tra_path``. A directory selects its unique successful
             Revan attempt; multiple branches require an explicit selection.
             A TRA-origin experiment without Revan tasks uses its original TRA.
-            To use a Mimrec extraction, pass its result explicitly.
+            A named Mimrec group uses its unique successful extraction first;
+            pass an explicit result to select among multiple extractions.
         tra_path : str or pathlib.Path or None, optional
             External ``.tra`` or ``.tra.gz`` file, default none. Requires
-            ``output_dir``. Data stays in place and is not read, copied or hashed.
+            ``output_dir`` or a constructor-bound working_space. Data stays in place and is not read, copied or hashed.
             Native include/continuation handling belongs to MEGAlib.
         output_dir : str or pathlib.Path or None, optional
             Destination experiment root, default none continues in the selected

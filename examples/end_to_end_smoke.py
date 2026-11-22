@@ -35,15 +35,15 @@ def main():
         files = tuple(p for p in files if p.name == args.sim_entry)
     if len(files) != 1:
         parser.error('Select exactly one Cosima entry using --sim-entry; completed simulation is retained')
-    reconstructed = Revan(runtime, analysis_id=args.analysis_id).reconstruct(
+    reconstructed = Revan(runtime, working_space=workspace, analysis_id=args.analysis_id).reconstruct(
         simulated.as_input('sim', paths=files), config_file=args.revan_config,
         geometry=args.geometry, task='baseline', timeout=args.timeout)
-    mimrec = Mimrec(runtime, revan_analysis_id=args.analysis_id, analysis_id=args.mimrec_analysis_id)
+    mimrec = Mimrec(runtime, working_space=workspace, revan_analysis_id=args.analysis_id, analysis_id=args.mimrec_analysis_id)
     selected = mimrec.extract_events(
         reconstructed, config_file=args.mimrec_config, geometry=args.geometry,
         task='event-selected', timeout=args.timeout)
-    spectrum = mimrec.spectrum(selected, output_name=args.spectrum_name, timeout=args.timeout)
-    image = mimrec.image(selected, task='image-selected', output_name=args.image_name, timeout=args.timeout)
+    spectrum = mimrec.spectrum(output_name=args.spectrum_name, timeout=args.timeout)
+    image = mimrec.image(task='image-selected', output_name=args.image_name, timeout=args.timeout)
     print('Workspace:', workspace.root)
     print('Manifest:', workspace.index_path)
     for result in (simulated, reconstructed, selected, spectrum, image):

@@ -14,7 +14,7 @@ contains the origin, data groups and independent command execution records.
    │   └── products/
    ├── revan/
    │   ├── reconstruction-a/              # one input/configuration group
-   │   │   │   ├── logs/
+   │   │   ├── logs/
    │   │   └── products/events.tra.gz
    │   └── reconstruction-b/...           # alternative reconstruction
    └── mimrec/
@@ -31,6 +31,24 @@ not one invocation of a native program. Unbound adapters retain automatic
 attempt-NNN grouping for compatibility. Each invocation retains its own
 ``execution_id``, command, status, logs, exact inputs and output paths.
 
+Bind an experiment root to a tool object
+----------------------------------------
+
+``working_space`` means the experiment root, for example
+``grb-localization-001/`` above. It never means ``mimrec/``,
+``mimrec/selection-a/`` or ``mimrec/selection-a/spectrum/``.
+``result.workspace_dir`` gives this root; ``result.output_dir`` is a stage or
+analysis directory and is not the workspace root.
+
+Both ``Revan`` and ``Mimrec`` accept ``working_space`` in their constructors.
+Subsequent operations can omit it. Per-call results or explicit references can
+still select an exact execution within the bound workspace. A different root
+or destination raises ``ValueError``; create another tool object for another
+workspace. Without a constructor binding, per-call inputs work as before.
+For external ``sim_path``/``tra_path`` entry, the bound root supplies the
+otherwise required ``output_dir``. ``MEGAlibRuntime`` only configures native
+process startup; it has no workspace or analysis binding.
+
 One Cosima per experiment
 -------------------------
 
@@ -41,7 +59,7 @@ One Cosima per experiment
    experiment = SimulationWorkspace("grb-localization-001")
    simulated = Cosima(runtime).simulate(
        "burst.source", workspace=experiment, seed=12345)
-   revan = Revan(runtime, analysis_id="reconstruction-a")
+   revan = Revan(runtime, working_space=experiment, analysis_id="reconstruction-a")
    reconstructed = revan.reconstruct(
        simulated, config_file="baseline.revan.cfg")
 
@@ -63,11 +81,12 @@ Mimrec data groups and configuration reuse
 .. code-block:: python
 
    mimrec = Mimrec(
-       runtime, revan_analysis_id="reconstruction-a", analysis_id="selection-a")
+       runtime, working_space=experiment,
+       revan_analysis_id="reconstruction-a", analysis_id="selection-a")
    selected = mimrec.extract_events(
-       reconstructed, config_file="analysis.mimrec.cfg", task="event-selected")
-   image = mimrec.image(selected, task="image-selected", output_name="image.png")
-   spectrum = mimrec.spectrum(selected, output_name="spectrum.png")
+       config_file="analysis.mimrec.cfg", task="event-selected")
+   image = mimrec.image(task="image-selected", output_name="image.png")
+   spectrum = mimrec.spectrum(output_name="spectrum.png")
 
 The first call creates ``mimrec/selection-a`` and records its default native
 configuration, explicit geometry selection, overrides and original resource cwd.
@@ -93,9 +112,10 @@ Reopen a named analysis without repeating identifiers:
 .. code-block:: python
 
    mimrec = Mimrec(
-       runtime, revan_analysis_id="reconstruction-a", analysis_id="selection-a")
+       runtime, working_space=experiment,
+       revan_analysis_id="reconstruction-a", analysis_id="selection-a")
    image = mimrec.image(
-       working_space=experiment, task="image-selected", output_name="image.png")
+       task="image-selected", output_name="image.png")
 
 Input selection first uses the own Mimrec group's unique successful extraction.
 If none exists, it uses that group's exact registered input; for a new group it
