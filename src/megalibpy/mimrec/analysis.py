@@ -5,6 +5,7 @@ import hashlib
 from pathlib import Path
 
 from ..execution import ExecutionInput, ExecutionResult, SimulationWorkspace
+from ..execution.experiment import _deleted_failed_group
 from ..execution.provenance import decode_content, encode_content, file_record, read_execution, write_manifest
 
 
@@ -51,7 +52,9 @@ class BoundAnalysis:
         self.revan_analysis_id = runner.revan_analysis_id
         self.experiment = SimulationWorkspace(runner.working_space)
         self.group = "mimrec/" + runner.analysis_id
-        entry = self.experiment._writable()["groups"].get(self.group, {})
+        data = self.experiment._writable()
+        entry = data["groups"].get(self.group, {})
+        recovering = _deleted_failed_group(data, self.experiment.root, self.group)
         saved = entry.get("definition")
 
         def resolve(value):
@@ -93,6 +96,10 @@ class BoundAnalysis:
             raise ValueError("Native IN paths cannot contain newlines")
 
         defaults = entry.get("defaults")
+        baseline = saved
+        if recovering and config_file is not None:
+            baseline = None
+            defaults = None
         if config_file is not None:
             self.config = Path(config_file).expanduser().resolve()
             self.content = self.config.read_bytes()
@@ -111,9 +118,9 @@ class BoundAnalysis:
             raise ValueError("config_file is required when defining a new Mimrec analysis")
         if not self.content:
             raise ValueError("Mimrec configuration file must not be empty")
-        inherited = saved["geometry"] if saved else defaults.get("geometry") if defaults else None
+        inherited = baseline["geometry"] if baseline else defaults.get("geometry") if defaults else None
         self.geometry = inherited if geometry is None else str(geometry)
-        baseline_changes = saved["overrides"] if saved else defaults.get("configuration_overrides", []) if defaults else []
+        baseline_changes = baseline["overrides"] if baseline else defaults.get("configuration_overrides", []) if defaults else []
         self.overrides = {c["parameter"].replace(".", "_"): c["value"] for c in baseline_changes}
         self.overrides.update(overrides)
         # Bind the native text now; a caller-owned mutable value must not alter
@@ -128,8 +135,9 @@ class BoundAnalysis:
                               "sha256": hashlib.sha256(self.content).hexdigest(), **encode_content(self.content)},
             "geometry": self.geometry, "overrides": changes(self.overrides),
         }
-        self.check(saved)
-        if saved is None and defaults:
+        if not recovering:
+            self.check(saved)
+        if not recovering and saved is None and defaults:
             previous = defaults["configuration"]
             if (self.definition["configuration"]["sha256"] != previous["executed_sha256"] or
                     str(self.cwd) != previous["relative_path_base"] or
@@ -222,7 +230,9 @@ class BoundAnalysis:
                 raise ValueError("Event output_name must end in .tra or .tra.gz")
         elif not Path(output_name).suffix:
             raise ValueError("Plot output_name requires an explicit native output suffix")
-        self.check(self.experiment._writable()["groups"].get(self.group, {}).get("definition"))
+        data = self.experiment._writable()
+        if not _deleted_failed_group(data, self.experiment.root, self.group):
+            self.check(data["groups"].get(self.group, {}).get("definition"))
         inputs = None
         if operation == "add_external_components":
             if explicit is not None or not self.components:

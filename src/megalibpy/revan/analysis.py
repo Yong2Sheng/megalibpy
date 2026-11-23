@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 
 from ..execution import SimulationWorkspace
+from ..execution.experiment import _deleted_failed_group
 from ..execution.provenance import decode_content, encode_content, write_manifest
 
 
@@ -23,7 +24,12 @@ class BoundConfiguration:
         self.analysis_id = runner.analysis_id
         self.experiment = SimulationWorkspace(self.root)
         self.group = "revan/" + runner.analysis_id
-        entry = self.experiment._writable()["groups"].get(self.group, {})
+        data = self.experiment._writable()
+        entry = data["groups"].get(self.group, {})
+        recovering = _deleted_failed_group(data, self.root, self.group)
+        if recovering and config_file is not None:
+            # An explicit main cfg defines the corrected baseline from scratch.
+            entry = {}
         saved = entry.get("definition")
         defaults = entry.get("defaults")
         inherited = saved or defaults
@@ -52,8 +58,9 @@ class BoundConfiguration:
                               "sha256": hashlib.sha256(self.content).hexdigest(), **encode_content(self.content)},
             "geometry": self.geometry, "overrides": changes(self.overrides),
         }
-        self.check(saved)
-        if saved is None and defaults:
+        if not recovering:
+            self.check(saved)
+        if not recovering and saved is None and defaults:
             cfg = defaults["configuration"]
             if (self.definition["configuration"]["sha256"] != cfg["executed_sha256"] or
                     str(self.cwd) != cfg["relative_path_base"] or self.geometry != defaults.get("geometry") or
@@ -79,7 +86,9 @@ class BoundConfiguration:
                 raise ValueError("Different main configuration requires a new analysis_id")
         if geometry is not None and str(geometry) != self.geometry:
             raise ValueError("Different geometry requires a new analysis_id")
-        self.check(experiment._writable()["groups"].get(self.group, {}).get("definition"))
+        data = experiment._writable()
+        if not _deleted_failed_group(data, self.root, self.group):
+            self.check(data["groups"].get(self.group, {}).get("definition"))
 
     def bind(self):
         with self.experiment._locked():

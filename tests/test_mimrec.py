@@ -924,3 +924,27 @@ def test_direct_component_extraction_records_primary_parent_and_failure_retry(an
     assert len(SimulationWorkspace(root)._read()['executions'])==3
     with pytest.raises(ValueError,match='Call extract_events'):
         runner.spectrum()
+
+
+def test_deleted_failed_mimrec_group_can_rebind_without_losing_component_lineage(analysis,tmp_path):
+    import shutil
+    tra,cfg,tool=analysis
+    root=tmp_path/'experiment'
+    extra=tmp_path/'background.tra';extra.write_bytes(b'prepared')
+    cfg.write_bytes(b'missing')
+    runner=Mimrec(working_space=root,analysis_id='same',input_data=tra,config_file=cfg,
+                  geometry='wrong',external_components=[extra],executable=tool,Old_Setting=True)
+    with pytest.raises(ExecutionError) as failure:runner.extract_events()
+    old_id=failure.value.execution_id
+    old=SimulationWorkspace(root)._read()['executions'][old_id]
+    shutil.rmtree(root/'mimrec/same')
+    cfg.write_bytes(b'corrected opaque cfg')
+    corrected=Mimrec(working_space=root,analysis_id='same',config_file=cfg,geometry='corrected',executable=tool)
+    assert not (root/'mimrec/same').exists()
+    selected=corrected.extract_events()
+    assert selected.record['number']==2
+    assert selected.record['geometry']=='corrected'
+    assert selected.record['configuration_overrides']==[]
+    assert [r['path'] for r in selected.record['component_inputs']]==[str(tra),str(extra)]
+    assert SimulationWorkspace(root)._read()['executions'][old_id]==old
+    assert corrected.spectrum().record['upstream'][0]['execution_id']==selected.execution_id

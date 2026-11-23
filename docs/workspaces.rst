@@ -272,3 +272,44 @@ result property are None. Check ``result.stderr_path is not None`` before openin
 it. Nonempty error diagnostics remain available. Setup/bootstrap/path handoffs do
 not leave permanent files, even in archival mode. Existing historical files are
 not deleted or reorganized automatically.
+
+
+Recover a removed failed analysis
+---------------------------------
+
+Analysis definitions live in the root manifest, independently of their folders.
+Removing a Revan/Mimrec analysis directory does not erase its execution history.
+If **every recorded execution in that group failed**, and the **entire group
+directory has been removed**, construct the same analysis_id with corrected
+settings and execute again. A new analysis name is not required in this case.
+The library never deletes the directory for you.
+
+.. code-block:: python
+
+   # After removing only the failed revan/reconstruction directory yourself:
+   revan = Revan(
+       runtime, working_space=experiment, analysis_id="reconstruction",
+       config_file="corrected.revan.cfg", geometry="corrected.geo.setup")
+   reconstructed = revan.reconstruct()
+
+Construction remains read-only. On the next execution, a short manifest lock
+rechecks the group state, clears its obsolete current definition/defaults, and
+recreates inputs/logs/products as needed. The new settings become the baseline.
+An explicitly supplied main cfg starts a fresh baseline; omitted geometry/native
+baseline overrides do not inherit the discarded settings. Omitting the main cfg
+instead restores its recorded bytes and baseline, allowing a retry without the
+original file. Mimrec also retains its declared primary/component references
+unless explicitly replaced in the constructor.
+
+Old failed execution records remain intact, with their original configuration,
+geometry and error. A new execution UUID and increasing execution/log numbers
+identify the retry; reserved output names remain protected. The group records
+recovery_history with the prior execution IDs. Deleted physical logs/products
+cannot be recovered from their path references.
+
+An existing directory, any successful execution, or an allocated/running record
+prevents this baseline reset. Changing a protected definition still requires a
+new analysis_id. If a successful group's directory was removed, repeating the
+same recorded definition can recreate its layout and produce a new execution;
+it does not resurrect deleted historical products. Cosima remains unique and
+always requires a new workspace for a rerun, including after failure.

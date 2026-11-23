@@ -358,6 +358,16 @@ class SimulationWorkspace:
                     raise ValueError("Group must be a safe stage-relative name")
                 if group in data["groups"] and data["groups"][group]["stage"] != stage:
                     raise ValueError("Select a data group in the requested stage")
+            if stage != "cosima" and _deleted_failed_group(data, self.root, group):
+                previous = data["groups"][group]
+                history = [*previous.get("recovery_history", []), {
+                    "reason": "failed_group_directory_removed",
+                    "previous_execution_ids": [r["execution_id"] for r in data["executions"].values()
+                                               if r.get("data_group") == group],
+                }]
+                data["groups"][group] = {k: previous[k] for k in ("stage", "group_id", "analysis_id")
+                                         if k in previous}
+                data["groups"][group]["recovery_history"] = history
             if group not in data["groups"]:
                 root = self.root / group
                 root.mkdir(parents=True, exist_ok=False)
@@ -367,6 +377,11 @@ class SimulationWorkspace:
             if stage in ("revan", "mimrec"):
                 data["groups"][group].setdefault("analysis_id", Path(group).name)
             root = self.root / group
+            # Root metadata outlives user-deleted folders. Recreate the layout
+            # without removing execution records or reusing execution numbers.
+            root.mkdir(parents=True, exist_ok=True)
+            for directory in ("inputs", "logs"):
+                (root / directory).mkdir(exist_ok=True)
             number = 1 + sum(r["data_group"] == group and r["operation"] == native_operation
                              for r in data["executions"].values())
             folder = task if stage == "mimrec" else "products"
@@ -393,6 +408,15 @@ class SimulationWorkspace:
                     record["status"] = "failed"
                     write_manifest(self.index_path, data)
             raise
+
+
+def _deleted_failed_group(data, root, group):
+    """A removed group with only failed executions can accept a corrected baseline."""
+    path = root / group
+    if group not in data["groups"] or path.exists() or path.is_symlink():
+        return False
+    records = [r for r in data["executions"].values() if r.get("data_group") == group]
+    return bool(records) and all(r.get("status") == "failed" for r in records)
 
 
 def _bound_workspace(value):

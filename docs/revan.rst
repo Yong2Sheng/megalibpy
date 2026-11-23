@@ -304,3 +304,11 @@ new analyses.
 Mimrec can select this parent through revan_analysis_id. Its own analysis_id may
 be different, enabling several selection/imaging branches per reconstruction.
 See :doc:`workspaces` for the distinction between analysis_id, task and execution_id.
+
+
+For a failed analysis whose entire directory has been removed, the same
+analysis_id can accept corrected constructor settings when all recorded
+executions failed. Old failures remain in the manifest; the next command
+recreates the layout and records the new baseline. See
+:doc:`workspaces` ("Recover a removed failed analysis") for the precise recovery
+conditions. Successful or in-progress analyses keep their definition protection.

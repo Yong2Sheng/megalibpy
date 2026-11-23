@@ -436,3 +436,17 @@ The user subsequently verified both extraction APIs on Palmetto: spectrum
 ``peak_galactic_position`` lies close to the injected source coordinates.
 This validates the tested spectrum and rectangular Galactic image workflow;
 it does not establish a localization uncertainty or coverage of other projections.
+
+
+Recovery after deleting a failed analysis
+-----------------------------------------
+
+If a Mimrec group has only failed executions and its entire directory has been
+removed, reconstructing it with the same analysis_id may use corrected main
+settings. The constructor retains recorded primary/component references when
+omitted, while an explicit main cfg establishes fresh configuration defaults.
+The next execution recreates the layout and records the corrected definition;
+all previous failed execution records remain intact. Existing, successful or
+in-progress groups cannot use this reset. See :doc:`workspaces` for the full
+recovery contract, including deleted-output limitations and Cosima's separate
+single-execution rule.

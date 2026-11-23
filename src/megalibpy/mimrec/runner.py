@@ -189,6 +189,11 @@ class Mimrec:
 
     Notes
     -----
+    A removed analysis directory with only failed executions may be reopened
+    under the same analysis_id with corrected constructor settings. The next
+    command rechecks eligibility under the manifest lock, preserves old failed
+    records and recreates the layout with a fresh baseline. Construction writes
+    nothing. Existing, successful or in-progress groups remain protected.
     Configurations are opaque snapshots. MEGAlib controls event selection,
     configuration semantics, geometry and external resources. Each call runs
     one native operation with an independent execution record in a shared data group.
