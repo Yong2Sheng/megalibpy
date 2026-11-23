@@ -82,30 +82,27 @@ Mimrec data groups and configuration reuse
 
    mimrec = Mimrec(
        runtime, working_space=experiment,
-       revan_analysis_id="reconstruction-a", analysis_id="selection-a")
-   selected = mimrec.extract_events(
-       config_file="analysis.mimrec.cfg", task="event-selected")
+       revan_analysis_id="reconstruction-a", analysis_id="selection-a",
+       config_file="analysis.mimrec.cfg")
+   selected = mimrec.extract_events(task="energy-cut", TotalEnergy_Min=100)
    image = mimrec.image(task="image-selected", output_name="image.root")
    spectrum = mimrec.spectrum(output_name="spectrum.root")
 
-The first call creates ``mimrec/selection-a`` and records its default native
-configuration, explicit geometry selection, overrides and original resource cwd.
-Passing the extraction result continues in that same group. Omitting
-``config_file`` reuses the manifest-recorded configuration and these defaults; the original
-configuration file is not required to remain available. Native relative resources
-still use the original configuration directory.
+Construction binds the primary input and main native configuration without
+creating files or executing a command. The first execution creates the group
+and stores its complete definition: exact main input, prepared external
+components, cfg bytes/resource cwd, geometry and baseline overrides.
 
-Explicit settings that differ from the group's defaults produce a Python
-``UserWarning`` and are recorded for that execution. Different configuration
-bytes are retained in that execution's manifest entry; the default is never
-replaced. Archival mode additionally retains content-addressed snapshot files. Python compares bytes/hashes, original cwd, literal
-geometry and ordered overrides. It does not parse configuration fields or decide
-whether a change affects projection or event selection.
+Method overrides are recorded per execution and do not become group defaults.
+For example, TotalEnergy_Min=100 above applies only to extraction. image and
+spectrum use the baseline settings while consuming the already filtered TRA.
+A different main configuration or dataset requires a new analysis_id; an
+individual method override does not. Native cfg bytes remain opaque.
 
-With an explicit ``config_file``, ``geometry=None`` omits ``-g`` and keyword
-settings are the explicitly supplied overrides. With an omitted configuration,
-geometry/overrides inherit the group defaults; supplied keywords update those
-default overrides for this call. None of these changes rewrites the native cfg.
+Opening the same analysis_id restores and validates the saved definition, even
+when the original cfg was removed. Schema-2 legacy groups without a definition
+retain their former variant-warning behavior until opened with constructor
+configuration, which binds their existing defaults. No user files are migrated.
 
 Reopen a named analysis without repeating identifiers:
 
@@ -118,8 +115,10 @@ Reopen a named analysis without repeating identifiers:
        task="image-selected", output_name="image.root")
 
 Input selection first uses the own Mimrec group's unique successful extraction.
-If none exists, it uses that group's exact registered input; for a new group it
-selects the explicit upstream ``revan_analysis_id``. Multiple candidates raise
+If none exists, it uses the group's unique successful component combination,
+otherwise its exact registered primary input. Declared components must first be
+prepared by add_external_components. For a new group, the constructor resolves
+the explicit upstream revan_analysis_id to an exact execution. Multiple candidates raise
 ambiguity errors; directory contents and mtimes never choose an upstream.
 
 ``revan_analysis_id`` names the upstream reconstruction; ``analysis_id`` names
@@ -145,7 +144,11 @@ Existing numbered groups can be reopened by using their basename as analysis_id;
 files are not renamed or moved.
 
 ``task`` is distinct: for Mimrec it names an operation's output directory such as
-``event-selected`` or ``image-selected``. It does not select the analysis group.
+``event-selected`` or ``image-selected``. It does not select the analysis group or identify extracted data. Root manifest
+operation/status/execution/path records select data, even with arbitrary task
+names. Multiple successful extractions require input_data=an_exact_result;
+spectrum no longer accepts working_space. See :doc:`mimrec` for the full selection
+order, component workflow and migration examples.
 For Revan it remains a queryable operation label. An execution_id identifies one
 actual native command; each rerun gets another UUID and independent log number.
 Output names depend on the requested path, not operation count: spectrum.png
@@ -203,8 +206,9 @@ then records the existing origin/upstream by reference without rerunning Cosima.
 There is no automatic in-place migration in this release.
 
 See :doc:`mimrec` for native operations and :doc:`api/index` for signatures.
-The full-chain smoke example is ``examples/end_to_end_smoke.py``. Component
-workflows, study scheduling and graph visualization remain separate future work.
+The full-chain smoke example is ``examples/end_to_end_smoke.py``. Prepared-component
+composition is available through analyze_components; random-window workflows,
+study scheduling and graph visualization remain separate future work.
 
 Recording for large batches
 ---------------------------

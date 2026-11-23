@@ -283,7 +283,8 @@ class SimulationWorkspace:
             if "configuration" in record and "defaults" not in group:
                 group["defaults"] = {"configuration": record["configuration"],
                                      "geometry": record.get("geometry"),
-                                     "configuration_overrides": record.get("configuration_overrides", [])}
+                                     "configuration_overrides": record.get("analysis_baseline_overrides",
+                                                                           record.get("configuration_overrides", []))}
             write_manifest(self.index_path, data)
 
     def _claim_product(self, workspace, path):

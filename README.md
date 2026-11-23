@@ -185,17 +185,13 @@ from megalibpy import Mimrec, SimulationWorkspace
 
 experiment = SimulationWorkspace("grb-localization-001")
 reconstructed = experiment.select("revan", task="baseline")
-mimrec = Mimrec(runtime)
-selected = mimrec.extract_events(
-    working_space=reconstructed,
-    config_file="configurations/analysis.mimrec.cfg",
-    task="event-selection",
+mimrec = Mimrec(
+    runtime, working_space=experiment, analysis_id="selection-a",
+    input_data=reconstructed, config_file="configurations/analysis.mimrec.cfg",
 )
-image = mimrec.image(
-    working_space=selected,
-    task="image-selected",
-    output_name="image.png",
-)
+selected = mimrec.extract_events(task="energy-cut", TotalEnergy_Min=100)
+image = mimrec.image(task="image-selected", output_name="image.root")
+spectrum = mimrec.spectrum()
 print(image.outputs["image"])
 ```
 
@@ -205,7 +201,19 @@ Independent `extract_events`, `image`, `spectrum` and `arm` methods prepare nati
 configuration, and keyword overrides become native `-C` arguments. Each command
 records its own execution ID and exact upstream; Mimrec operations share a
 data/configuration group, its configuration snapshot, inputs and logs. ROOT outputs remain
-native files. Component workflows will be added after basic native validation.
+native files. Constructor-bound main configuration and data define the analysis;
+method overrides affect only that command. `task="energy-cut"` is a custom output
+label, not a data lookup key: later operations query the root manifest for this
+analysis's unique successful `extract_events` record. Multiple extractions need
+an exact `input_data=selected` result. `spectrum` has no `working_space` argument;
+bind the experiment root in `Mimrec(...)` instead.
+
+Declare prepared `external_components=[background_result, ...]` in the constructor
+and call `add_external_components()` to run native IN-list + `mimrec -x`
+combination. All real parents are recorded; the primary origin is retained.
+`megalibpy.mimrec.workflows.analyze_components` explicitly combines, extracts,
+images and produces a spectrum using exact result references. Background-window
+preparation is separate, with no automatic time alignment or physical scaling.
 See the [Mimrec guide](docs/mimrec.rst), [API reference](docs/api/index.rst) and
 [command-line example](examples/mimrec_analysis.py).
 
@@ -244,10 +252,10 @@ revan = Revan(runtime, analysis_id="reconstruction-a")
 reconstructed = revan.reconstruct(
     working_space=simulated, config_file="baseline.revan.cfg")
 mimrec = Mimrec(
-    runtime, revan_analysis_id="reconstruction-a", analysis_id="selection-b")
-selected = mimrec.extract_events(
-    working_space=experiment, config_file="analysis.mimrec.cfg", task="event-selected")
-spectrum = mimrec.spectrum(working_space=experiment, output_name="spectrum.png")
+    runtime, working_space=experiment, revan_analysis_id="reconstruction-a",
+    analysis_id="selection-b", config_file="analysis.mimrec.cfg")
+selected = mimrec.extract_events(task="event-selected")
+spectrum = mimrec.spectrum(output_name="spectrum.png")
 ```
 
 Omitting Mimrec's own `analysis_id` defaults it to `revan_analysis_id`. Existing

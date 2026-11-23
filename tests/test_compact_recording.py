@@ -87,7 +87,7 @@ def test_compact_full_chain_without_resource_copies_and_summary(native, tmp_path
     expected = hashlib.sha256(cfg.read_bytes()).hexdigest()
     cfg.unlink()  # inherited config comes from manifest, not the original file
     image = mimrec.image(selected, output_name='image.png', log_mode='full')
-    spectrum = mimrec.spectrum(selected, output_name='spectrum.png', log_mode='full')
+    spectrum = mimrec.spectrum(input_data=selected, output_name='spectrum.png', log_mode='full')
     for result in (reconstructed, selected, image, spectrum):
         assert result.record['configuration']['executed_sha256'] == expected
         assert result.record['configuration_overrides'] == []  # Python log options are not native -C settings

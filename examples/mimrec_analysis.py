@@ -31,13 +31,22 @@ def main():
     selected = args.working_space
     if args.revan_task:
         selected = SimulationWorkspace(selected).select('revan', task=args.revan_task)
-    options = dict(working_space=selected, tra_path=args.tra_path, output_dir=args.output_dir,
-                   config_file=args.config, geometry=args.geometry, timeout=args.timeout, attempt=args.attempt)
+    runner = Mimrec(
+        runtime,
+        working_space=args.working_space if args.operation == 'spectrum' else None,
+        revan_analysis_id=args.revan_analysis_id, analysis_id=args.analysis_id)
+    options = dict(tra_path=args.tra_path, output_dir=args.output_dir,
+                   config_file=args.config, geometry=args.geometry,
+                   timeout=args.timeout, attempt=args.attempt)
+    if args.operation == 'spectrum':
+        options['input_data'] = selected if args.revan_task else None
+    else:
+        options['working_space'] = selected
     if args.task is not None:
         options['task'] = args.task
     if args.output_name is not None:
         options['output_name'] = args.output_name
-    result = getattr(Mimrec(runtime, revan_analysis_id=args.revan_analysis_id, analysis_id=args.analysis_id), args.operation)(**options)
+    result = getattr(runner, args.operation)(**options)
     print('Workspace:', result.workspace_dir)
     print('Manifest:', result.manifest_path)
     print('Stdout log:', result.stdout_path)

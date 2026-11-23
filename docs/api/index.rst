@@ -79,7 +79,12 @@ Revan and Mimrec bind named analysis groups at construction. Mimrec separately
 names its Revan parent and own analysis; see :doc:`../workspaces`.
 
 .. autoclass:: Mimrec
-   :members: extract_events, image, spectrum, arm
+   :members: extract_events, image, spectrum, arm, add_external_components
+
+Prepared component workflow
+---------------------------
+
+.. autofunction:: megalibpy.mimrec.workflows.analyze_components
 
 Mimrec ROOT data extraction
 ---------------------------
