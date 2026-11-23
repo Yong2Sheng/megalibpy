@@ -28,3 +28,21 @@ and open it in JupyterLab from the ``megalibpy`` environment.
    :maxdepth: 1
 
    Inspect and edit a source file <Source_file_interpretion>
+
+Single-trial GRB localization
+--------------------------------
+
+The localization notebook demonstrates one simulation and reconstruction,
+random one-second background extraction using a standalone runtime command,
+component-aware event selection, spectrum/image generation, Galactic peak
+coordinates and angular separation, and a one-row CSV summary. Update its
+external paths, scientific configurations and background time bounds before
+running. Each new simulation requires a fresh workspace. Native execution is
+not performed during the documentation build.
+
+:download:`Download the localization notebook <Localization_workflow.ipynb>`.
+
+.. toctree::
+   :maxdepth: 1
+
+   Single-trial GRB localization <Localization_workflow>
