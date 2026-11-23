@@ -62,6 +62,11 @@ Both modes preserve the calling Python environment.
 .. autoclass:: MEGAlibRuntime
    :members: direct, from_setup_script
 
+Standalone native command
+-------------------------
+
+.. autofunction:: run_command
+
 Revan reconstruction
 --------------------
 

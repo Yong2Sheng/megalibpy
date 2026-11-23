@@ -266,3 +266,22 @@ Omitting Mimrec's own `analysis_id` defaults it to `revan_analysis_id`. Existing
 extracted events in the own analysis are reused as input; otherwise the registered
 entry or explicit Revan parent is selected. `task` names an operation output
 folder; `execution_id` identifies one native command. See the workspace guide.
+
+
+## Standalone native commands
+
+For one-off preparation such as selecting a background time interval, use
+`run_command` with an external runtime; no workspace or manifest is created:
+
+```python
+from megalibpy import MEGAlibRuntime, run_command
+
+runtime = MEGAlibRuntime.from_setup_script("initialize-megalib.sh")
+result = run_command(["mimrec", "--help"], runtime=runtime, capture_output=True)
+print(result.stdout)
+```
+
+It returns `subprocess.CompletedProcess`, passes argv literally, raises on a
+nonzero exit by default, and leaves the parent environment unchanged. See the
+[standalone command guide](docs/commands.rst) for a complete random one-second
+background extraction example and output/timeout behavior.

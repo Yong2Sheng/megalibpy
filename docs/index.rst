@@ -23,4 +23,5 @@ The source code is available on `GitHub <https://github.com/Yong2Sheng/megalibpy
    revan
    mimrec
    workspaces
+   commands
    api/index
