@@ -61,7 +61,8 @@ How subsequent operations find extracted data
 only an output directory label. The preceding example deliberately uses
 ``task="energy-cut"``; spectrum() still finds the extracted data correctly.
 
-When input_data is omitted, the bound analysis queries the root manifest:
+For image/spectrum/arm, when input_data is omitted the bound analysis queries
+the root manifest:
 
 #. Restrict records to this Mimrec analysis group.
 #. Find successful records with ``operation="extract_events"``. Use the result
@@ -69,8 +70,8 @@ When input_data is omitted, the bound analysis queries the root manifest:
 #. If no successful extraction exists, use the group's unique successful
    ``operation="add_external_components"`` result, if present.
 #. Otherwise use the registered primary input. If external components were
-   declared but have not been combined, stop and ask for
-   ``add_external_components()`` rather than silently ignoring them.
+   declared but no successful extraction/materialization exists, call
+   ``extract_events()`` first; components are never silently ignored.
 
 The selected execution UUID and its recorded TRA path become the next command's
 upstream. The reader does not search for an event-selected folder, inspect
@@ -95,11 +96,15 @@ unique extraction. Select an exact result/reference:
        operation="extract_events", task="cut-a")
    spectrum_a = mimrec.spectrum(input_data=selected_a)
 
-Repeated extract_events() without input_data follows this same selection order
-and can further filter a prior extraction. For independent cuts, pass the same
-primary result (or the same mixed TRA result when components are present) to
-each call explicitly, as above. A later looser cut cannot recover events already
-removed from its selected input.
+With declared external_components, extract_events() without input_data always
+starts from the primary plus all declared components, using one IN/END list and
+one native -x. Repeated calls make independent selections of this same dataset;
+they do not re-add components to an earlier extraction. To further filter an
+existing result, pass input_data=selected explicitly; only that TRA is read.
+Without external components, repeated implicit extraction retains the existing
+manifest selection order and can further filter a prior extraction. For
+independent cuts in that case, explicitly pass the same primary to each call.
+A later looser cut cannot recover events already removed from its selected input.
 
 If cut-a itself was executed several times, select/save the exact execution
 reference rather than guessing. task and operation are distinct manifest fields:
@@ -160,9 +165,11 @@ are rejected. No semantic configuration-equivalence parser is introduced.
 Prepared external components and native combination
 ----------------------------------------------------
 
-Declare external_components when defining the analysis, then explicitly execute
-its combination. Components can be background, another GRB or any prepared TRA;
-no physical classification is inferred.
+Declare external_components when defining the analysis, then call
+extract_events() directly. Components can be background, another GRB or any
+prepared TRA; no physical classification is inferred. One native command reads
+the complete declared dataset and applies the extraction settings. There is no
+required add_external_components() call or intermediate combined TRA.
 
 .. code-block:: python
 
@@ -178,17 +185,16 @@ no physical classification is inferred.
 
    mixed_analysis = Mimrec(
        runtime, working_space=experiment,
-       revan_analysis_id="reconstruction-a", analysis_id="with-background",
+       analysis_id="with-background", input_data=reconstructed,
        config_file="analysis.mimrec.cfg",
        external_components=[background])
-   mixed = mixed_analysis.add_external_components()
-   selected = mixed_analysis.extract_events(input_data=mixed)
+   selected = mixed_analysis.extract_events(task="energy-cut", TotalEnergy_Min=100)
    spectrum = mixed_analysis.spectrum(input_data=selected)
 
 The numeric time range is illustrative; supply one valid for your data's native
 time system. The wrapper does not infer valid background intervals.
-add_external_components writes an IN/END list with absolute selected paths and
-runs native mimrec -x, following the official
+extract_events writes an IN/END list with absolute primary/component paths and
+runs native mimrec -x once, following the official
 `MFileEvents include reader <https://github.com/zoglauer/megalib/blob/11b797167eecb88ae84b63a852edf5a466d964ae/src/global/misc/src/MFileEvents.cxx#L676>`_.
 Main input and components are not copied or parsed.
 Result/reference components retain every real upstream UUID, including selected
@@ -197,11 +203,23 @@ metadata. The primary workspace origin remains intact. The list's content is
 stored in the manifest, and its native file is temporary unless archive_inputs
 is explicitly enabled.
 
-**Combination is a native extraction, so its cfg selections still apply.**
-Choose main settings and combination overrides appropriate for all components.
+**The single extraction applies its cfg selections to all declared inputs.**
+Choose main settings and extraction overrides appropriate for all components.
 Background preparation overrides are not carried forward automatically. No
 clock alignment, exposure normalization or event-intensity scaling is added.
 Do not assume that background and source event clocks have been aligned.
+
+Repeated default extract_events() calls start from the full declared input set,
+even if earlier extractions exist. An explicit input_data=selected instead
+re-filters that result alone; no component is appended a second time. The
+extraction record itself contains every parent, component_inputs and include_list.
+Later image/spectrum calls receive its exact result, or query the unique
+successful extraction under the normal manifest selection rules.
+
+add_external_components() remains available as an optional explicit native
+materialization operation. It is not part of the recommended flow. If deliberately
+using it before a second extraction, pass input_data=combined explicitly to
+consume that materialized TRA. Both commands apply their own native selections.
 
 A small ordinary-function workflow is available for already prepared components:
 
@@ -213,15 +231,15 @@ A small ordinary-function workflow is available for already prepared components:
        mixed_analysis,
        extraction_overrides={"TotalEnergy_Min": 100},
    )
-   combined = results["combined"]
    selected = results["selected"]
    image_root = results["image"]
    spectrum_root = results["spectrum"]
 
-It explicitly combines, extracts, images and calculates a spectrum. Each step
-passes exact results to the next, so repeated workflow calls do not rely on
-implicit latest selections. Separate override dictionaries are available for
-all four operations. Earlier successful results remain if a later step fails.
+It performs one extraction over the declared dataset, then images and calculates
+a spectrum. Each analysis receives the exact extraction result, so repeated
+workflow calls do not rely on implicit latest selections. Separate override
+dictionaries are available for the three operations. There is no
+combination_overrides argument or separate combined result. Earlier successful results remain if a later step fails.
 Random background-window selection, multi-trial studies and scheduling remain
 future work; each independent Cosima trial must use a separate workspace.
 

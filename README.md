@@ -211,10 +211,11 @@ an exact `input_data=selected` result. `spectrum` has no `working_space` argumen
 bind the experiment root in `Mimrec(...)` instead.
 
 Declare prepared `external_components=[background_result, ...]` in the constructor
-and call `add_external_components()` to run native IN-list + `mimrec -x`
-combination. All real parents are recorded; the primary origin is retained.
-`megalibpy.mimrec.workflows.analyze_components` explicitly combines, extracts,
-images and produces a spectrum using exact result references. Background-window
+and call `extract_events()` directly. One native IN-list + `mimrec -x` execution
+reads the primary and all declared components and applies the selections, without
+an intermediate combined TRA. All real parents are recorded; the primary origin
+is retained. `megalibpy.mimrec.workflows.analyze_components` extracts, images and
+produces a spectrum using exact result references. Background-window
 preparation is separate, with no automatic time alignment or physical scaling.
 See the [Mimrec guide](docs/mimrec.rst), [API reference](docs/api/index.rst) and
 [command-line example](examples/mimrec_analysis.py).

@@ -121,8 +121,10 @@ Reopen a named analysis without repeating identifiers:
 
 Input selection first uses the own Mimrec group's unique successful extraction.
 If none exists, it uses the group's unique successful component combination,
-otherwise its exact registered primary input. Declared components must first be
-prepared by add_external_components. For a new group, the constructor resolves
+otherwise its exact registered primary input. With declared components, call
+extract_events() directly to select the complete dataset in one native -x.
+Repeated default component extractions start from the declaration; an explicit
+previous result re-filters only that TRA and does not add components again. For a new group, the constructor resolves
 the explicit upstream revan_analysis_id to an exact execution. Multiple candidates raise
 ambiguity errors; directory contents and mtimes never choose an upstream.
 

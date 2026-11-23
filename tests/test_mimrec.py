@@ -666,7 +666,7 @@ def test_bound_components_native_include_and_complete_cross_workspace_lineage(an
     root = tmp_path/'experiment'
     runner = Mimrec(working_space=root, analysis_id='mixed', input_data=tra,
                     config_file=cfg, external_components=[background, extra], executable=tool)
-    with pytest.raises(ValueError, match='call add_external_components'):
+    with pytest.raises(ValueError, match='Call extract_events'):
         runner.spectrum()
     assert not root.exists()
     mixed = runner.add_external_components(task='any-combination-label', TotalEnergy_Min=100)
@@ -690,7 +690,7 @@ def test_bound_components_native_include_and_complete_cross_workspace_lineage(an
     spectrum = runner.spectrum()
     assert read(spectrum)['upstream'][0]['execution_id'] == mixed.execution_id
     assert read(spectrum)['configuration_overrides'] == []  # Neither time window nor combination override leaks.
-    selected = runner.extract_events(task='not-a-special-name')
+    selected = runner.extract_events(input_data=mixed, task='not-a-special-name')
     assert read(selected)['upstream'][0]['execution_id'] == mixed.execution_id
     image = runner.image()
     assert read(image)['upstream'][0]['execution_id'] == selected.execution_id
@@ -772,7 +772,7 @@ def test_failed_combination_is_not_selected_and_temporary_inputs_removed(analysi
     assert record['status']=='failed'
     assert record['include_list']['content'].endswith('END\n')
     assert not Path(record['command'][record['command'].index('-f')+1]).exists()
-    with pytest.raises(ValueError,match='call add_external_components'):
+    with pytest.raises(ValueError,match='Call extract_events'):
         runner.spectrum()
 
 
@@ -785,14 +785,16 @@ def test_prepared_component_workflow_uses_exact_results_on_repeated_calls(analys
     previous=None
     for _ in range(2):
         results=analyze_components(runner,extraction_overrides={'TotalEnergy_Min':100})
-        assert results['selected'].record['upstream'][0]['execution_id']==results['combined'].execution_id
+        assert len(results['selected'].record['component_inputs']) == 2
+        assert results['selected'].record['operation'] == 'extract_events'
+        assert set(results) == {'selected', 'image', 'spectrum'}
         for operation in ('image','spectrum'):
             assert results[operation].record['upstream'][0]['execution_id']==results['selected'].execution_id
             assert results[operation].record['configuration_overrides']==[]
         assert results['selected'].record['configuration_overrides']==[{'parameter':'TotalEnergy.Min','value':'100'}]
         if previous is not None:
-            assert results['combined'].execution_id!=previous['combined'].execution_id
-            assert previous['combined'].outputs['tra'][0].exists()
+            assert results['selected'].execution_id!=previous['selected'].execution_id
+            assert previous['selected'].outputs['tra'][0].exists()
         previous=results
     with pytest.raises(ValueError,match='only native'):
         analyze_components(runner,image_overrides={'input_data':results['selected']})
@@ -829,7 +831,7 @@ def test_bound_combination_archive_and_setup_mode(analysis,tmp_path):
     runner=Mimrec(MEGAlibRuntime.from_setup_script(setup,archive_inputs=True),
                   working_space=tmp_path/'experiment',analysis_id='a',input_data=tra,
                   config_file=cfg,external_components=[extra],executable=tool)
-    mixed=runner.add_external_components(isolate_settings=True)
+    mixed=runner.extract_events(isolate_settings=True)
     include=mixed.output_dir/mixed.record['include_list']['snapshot']
     assert include.read_text()==mixed.record['include_list']['content']
     assert json.loads(mixed.stdout_path.read_text())['home']==str(mixed.output_dir/mixed.record['configuration']['settings_home'])
@@ -861,3 +863,64 @@ def test_constructor_freezes_native_text_of_mutable_baseline_values(analysis,tmp
     value.append(3)
     result=runner.extract_events()
     assert result.record['configuration_overrides']==[{'parameter':'Native.Vector','value':'[1, 2]'}]
+
+
+def test_extract_events_reads_declared_components_in_one_execution(analysis, tmp_path):
+    tra,cfg,tool=analysis
+    background=Mimrec(working_space=tmp_path/'background',analysis_id='window',input_data=tra,
+                      config_file=cfg,executable=tool).extract_events(EventSelections_TimeMode=1)
+    extra=tmp_path/'another component.tra';extra.write_bytes(b'prepared')
+    root=tmp_path/'experiment'
+    runner=Mimrec(working_space=root,analysis_id='mixed',input_data=tra,config_file=cfg,
+                  external_components=[background,extra],executable=tool)
+    selected=runner.extract_events(task='energy-cut',TotalEnergy_Min=100)
+    record=selected.record
+    assert record['operation']=='extract_events'
+    assert len(SimulationWorkspace(root)._read()['executions'])==1
+    expected=[str(tra),str(background.outputs['tra'][0]),str(extra)]
+    assert [d['path'] for d in record['component_inputs']]==expected
+    assert record['include_list']['content']=='# Prepared TRA components; native MEGAlib reads the events\n'+''.join('IN '+p+'\n' for p in expected)+'END\n'
+    assert [r['execution_id'] for r in record['upstream']]==[background.execution_id]
+    assert record['upstream'][0]['execution_record']['execution_id']==background.execution_id
+    assert record['execution_overrides']==[{'parameter':'TotalEnergy.Min','value':'100'}]
+    assert not Path(record['command'][record['command'].index('-f')+1]).exists()
+    assert record['command'][-1]=='-x'
+    assert SimulationWorkspace(root)._read()['origin']=={'kind':'external_tra','path':str(tra)}
+    spectrum=runner.spectrum()
+    assert spectrum.record['upstream'][0]['execution_id']==selected.execution_id
+    assert spectrum.record['configuration_overrides']==[]
+    # Explicit re-filtering consumes only the selected TRA, without re-adding components.
+    narrowed=runner.extract_events(input_data=selected,task='further-cut',TotalEnergy_Min=200)
+    assert narrowed.record['upstream'][0]['execution_id']==selected.execution_id
+    assert 'component_inputs' not in narrowed.record
+    # Default extraction starts from the declaration again, even with several prior extractions.
+    reopened=Mimrec(working_space=root,analysis_id='mixed',executable=tool)
+    repeated=reopened.extract_events(task='independent-cut')
+    assert [d['path'] for d in repeated.record['component_inputs']]==expected
+    assert repeated.record['upstream'][0]['execution_id']==background.execution_id
+    with pytest.raises(ValueError,match='found 3'):
+        reopened.spectrum()
+    assert reopened.image(input_data=repeated).record['upstream'][0]['execution_id']==repeated.execution_id
+
+
+def test_direct_component_extraction_records_primary_parent_and_failure_retry(analysis,tmp_path):
+    tra,cfg,tool=analysis
+    sim=tmp_path/'events.sim';sim.write_bytes(b'sim')
+    root=tmp_path/'experiment'
+    parent=Revan(working_space=root,analysis_id='reconstruction-a',executable=tool).reconstruct(sim_path=sim,config_file=cfg)
+    extra=tmp_path/'extra.tra';extra.write_bytes(b'prepared')
+    cfg.write_bytes(b'missing')
+    runner=Mimrec(working_space=root,analysis_id='mixed',input_data=parent,config_file=cfg,
+                  external_components=[extra],executable=tool)
+    for _ in range(2):
+        with pytest.raises(ExecutionError) as failure:
+            runner.extract_events()
+        record=SimulationWorkspace(root)._read()['executions'][failure.value.execution_id]
+        assert record['status']=='failed'
+        assert record['operation']=='extract_events'
+        assert record['upstream'][0]['execution_id']==parent.execution_id
+        assert [d['path'] for d in record['component_inputs']]==[str(parent.outputs['tra'][0]),str(extra)]
+        assert not Path(record['command'][record['command'].index('-f')+1]).exists()
+    assert len(SimulationWorkspace(root)._read()['executions'])==3
+    with pytest.raises(ValueError,match='Call extract_events'):
+        runner.spectrum()

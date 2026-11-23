@@ -180,7 +180,8 @@ class Mimrec:
         are bound with the primary input, not interpreted as background/GRB.
         None restores a recorded definition; an empty iterable explicitly means
         no components. Different inputs require a new analysis_id. Call
-        add_external_components explicitly before analyzing declared components.
+        extract_events() reads the primary and these components together via
+        one native -x command. No separate combination call is required.
     **configuration
         Baseline native overrides. Keys replace underscores with dots for -C;
         values are unchanged except booleans become true/false. Method overrides
@@ -275,7 +276,9 @@ class Mimrec:
 
         Notes
         -----
-        This explicitly executes mimrec -x on an IN/END list using the main
+        Optional explicit materialization; ordinary analyses call extract_events()
+        directly, which already includes the declared components in one -x.
+        This method executes mimrec -x on an IN/END list using the main
         configuration plus this call's overrides. Native selections still apply;
         this is not unfiltered byte concatenation. No event parser, time shift,
         exposure/flux scaling or background classification is added. The list
@@ -289,8 +292,8 @@ class Mimrec:
         >>> analysis = Mimrec(working_space="experiment", analysis_id="mixed",
         ...                   input_data="signal.tra.gz", config_file="analysis.cfg",
         ...                   external_components=["prepared-background.tra.gz"])
-        >>> mixed = analysis.add_external_components()  # doctest: +SKIP
-        >>> spectrum = analysis.spectrum(input_data=mixed)  # doctest: +SKIP
+        >>> selected = analysis.extract_events()  # doctest: +SKIP
+        >>> spectrum = analysis.spectrum(input_data=selected)  # doctest: +SKIP
         """
         if self._analysis is None:
             raise ValueError("Declare config_file and external_components in Mimrec() first")
@@ -449,6 +452,11 @@ class Mimrec:
         input_data : ExecutionResult or ExecutionInput or None, optional
             Exact TRA result/reference for this command, default None. For a
             bound analysis it must belong to that analysis's data chain.
+            With declared external_components, None reads the primary and all
+            declared components together via one native IN/END list and -x.
+            Every such call starts from the declared dataset, not a prior
+            extraction. An explicit previous result re-filters only that TRA;
+            components are not added again. Without declared components,
             None queries the root manifest (not the filesystem): select this
             group's unique successful extract_events record first, otherwise
             its unique successful add_external_components record, otherwise the
@@ -523,6 +531,9 @@ class Mimrec:
         parameters that produced it. task is a label only. Reopening a group
         uses manifest operation/status/UUID/path records, not directory names.
         Setup executes in a child process; the parent environment is unchanged.
+        Declared components require no preliminary add_external_components().
+        Their include list and all real parent references are recorded in this
+        same extract_events execution; no intermediate combined TRA is created.
         No event parsing, time shift or physical scaling is performed.
 
         Examples

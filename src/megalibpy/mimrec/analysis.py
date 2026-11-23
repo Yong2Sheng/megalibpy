@@ -166,10 +166,16 @@ class BoundAnalysis:
             _, record, _ = read_execution(reference.manifest_path, reference.execution_id)
             same_group = (Path(reference.manifest_path) == self.experiment.index_path
                           and record.get("data_group") == self.group)
-            primary = (path == self.primary[0] and reference == self.primary[1] and not self.components)
+            primary = path == self.primary[0] and reference == self.primary[1]
+            if primary and self.components and operation != "extract_events":
+                raise ValueError("Call extract_events() to prepare the declared external components first")
             if not same_group and not primary:
                 raise ValueError("input_data must belong to this Mimrec analysis data chain")
             return path, reference
+        if operation == "extract_events" and self.components:
+            # Each extraction starts from the declared dataset. Re-extracting
+            # a previous result must be explicit, and never adds components twice.
+            return self.primary
         for candidate in ("extract_events", "add_external_components"):
             if any(r.get("data_group") == self.group and r.get("operation") == candidate
                    and r.get("status") == "succeeded" for r in records):
@@ -177,7 +183,7 @@ class BoundAnalysis:
                 path, reference, _ = _input(selected)
                 return path, reference
         if self.components:
-            raise ValueError("External components are declared; call add_external_components() before analysis")
+            raise ValueError("Call extract_events() to prepare the declared external components first")
         return self.primary
 
     def run(self, operation, explicit, tra_path, output_dir, config_file, geometry,
@@ -225,6 +231,8 @@ class BoundAnalysis:
             path, reference = self.primary
         else:
             path, reference = self.select(operation, explicit)
+            if operation == "extract_events" and self.components and (path, reference) == self.primary:
+                inputs = (self.primary, *self.components)
         effective = {**self.overrides, **overrides}
         if inputs is not None or path == self.primary[0]:
             descriptors = ([self.definition["main_input"], *self.definition["external_components"]]
