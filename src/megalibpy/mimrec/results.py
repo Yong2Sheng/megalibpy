@@ -9,6 +9,8 @@ import sys
 import tempfile
 
 import numpy as np
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 from ..execution import ExecutionResult, MEGAlibRuntime
 
@@ -205,19 +207,44 @@ class ImageData:
         return float(self.x_axis.centers[ix]), float(self.y_axis.centers[iy])
 
     @property
-    def peak_galactic_position(self):
-        """tuple of float or None: Verified (longitude, latitude) in degrees.
+    def peak_galactic_position(self) -> SkyCoord | None:
+        """Return the maximum pixel center as a Galactic SkyCoord, or None.
 
-        Longitude is wrapped into [0, 360). None means that a unique explicit
-        rectangular longitude mapping was not found; no sky position is guessed.
-        Peak ambiguity still raises ValueError when a mapping is available.
-        No equatorial or other coordinate transform is performed.
+        Returns
+        -------
+        astropy.coordinates.SkyCoord or None
+            Scalar position with frame="galactic", longitude wrapped into
+            [0, 360) degrees and latitude in degrees. Access .l.deg/.b.deg for
+            numeric values, or use .separation() with another sky coordinate.
+            None means no unique explicit rectangular Galactic mapping was
+            verified; no coordinate frame or longitude sign is guessed.
+
+        Raises
+        ------
+        ValueError
+            A verified mapping exists but the peak is ambiguous/nonfinite, or
+            its latitude is outside the Galactic coordinate range.
+
+        Notes
+        -----
+        This is the maximum pixel's center, not a centroid or fitted location.
+        peak_position remains the native (x, y) tuple. This property previously
+        returned an (l, b) tuple; use position.l.deg and position.b.deg instead
+        of unpacking that old return value. No equatorial transformation or
+        inverse Hammer projection is performed.
+
+        Examples
+        --------
+        >>> position = image.peak_galactic_position  # doctest: +SKIP
+        >>> if position is not None:  # doctest: +SKIP
+        ...     longitude, latitude = position.l.deg, position.b.deg
         """
         if self.longitude_mapping is None:
             return None
         x, y = self.peak_position
         mapping = self.longitude_mapping
-        return (mapping["scale"] * x + mapping["offset"]) % 360, y
+        longitude = (mapping["scale"] * x + mapping["offset"]) % 360
+        return SkyCoord(l=longitude * u.deg, b=y * u.deg, frame="galactic")
 
     @property
     def coordinate_system(self):
@@ -436,8 +463,8 @@ def extract_image(input_data, *, object_path=None, runtime=None, root_python=Non
     ImageData
         Contents indexed [x, y], native bin edges/titles/units, and metadata.
         peak_position is the unique maximum pixel's native bin center, not a
-        centroid. peak_galactic_position is separate and only available for a
-        verified rectangular Galactic TGaxis mapping; unknown projections and
+        centroid. peak_galactic_position is a scalar Galactic SkyCoord, available
+        only for a verified rectangular Galactic TGaxis mapping; unknown projections and
         Hammer images remain unmapped. Tied maxima raise ValueError on access.
 
     Raises
@@ -460,7 +487,7 @@ def extract_image(input_data, *, object_path=None, runtime=None, root_python=Non
     --------
     >>> image = extract_image("image.root", root_python="root-python")
     >>> x, y = image.peak_position  # native histogram bin center
-    >>> galactic = image.peak_galactic_position  # (l, b) degrees or None
+    >>> galactic = image.peak_galactic_position  # Galactic SkyCoord or None
     """
     path = _input_path(input_data, "image")
     data = _read(path, "extract", 2, object_path, runtime, root_python, timeout)

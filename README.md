@@ -226,8 +226,9 @@ from `megalibpy`. PyROOT runs in a separate ROOT-compatible Python process;
 the analysis environment never imports another environment's PyROOT.
 Spectrum results preserve bin edges, contents and units; `total_counts`
 integrates verified counts/keV by bin width. Image `peak_position` is the maximum
-pixel's native bin center, while `peak_galactic_position` is provided separately
-only when the file contains a verified coordinate mapping. Neither is a centroid.
+pixel's native bin center, while `peak_galactic_position` returns a scalar
+Galactic Astropy `SkyCoord` only when the file contains a verified coordinate
+mapping (otherwise `None`). Use `.l.deg`, `.b.deg` and `.separation()`. Neither is a centroid.
 Use `list_root_objects` and an explicit `object_path` for files with multiple
 histograms. No additional data files are saved by these functions. See the
 [ROOT extraction guide](docs/mimrec.rst#extract-numerical-root-results) for examples

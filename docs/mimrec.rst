@@ -326,7 +326,9 @@ For a setup script that activates MEGAlib and its ROOT-compatible Python:
 
    image = extract_image(image_root, runtime=runtime)
    print(image.peak_position)           # original histogram (x, y) bin center
-   print(image.peak_galactic_position)  # verified (l, b) in degrees, or None
+   position = image.peak_galactic_position  # Galactic SkyCoord, or None
+   if position is not None:
+       print(position.l.deg, position.b.deg)
    print(image.coordinate_system, image.projection)
 
 By default setup mode resolves ``python`` after sourcing the script. If the
@@ -382,14 +384,19 @@ The verified rectangular Galactic Mimrec image stores reversed pixel contents
 and a separate ``TGaxis`` for longitude. The reader inspects this axis's actual
 endpoints and label range to recover an affine mapping, rather than copying
 the old sign-change rule. ``peak_galactic_position`` applies that mapping and
-wraps longitude to [0, 360). This supports nonzero longitude offsets too.
-The histogram bins themselves remain unchanged.
+wraps longitude to [0, 360). It returns a scalar Astropy SkyCoord with the
+Galactic frame, supporting nonzero longitude offsets. Use position.l.deg and
+position.b.deg for numeric degrees, or position.separation(true_position) to
+calculate a spherical angular error. The histogram bins remain unchanged.
+This replaces the previous tuple return; migrate longitude, latitude = position
+to longitude, latitude = position.l.deg, position.b.deg.
 
 A Galactic Latitude [deg] Y axis and a unique, explicit, linear Galactic
 Longitude [deg] TGaxis spanning the histogram are required for that mapping.
 Unrecognized, nonlinear and Hammer projections stay ``unknown`` and return
-None for ``peak_galactic_position``. There is no inferred SkyCoord frame,
-equatorial transformation or inverse Hammer projection.
+None for ``peak_galactic_position``. A SkyCoord is constructed only after the
+Galactic mapping is verified; no unknown frame, equatorial transformation or
+inverse Hammer projection is inferred.
 This behavior follows the official
 `MImageGalactic implementation <https://github.com/zoglauer/megalib/blob/11b797167eecb88ae84b63a852edf5a466d964ae/src/mimrec/src/MImageGalactic.cxx>`_.
 The native spectrum density normalization is implemented in
