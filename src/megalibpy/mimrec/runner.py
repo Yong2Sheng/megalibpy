@@ -179,7 +179,7 @@ class Mimrec:
         Prepared TRA results/references or file paths, default None. Components
         are bound with the primary input, not interpreted as background/GRB.
         None restores a recorded definition; an empty iterable explicitly means
-        no components. Different inputs require a new analysis_id. Call
+        no components. Different inputs require a new analysis_id.
         extract_events() reads the primary and these components together via
         one native -x command. No separate combination call is required.
     **configuration
