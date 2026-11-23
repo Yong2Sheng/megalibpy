@@ -107,11 +107,13 @@ configuration and optional geometry override:
 from megalibpy import MEGAlibRuntime, Revan
 
 runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
-reconstructed = Revan(runtime).reconstruct(
+revan = Revan(
+    runtime,
     working_space="experiments/cosima-smoke-005",
+    analysis_id="reconstruction-a",
     config_file="configurations/baseline.revan.cfg",
-    task="baseline",
 )
+reconstructed = revan.reconstruct(task="baseline")
 print(reconstructed.outputs["tra"])
 ```
 
@@ -248,14 +250,15 @@ Empty logs and temporary launch/path handoff files are removed. See the
 Analysis branches can be bound once on the tool objects:
 
 ```python
-revan = Revan(runtime, analysis_id="reconstruction-a")
-reconstructed = revan.reconstruct(
-    working_space=simulated, config_file="baseline.revan.cfg")
+revan = Revan(
+    runtime, working_space=experiment, analysis_id="reconstruction-a",
+    config_file="baseline.revan.cfg", geometry="detector.geo.setup")
+reconstructed = revan.reconstruct()
 mimrec = Mimrec(
     runtime, working_space=experiment, revan_analysis_id="reconstruction-a",
     analysis_id="selection-b", config_file="analysis.mimrec.cfg")
 selected = mimrec.extract_events(task="event-selected")
-spectrum = mimrec.spectrum(output_name="spectrum.png")
+spectrum = mimrec.spectrum(input_data=selected, output_name="spectrum.root")
 ```
 
 Omitting Mimrec's own `analysis_id` defaults it to `revan_analysis_id`. Existing

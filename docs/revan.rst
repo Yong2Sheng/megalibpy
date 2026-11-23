@@ -15,11 +15,13 @@ An existing Cosima execution directory can be used directly:
    from megalibpy import MEGAlibRuntime, Revan
 
    runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
-   result = Revan(runtime).reconstruct(
+   revan = Revan(
+       runtime,
        working_space="experiments/cosima-smoke-005",
+       analysis_id="reconstruction-a",
        config_file="configurations/baseline.revan.cfg",
-       task="baseline",
    )
+   result = revan.reconstruct(task="baseline")
    print(result.workspace_dir)
    print(result.outputs["tra"])
    print(result.manifest_path)
@@ -43,7 +45,8 @@ to the input event file. Revan selects compression from the output suffix;
 Configuration handling
 ----------------------
 
-``config_file`` is required. Python checks that the supplied
+A main ``config_file`` is required when defining a new analysis, and belongs
+in the Revan constructor. Python checks that the supplied
 configuration is a readable, nonempty file, archives its bytes and passes an
 identical copy to native Revan with ``-c``. It does not parse XML, inspect
 configuration fields, rename tags, rewrite values, or normalize formatting.
@@ -59,7 +62,7 @@ the original bytes, with identical SHA-256 checksums. Comments, whitespace,
 line endings, unknown names and literal values are unchanged.
 
 The native child runs from the original configuration directory so relative
-resource paths retain that base. ``geometry=None`` (the default) omits ``-g``;
+resource paths retain that base. ``geometry=None`` in a new definition omits ``-g``;
 Revan uses the geometry selected by its configuration. A supplied geometry is
 forwarded unchanged with ``-g``, allowing native override/path handling. Python
 does not open, validate, hash or archive geometry or other external resources.
@@ -73,10 +76,12 @@ Pass arbitrary native setting paths as Python keyword arguments:
 
 .. code-block:: python
 
-   result = Revan(runtime).reconstruct(
-       working_space="experiments/cosima-smoke-005",
+   revan = Revan(
+       runtime, working_space="experiments/cosima-smoke-005",
+       analysis_id="reconstruction-a",
        config_file="configurations/baseline.revan.cfg",
-       # geometry=None: no -g; use the configuration's geometry
+   )
+   result = revan.reconstruct(
        TotalEnergy_Min=100,
        TotalEnergy_Max=1000,
        BayesianComptonFile="$(MEGALIB)/responses/my_response.rsp",
@@ -98,12 +103,13 @@ whitelist, parameter-path discovery or value validation is performed. Native
 Revan applies the overrides; the original configuration snapshot is unchanged.
 Its CLI geometry/input/output precedence remains native behavior.
 
-Use separate task names to compare settings, whether changing the base file or
-passing different keyword overrides.
+For a constructor-bound definition, choose a new analysis_id for a different
+main file, resource cwd, geometry or baseline overrides. task only labels a
+command; changing task does not redefine the analysis. Method keyword changes
+are recorded per execution and leave the constructor baseline intact.
 
-Reusing a task label creates the next attempt without overwriting prior results.
-Labels organize executions; the API does not check that configuration contents
-are identical between attempts. Use a new task name for a different setup.
+Repeated calls retain distinct execution IDs and do not overwrite products.
+Calls without an analysis_id use the legacy numbered-group allocation.
 No automatic configuration optimization, queueing or branch visualization is
 performed. See :doc:`workspaces` for selection and index behavior.
 
@@ -251,20 +257,49 @@ configuration snapshot is retained only when runtime.archive_inputs is true.
 Named reconstruction analyses
 -----------------------------
 
-Bind a stable workspace-local analysis_id when constructing Revan:
+Bind the experiment root, analysis_id and main configuration when constructing
+Revan. MEGAlibRuntime controls process startup; it does not own analysis settings.
 
 .. code-block:: python
 
-   revan = Revan(runtime, analysis_id="reconstruction-a")
-   reconstructed = revan.reconstruct(
-       working_space=cosima_result, config_file="baseline.revan.cfg")
+   revan = Revan(
+       runtime, working_space=experiment, analysis_id="reconstruction-a",
+       config_file="baseline.revan.cfg", geometry="detector.geo.setup",
+   )
+   reconstructed = revan.reconstruct()
 
-The directory is revan/reconstruction-a. A second constructor with another ID
-creates an independent reconstruction branch from the same Cosima data.
-Repeated calls on one named analysis reuse saved settings when config_file is
-omitted, retain distinct execution IDs and write numbered non-overwriting
-products. Explicit setting changes warn and retain the baseline. A different
-sim/evta entry requires another analysis ID.
+The directory is revan/reconstruction-a. Construction freezes the cfg bytes,
+resource cwd, literal geometry and baseline native -C text without starting a
+process or creating workspace files. Configuration remains opaque. Repeated
+calls retain separate execution IDs and non-overwriting products.
+
+Individual native overrides affect one command only:
+
+.. code-block:: python
+
+   variant = revan.reconstruct(Some_Native_Setting=100)
+   baseline = revan.reconstruct()  # uses the constructor baseline again
+
+Use actual setting names supported by your native Revan version. Baseline and
+execution overrides are separately recorded in the root manifest. The first
+execution's temporary settings do not become group defaults. Different main cfg
+bytes/resource cwd, geometry or constructor baseline overrides require another
+analysis_id. A different sim/evta entry also requires another analysis ID.
+Native fields, paths and values are never parsed or validated by Python.
+
+.. code-block:: python
+
+   # Reopen the recorded definition; the original cfg need not still exist.
+   reopened = Revan(
+       runtime, working_space=experiment, analysis_id="reconstruction-a")
+   reconstructed_again = reopened.reconstruct()
+
+The original method-level config_file/geometry entry remains available for legacy
+groups without a bound definition. Those groups retain warning-and-variant
+semantics. Reopening with constructor settings opts into a fixed definition;
+its baseline must match the group's saved defaults. A legacy method call cannot
+bypass an existing bound definition. The main example above is recommended for
+new analyses.
 
 Mimrec can select this parent through revan_analysis_id. Its own analysis_id may
 be different, enabling several selection/imaging branches per reconstruction.

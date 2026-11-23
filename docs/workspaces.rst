@@ -41,6 +41,10 @@ Bind an experiment root to a tool object
 analysis directory and is not the workspace root.
 
 Both ``Revan`` and ``Mimrec`` accept ``working_space`` in their constructors.
+Their main config_file, geometry and baseline native overrides also belong in
+these named analysis constructors. Per-command native overrides affect only the
+execution; they do not redefine the saved baseline. See :doc:`revan` and
+:doc:`mimrec` for fixed-definition and legacy compatibility rules.
 Subsequent operations can omit it. Per-call results or explicit references can
 still select an exact execution within the bound workspace. A different root
 or destination raises ``ValueError``; create another tool object for another
@@ -59,9 +63,10 @@ One Cosima per experiment
    experiment = SimulationWorkspace("grb-localization-001")
    simulated = Cosima(runtime).simulate(
        "burst.source", workspace=experiment, seed=12345)
-   revan = Revan(runtime, working_space=experiment, analysis_id="reconstruction-a")
-   reconstructed = revan.reconstruct(
-       simulated, config_file="baseline.revan.cfg")
+   revan = Revan(
+       runtime, working_space=experiment, analysis_id="reconstruction-a",
+       config_file="baseline.revan.cfg", geometry="detector.geo.setup")
+   reconstructed = revan.reconstruct()
 
 ``Cosima.simulate(output_dir=...)`` also treats its destination as an experiment
 root. It creates ``cosima/inputs``, ``cosima/logs`` and ``cosima/products``.
