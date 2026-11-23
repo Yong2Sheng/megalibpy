@@ -116,6 +116,10 @@ class BoundAnalysis:
         baseline_changes = saved["overrides"] if saved else defaults.get("configuration_overrides", []) if defaults else []
         self.overrides = {c["parameter"].replace(".", "_"): c["value"] for c in baseline_changes}
         self.overrides.update(overrides)
+        # Bind the native text now; a caller-owned mutable value must not alter
+        # the baseline after the constructor's definition has been checked.
+        self.overrides = {key: (("true" if value else "false") if isinstance(value, bool) else str(value))
+                          for key, value in self.overrides.items()}
         self.definition = {
             "version": 1,
             "main_input": _descriptor(*primary),

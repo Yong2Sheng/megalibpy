@@ -851,3 +851,13 @@ def test_constructor_bound_named_analysis_requires_parent_or_exact_result(analys
         Mimrec(working_space=root,analysis_id='selection-a',config_file=cfg,executable=tool)
     runner=Mimrec(working_space=root,analysis_id='selection-a',input_data=parent,config_file=cfg,executable=tool)
     assert runner.extract_events().record['upstream'][0]['execution_id']==parent.execution_id
+
+
+def test_constructor_freezes_native_text_of_mutable_baseline_values(analysis,tmp_path):
+    tra,cfg,tool=analysis
+    value=[1,2]
+    runner=Mimrec(working_space=tmp_path/'experiment',analysis_id='a',input_data=tra,
+                  config_file=cfg,executable=tool,Native_Vector=value)
+    value.append(3)
+    result=runner.extract_events()
+    assert result.record['configuration_overrides']==[{'parameter':'Native.Vector','value':'[1, 2]'}]
