@@ -364,6 +364,10 @@ class SimulationWorkspace:
                     "reason": "failed_group_directory_removed",
                     "previous_execution_ids": [r["execution_id"] for r in data["executions"].values()
                                                if r.get("data_group") == group],
+                    # Preparation may fail before its configuration reaches an
+                    # execution record. Preserve that baseline as well.
+                    "previous_definition": previous.get("definition"),
+                    "previous_defaults": previous.get("defaults") if "definition" not in previous else None,
                 }]
                 data["groups"][group] = {k: previous[k] for k in ("stage", "group_id", "analysis_id")
                                          if k in previous}

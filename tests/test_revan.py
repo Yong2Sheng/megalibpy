@@ -585,3 +585,28 @@ def test_deleted_failed_group_recovery_is_rechecked_before_execution(reconstruct
     (root/'revan/same').mkdir(parents=True)
     with pytest.raises(ValueError,match='new analysis_id'):
         corrected.reconstruct()
+
+
+def test_deleted_preparation_failure_keeps_baseline_in_recovery_history(reconstruction,tmp_path,monkeypatch):
+    import importlib
+    import shutil
+    module=importlib.import_module('megalibpy.revan.runner')
+    source,config,_,tool=reconstruction
+    root=tmp_path/'experiment'
+    runner=Revan(working_space=root,analysis_id='same',config_file=config,executable=tool)
+    original=module._prepare
+    def broken_prepare(*args,**kwargs):
+        raise RuntimeError('preparation failed before an execution plan existed')
+    monkeypatch.setattr(module,'_prepare',broken_prepare)
+    with pytest.raises(ExecutionError) as failure:runner.reconstruct(sim_path=source)
+    data=SimulationWorkspace(root)._read()
+    definition=data['groups']['revan/same']['definition']
+    assert 'configuration' not in data['executions'][failure.value.execution_id]
+    shutil.rmtree(root/'revan/same')
+    config.write_bytes(b'corrected baseline')
+    monkeypatch.setattr(module,'_prepare',original)
+    result=Revan(working_space=root,analysis_id='same',config_file=config,executable=tool).reconstruct()
+    history=SimulationWorkspace(root)._read()['groups']['revan/same']['recovery_history']
+    assert history[0]['previous_definition']==definition
+    assert history[0]['previous_execution_ids']==[failure.value.execution_id]
+    assert result.record['status']=='succeeded'

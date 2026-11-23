@@ -304,7 +304,9 @@ unless explicitly replaced in the constructor.
 Old failed execution records remain intact, with their original configuration,
 geometry and error. A new execution UUID and increasing execution/log numbers
 identify the retry; reserved output names remain protected. The group records
-recovery_history with the prior execution IDs. Deleted physical logs/products
+recovery_history with the prior execution IDs and the previous definition
+(or legacy defaults). This also preserves baselines when preparation failed
+before a command record could capture its configuration. Deleted physical logs/products
 cannot be recovered from their path references.
 
 An existing directory, any successful execution, or an allocated/running record
