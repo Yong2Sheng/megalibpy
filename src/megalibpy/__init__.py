@@ -9,7 +9,7 @@ Created on Sat Nov 30 20:47:47 2024
 from importlib.metadata import version
 
 from .cosima import Cosima
-from .execution import ExecutionError, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
+from .execution import ExecutionError, ExecutionResult, MEGAlibRuntime, SimulationWorkspace, run_command
 from .revan import Revan
 from .mimrec import (
     Mimrec, HistogramAxis, ImageData, ROOTExtractionError, ROOTObject, SpectrumData,
@@ -23,7 +23,7 @@ __version__ = version("megalibpy")
 __all__ = [
     "BaseParams", "MEGAlibSource", "RunConfig", "Run", "Source", "test_data",
     "Cosima", "MEGAlibRuntime", "ExecutionResult", "ExecutionError",
-    "Revan", "Mimrec", "SimulationWorkspace",
+    "Revan", "Mimrec", "SimulationWorkspace", "run_command",
     "HistogramAxis", "ImageData", "ROOTExtractionError", "ROOTObject", "SpectrumData",
     "extract_image", "extract_spectrum", "list_root_objects",
 ]

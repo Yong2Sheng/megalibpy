@@ -86,7 +86,7 @@ def test_external_origin_reopen_and_extraction_fanout(analysis, tmp_path):
     index = json.loads(workspace.index_path.read_text())
     assert index['origin'] == {'kind': 'external_tra', 'path': str(tra)}
     image = runner.image(selected, config_file=cfg, output_name='image [v1].png')
-    spectrum = runner.spectrum(selected.as_input('tra'), config_file=cfg)
+    spectrum = runner.spectrum(input_data=selected.as_input('tra'), config_file=cfg)
     for result in (image, spectrum):
         assert read(result)['upstream'][0]['execution_id'] == selected.execution_id
         assert read(result)['input_file']['path'] == str(selected.outputs['tra'][0])
@@ -245,7 +245,7 @@ def test_data_group_defaults_variants_and_single_manifest(analysis, tmp_path):
                                      EventSelections_TimeMode=1)
     baseline = (selected.output_dir/'inputs/executed.mimrec.cfg').read_bytes()
     image = runner.image(selected, task='image-selected', output_name='image.png')
-    spectrum = runner.spectrum(selected, task='spectrum')
+    spectrum = runner.spectrum(input_data=selected, task='spectrum')
     assert selected.output_dir == image.output_dir == spectrum.output_dir
     for result in (image, spectrum):
         record = read(result)
@@ -269,7 +269,7 @@ def test_data_group_defaults_variants_and_single_manifest(analysis, tmp_path):
     variant_path = selected.output_dir/read(variant)['configuration']['executed_snapshot']
     assert variant_path.read_bytes() == cfg.read_bytes()
     assert variant_path.name != 'executed.mimrec.cfg'
-    inherited = runner.spectrum(selected, task='inherited-after-variant')
+    inherited = runner.spectrum(input_data=selected, task='inherited-after-variant')
     assert read(inherited)['configuration']['executed_sha256'] == read(selected)['configuration']['executed_sha256']
     # Reopen explicitly: the selected extraction, rather than an unrelated Revan,
     # supplies the data and the group's original defaults.
@@ -300,7 +300,7 @@ def test_output_collision_is_numbered_without_overwrite(analysis, tmp_path):
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
     image = runner.image(selected, task='plots', output_name='same.root')
     original = image.outputs['image'][0].read_bytes()
-    spectrum = runner.spectrum(selected, task='plots', output_name='same.root')
+    spectrum = runner.spectrum(input_data=selected, task='plots', output_name='same.root')
     assert spectrum.outputs['spectrum'][0].name == 'same-002.root'
     assert image.outputs['image'][0].read_bytes() == original
 
@@ -328,7 +328,7 @@ def test_cross_workspace_record_snapshot_and_new_origin(analysis, tmp_path):
     assert 'executions' not in archived  # archive one record, not the expanding workspace
     assert json.loads(image.manifest_path.read_text())['origin']['kind'] == 'execution_reference'
     before = resolve_upstream(selected.as_input('tra'))[1]['manifest_sha256']
-    runner.spectrum(selected)
+    runner.spectrum(input_data=selected)
     assert resolve_upstream(selected.as_input('tra'))[1]['manifest_sha256'] == before
     assert json.loads(snapshot.read_text()) == archived
 
@@ -373,7 +373,7 @@ def test_analysis_id_binds_group_without_repeating_identifier(analysis, tmp_path
     root = tmp_path/'experiment'
     assert not root.exists()
     selected = runner.extract_events(tra_path=tra, output_dir=root, config_file=cfg, task='event-selected')
-    spectrum = runner.spectrum(selected, output_name='spectrum.png')
+    spectrum = runner.spectrum(input_data=selected, output_name='spectrum.png')
     image = runner.image(working_space=root, task='image-selected', output_name='image.png')
     assert selected.output_dir == spectrum.output_dir == image.output_dir == root/'mimrec/baseline'
     assert selected.outputs['tra'][0] == root/'mimrec/baseline/event-selected/events.tra.gz'
@@ -398,7 +398,7 @@ def test_two_named_analysis_groups_and_cross_workspace_scope(analysis, tmp_path)
     assert selected_a.output_dir != selected_b.output_dir
     assert read(selected_a)['configuration']['executed_sha256'] != read(selected_b)['configuration']['executed_sha256']
     assert a.image(selected_a).output_dir == selected_a.output_dir
-    assert b.spectrum(selected_b).output_dir == selected_b.output_dir
+    assert b.spectrum(input_data=selected_b).output_dir == selected_b.output_dir
     with pytest.raises(ValueError, match='different TRA input'):
         a.image(selected_b)
     other = a.extract_events(tra_path=tra, output_dir=tmp_path/'another-experiment', config_file=cfg_b)
@@ -466,7 +466,7 @@ def test_different_mimrec_names_can_share_one_explicit_revan_parent(analysis, tm
     # even though there is no same-name Revan group and no extraction output.
     direct = Mimrec(executable=tool, analysis_id='projection-only')
     image = direct.image(reconstructed, config_file=cfg)
-    spectrum = direct.spectrum(working_space=root)
+    spectrum = Mimrec(executable=tool, working_space=root, analysis_id='projection-only').spectrum()
     assert read(image)['upstream'][0]['execution_id'] == reconstructed.execution_id
     assert read(spectrum)['upstream'][0]['execution_id'] == reconstructed.execution_id
     with pytest.raises(ValueError, match='revan_analysis_id is required'):
@@ -535,7 +535,7 @@ def test_bound_workspace_full_chain_and_independent_selections(analysis, tmp_pat
         cfg_bytes = cfg.read_bytes()
         cfg.unlink()
         image = mimrec.image()
-        spectrum = mimrec.spectrum(selected)
+        spectrum = mimrec.spectrum(input_data=selected)
         cfg.write_bytes(cfg_bytes)
         assert read(selected)['upstream'][0]['execution_id'] == reconstructed.execution_id
         assert read(image)['upstream'][0]['execution_id'] == selected.execution_id
@@ -570,11 +570,11 @@ def test_output_names_are_independent_of_operation_numbers(analysis, tmp_path):
     tra, cfg, tool = analysis
     runner = Mimrec(executable=tool)
     selected = runner.extract_events(tra_path=tra, output_dir=tmp_path/'experiment', config_file=cfg)
-    png = runner.spectrum(selected, output_name='spectrum.png')
-    root = runner.spectrum(selected, output_name='spectrum.root')
-    other = runner.spectrum(selected, output_name='custom.root')
-    another_dir = runner.spectrum(selected, task='other', output_name='spectrum.root')
-    repeat = runner.spectrum(selected, output_name='spectrum.root')
+    png = runner.spectrum(input_data=selected, output_name='spectrum.png')
+    root = runner.spectrum(input_data=selected, output_name='spectrum.root')
+    other = runner.spectrum(input_data=selected, output_name='custom.root')
+    another_dir = runner.spectrum(input_data=selected, task='other', output_name='spectrum.root')
+    repeat = runner.spectrum(input_data=selected, output_name='spectrum.root')
     assert png.outputs['spectrum'][0].name == 'spectrum.png'
     assert root.outputs['spectrum'][0].name == 'spectrum.root'
     assert other.outputs['spectrum'][0].name == 'custom.root'
@@ -599,3 +599,352 @@ def test_output_reservations_and_existing_numbered_files_are_preserved(analysis,
     assert occupied.read_bytes() == b'externally supplied result'
     second = runner.extract_events(selected)
     assert second.outputs['tra'][0].name == 'events-002.tra.gz'
+
+
+def test_constructor_definition_and_command_overrides_do_not_leak(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    root = tmp_path/'bound-analysis'
+    runner = Mimrec(working_space=root, analysis_id='selection-a', input_data=tra,
+                    config_file=cfg, geometry='literal-model', executable=tool,
+                    TotalEnergy_Min=50)
+    assert not root.exists()  # Constructor reads data/cfg only, never executes.
+    original = cfg.read_bytes()
+    cfg.unlink()
+    selected = runner.extract_events(task='arbitrary-label', TotalEnergy_Min=100,
+                                     EventSelections_TimeMode=1)
+    spectrum = runner.spectrum()
+    image = runner.image()
+    assert read(selected)['configuration_overrides'] == [
+        {'parameter':'TotalEnergy.Min','value':'100'}, {'parameter':'EventSelections.TimeMode','value':'1'}]
+    for result in (spectrum,image):
+        assert read(result)['configuration_overrides'] == [{'parameter':'TotalEnergy.Min','value':'50'}]
+        assert read(result)['upstream'][0]['execution_id'] == selected.execution_id
+        assert read(result)['input_file']['path'] == str(selected.outputs['tra'][0])
+    assert read(selected)['execution_overrides'] == [
+        {'parameter':'TotalEnergy.Min','value':'100'}, {'parameter':'EventSelections.TimeMode','value':'1'}]
+    defaults = SimulationWorkspace(root).group_defaults('mimrec/selection-a')
+    assert defaults['configuration_overrides'] == [{'parameter':'TotalEnergy.Min','value':'50'}]
+    assert defaults['configuration']['content'].encode() == original
+    reopened = Mimrec(working_space=root, analysis_id='selection-a', executable=tool)
+    assert read(reopened.spectrum())['configuration_overrides'] == [{'parameter':'TotalEnergy.Min','value':'50'}]
+    assert selected.outputs['tra'][0].parent.name == 'arbitrary-label'
+    assert list((root/'mimrec/selection-a/inputs').glob('*')) == []
+
+
+def test_bound_configuration_and_data_changes_need_new_analysis(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    root = tmp_path/'experiment'
+    runner = Mimrec(working_space=root, analysis_id='a', input_data=tra, config_file=cfg, executable=tool)
+    selected = runner.extract_events()
+    before = selected.manifest_path.read_bytes()
+    cfg2 = cfg.with_name('new.cfg'); cfg2.write_bytes(b'new main bytes')
+    with pytest.raises(ValueError, match='new analysis_id'):
+        Mimrec(working_space=root, analysis_id='a', config_file=cfg2, executable=tool)
+    with pytest.raises(ValueError, match='new analysis_id'):
+        runner.spectrum(config_file=cfg2)
+    with pytest.raises(ValueError, match='new analysis_id'):
+        runner.image(geometry='different')
+    other = tmp_path/'other.tra'; other.write_bytes(b'other')
+    with pytest.raises(ValueError, match='new analysis_id'):
+        Mimrec(working_space=root, analysis_id='a', external_components=[other], executable=tool)
+    with pytest.raises(ValueError, match='new analysis_id'):
+        Mimrec(working_space=root, analysis_id='a', input_data=other, executable=tool)
+    with pytest.raises(ValueError, match='new analysis_id'):
+        Mimrec(working_space=root, analysis_id='a', TotalEnergy_Min=100, executable=tool)
+    assert selected.manifest_path.read_bytes() == before
+    branch = Mimrec(working_space=root, analysis_id='b', input_data=tra, config_file=cfg2, executable=tool)
+    assert branch.extract_events().output_dir.name == 'b'
+    assert json.loads(selected.manifest_path.read_text())['origin']['path'] == str(tra)
+
+
+def test_bound_components_native_include_and_complete_cross_workspace_lineage(analysis, tmp_path):
+    tra, cfg, tool = analysis
+    background = Mimrec(executable=tool).extract_events(
+        tra_path=tra, output_dir=tmp_path/'background-origin', config_file=cfg,
+        EventSelections_TimeMode=1, EventSelections_Time_Min=100, EventSelections_Time_Max=101)
+    extra = tmp_path/'second component.tra'; extra.write_bytes(b'another prepared component')
+    root = tmp_path/'experiment'
+    runner = Mimrec(working_space=root, analysis_id='mixed', input_data=tra,
+                    config_file=cfg, external_components=[background, extra], executable=tool)
+    with pytest.raises(ValueError, match='Call extract_events'):
+        runner.spectrum()
+    assert not root.exists()
+    mixed = runner.add_external_components(task='any-combination-label', TotalEnergy_Min=100)
+    record = read(mixed)
+    include = record['include_list']['content']
+    assert f'IN {tra}\n' in include
+    assert f'IN {background.outputs["tra"][0]}\n' in include
+    assert f'IN {extra}\n' in include
+    assert include.endswith('END\n')
+    assert record['operation'] == 'add_external_components'
+    assert record['command'][-1] == '-x'
+    assert record['include_list']['snapshot'] is None
+    native_input = Path(record['command'][record['command'].index('-f')+1])
+    assert not native_input.exists()
+    assert [r['execution_id'] for r in record['upstream']] == [background.execution_id]
+    assert record['upstream'][0]['execution_record']['execution_id'] == background.execution_id
+    assert [r['path'] for r in record['component_inputs']] == [str(tra), str(background.outputs['tra'][0]), str(extra)]
+    data = json.loads(mixed.manifest_path.read_text())
+    assert data['origin'] == {'kind':'external_tra', 'path':str(tra)}
+    assert data['groups']['mimrec/mixed']['input_file']['path'] == str(tra)
+    spectrum = runner.spectrum()
+    assert read(spectrum)['upstream'][0]['execution_id'] == mixed.execution_id
+    assert read(spectrum)['configuration_overrides'] == []  # Neither time window nor combination override leaks.
+    selected = runner.extract_events(input_data=mixed, task='not-a-special-name')
+    assert read(selected)['upstream'][0]['execution_id'] == mixed.execution_id
+    image = runner.image()
+    assert read(image)['upstream'][0]['execution_id'] == selected.execution_id
+    # Reopen the same complete dataset without resupplying cfg/components.
+    reopened = Mimrec(working_space=root, analysis_id='mixed', executable=tool)
+    assert read(reopened.spectrum())['upstream'][0]['execution_id'] == selected.execution_id
+    with pytest.raises(ValueError, match='data chain'):
+        reopened.spectrum(input_data=background)
+
+
+def test_mixed_main_and_component_references_both_recorded(analysis, tmp_path):
+    _, cfg, tool = analysis
+    sim=tmp_path/'events.sim'; sim.write_bytes(b'sim')
+    root=tmp_path/'experiment'
+    parent=Revan(working_space=root, analysis_id='reconstruction-a', executable=tool).reconstruct(
+        sim_path=sim, config_file=cfg)
+    background=Mimrec(working_space=root, analysis_id='background', revan_analysis_id='reconstruction-a',
+                      config_file=cfg, executable=tool).extract_events(EventSelections_TimeMode=1)
+    runner=Mimrec(working_space=root, analysis_id='mixed', revan_analysis_id='reconstruction-a',
+                  config_file=cfg, external_components=[background], executable=tool)
+    origin=json.loads(parent.manifest_path.read_text())['origin']
+    mixed=runner.add_external_components()
+    assert [r['execution_id'] for r in mixed.record['upstream']] == [parent.execution_id,background.execution_id]
+    assert json.loads(parent.manifest_path.read_text())['origin'] == origin
+    assert 'manifest_snapshot' not in mixed.record['upstream'][0]
+    # A later Revan rerun cannot change this object's already bound primary.
+    Revan(working_space=root,analysis_id='reconstruction-a',executable=tool).reconstruct()
+    repeated=runner.add_external_components()
+    assert repeated.record['upstream'][0]['execution_id']==parent.execution_id
+    with pytest.raises(ValueError,match='found 2'):
+        runner.spectrum()
+    assert runner.spectrum(input_data=mixed).record['upstream'][0]['execution_id']==mixed.execution_id
+
+
+def test_bound_multiple_extractions_require_explicit_input_data(analysis, tmp_path):
+    tra,cfg,tool=analysis
+    runner=Mimrec(working_space=tmp_path/'experiment', analysis_id='a', input_data=tra,
+                  config_file=cfg, executable=tool)
+    first=runner.extract_events(task='one')
+    second=runner.extract_events(task='two',TotalEnergy_Min=100)
+    with pytest.raises(ValueError,match='found 2'):
+        runner.spectrum()
+    assert runner.spectrum(input_data=first).record['upstream'][0]['execution_id']==first.execution_id
+    assert runner.image(input_data=second).record['upstream'][0]['execution_id']==second.execution_id
+    with pytest.raises(TypeError,match='no longer accepts working_space'):
+        runner.spectrum(working_space=first)
+    with pytest.raises(TypeError):
+        runner.spectrum(first)
+    import inspect
+    assert 'working_space' not in inspect.signature(Mimrec.spectrum).parameters
+
+
+def test_changed_bound_inputs_and_invalid_component_declarations(analysis, tmp_path):
+    tra,cfg,tool=analysis
+    root=tmp_path/'experiment'
+    extra=tmp_path/'extra.tra'; extra.write_bytes(b'background')
+    for components in ([tra],str(extra)):
+        with pytest.raises(ValueError):
+            Mimrec(working_space=root,analysis_id='a',input_data=tra,config_file=cfg,
+                   external_components=components,executable=tool)
+    runner=Mimrec(working_space=root,analysis_id='a',input_data=tra,config_file=cfg,
+                  external_components=[extra],executable=tool)
+    extra.write_bytes(b'changed background')
+    with pytest.raises(ValueError,match='changed on disk'):
+        runner.add_external_components()
+    assert not root.exists()
+
+
+def test_failed_combination_is_not_selected_and_temporary_inputs_removed(analysis, tmp_path):
+    tra,cfg,tool=analysis
+    cfg.write_bytes(b'missing')
+    extra=tmp_path/'extra.tra';extra.write_bytes(b'background')
+    runner=Mimrec(working_space=tmp_path/'experiment',analysis_id='a',input_data=tra,
+                  config_file=cfg,external_components=[extra],executable=tool)
+    with pytest.raises(ExecutionError) as failure:
+        runner.add_external_components()
+    records=json.loads(failure.value.manifest_path.read_text())['executions']
+    record=records[failure.value.execution_id]
+    assert record['status']=='failed'
+    assert record['include_list']['content'].endswith('END\n')
+    assert not Path(record['command'][record['command'].index('-f')+1]).exists()
+    with pytest.raises(ValueError,match='Call extract_events'):
+        runner.spectrum()
+
+
+def test_prepared_component_workflow_uses_exact_results_on_repeated_calls(analysis, tmp_path):
+    from megalibpy.mimrec.workflows import analyze_components
+    tra,cfg,tool=analysis
+    extra=tmp_path/'extra.tra';extra.write_bytes(b'prepared')
+    runner=Mimrec(working_space=tmp_path/'experiment',analysis_id='mixed',input_data=tra,
+                  config_file=cfg,external_components=[extra],executable=tool)
+    previous=None
+    for _ in range(2):
+        results=analyze_components(runner,extraction_overrides={'TotalEnergy_Min':100})
+        assert len(results['selected'].record['component_inputs']) == 2
+        assert results['selected'].record['operation'] == 'extract_events'
+        assert set(results) == {'selected', 'image', 'spectrum'}
+        for operation in ('image','spectrum'):
+            assert results[operation].record['upstream'][0]['execution_id']==results['selected'].execution_id
+            assert results[operation].record['configuration_overrides']==[]
+        assert results['selected'].record['configuration_overrides']==[{'parameter':'TotalEnergy.Min','value':'100'}]
+        if previous is not None:
+            assert results['selected'].execution_id!=previous['selected'].execution_id
+            assert previous['selected'].outputs['tra'][0].exists()
+        previous=results
+    with pytest.raises(ValueError,match='only native'):
+        analyze_components(runner,image_overrides={'input_data':results['selected']})
+
+
+def test_legacy_entry_cannot_bypass_a_bound_definition(analysis,tmp_path):
+    tra,cfg,tool=analysis
+    bound=Mimrec(working_space=tmp_path/'experiment',analysis_id='a',input_data=tra,
+                 config_file=cfg,executable=tool)
+    selected=bound.extract_events()
+    old_api=Mimrec(executable=tool)
+    changed=cfg.with_name('other.cfg');changed.write_bytes(b'different')
+    with pytest.raises(ValueError,match='new analysis_id'):
+        old_api.image(selected,config_file=changed)
+    image=old_api.image(selected,TotalEnergy_Min=100)
+    assert image.record['execution_overrides']==[{'parameter':'TotalEnergy.Min','value':'100'}]
+    assert bound.spectrum().record['configuration_overrides']==[]
+
+
+def test_bound_identifiers_cannot_be_changed_on_an_existing_object(analysis,tmp_path):
+    tra,cfg,tool=analysis
+    runner=Mimrec(working_space=tmp_path/'experiment',analysis_id='a',input_data=tra,
+                  config_file=cfg,executable=tool)
+    runner.analysis_id='b'
+    with pytest.raises(ValueError,match='Construct a new Mimrec'):
+        runner.extract_events()
+    assert not (tmp_path/'experiment').exists()
+
+
+def test_bound_combination_archive_and_setup_mode(analysis,tmp_path):
+    tra,cfg,tool=analysis
+    extra=tmp_path/'background.tra';extra.write_bytes(b'prepared')
+    setup=tmp_path/'setup.sh';setup.write_text('export SETUP_HOME="$HOME"\n')
+    runner=Mimrec(MEGAlibRuntime.from_setup_script(setup,archive_inputs=True),
+                  working_space=tmp_path/'experiment',analysis_id='a',input_data=tra,
+                  config_file=cfg,external_components=[extra],executable=tool)
+    mixed=runner.extract_events(isolate_settings=True)
+    include=mixed.output_dir/mixed.record['include_list']['snapshot']
+    assert include.read_text()==mixed.record['include_list']['content']
+    assert json.loads(mixed.stdout_path.read_text())['home']==str(mixed.output_dir/mixed.record['configuration']['settings_home'])
+    assert (mixed.output_dir/'inputs/executed.mimrec.cfg').read_bytes()==cfg.read_bytes()
+
+
+@pytest.mark.parametrize('option', ['external_components','analysis_id','revan_analysis_id','runtime'])
+def test_constructor_only_options_never_become_native_command_flags(option):
+    with pytest.raises(TypeError,match='in Mimrec'):
+        Mimrec().spectrum(**{option:'not-a-native-setting'})
+
+
+def test_constructor_bound_named_analysis_requires_parent_or_exact_result(analysis,tmp_path):
+    _,cfg,tool=analysis
+    sim=tmp_path/'events.sim';sim.write_bytes(b'sim')
+    root=tmp_path/'experiment'
+    parent=Revan(working_space=root,analysis_id='reconstruction-a',executable=tool).reconstruct(sim_path=sim,config_file=cfg)
+    with pytest.raises(ValueError,match='revan_analysis_id is required'):
+        Mimrec(working_space=root,analysis_id='selection-a',config_file=cfg,executable=tool)
+    runner=Mimrec(working_space=root,analysis_id='selection-a',input_data=parent,config_file=cfg,executable=tool)
+    assert runner.extract_events().record['upstream'][0]['execution_id']==parent.execution_id
+
+
+def test_constructor_freezes_native_text_of_mutable_baseline_values(analysis,tmp_path):
+    tra,cfg,tool=analysis
+    value=[1,2]
+    runner=Mimrec(working_space=tmp_path/'experiment',analysis_id='a',input_data=tra,
+                  config_file=cfg,executable=tool,Native_Vector=value)
+    value.append(3)
+    result=runner.extract_events()
+    assert result.record['configuration_overrides']==[{'parameter':'Native.Vector','value':'[1, 2]'}]
+
+
+def test_extract_events_reads_declared_components_in_one_execution(analysis, tmp_path):
+    tra,cfg,tool=analysis
+    background=Mimrec(working_space=tmp_path/'background',analysis_id='window',input_data=tra,
+                      config_file=cfg,executable=tool).extract_events(EventSelections_TimeMode=1)
+    extra=tmp_path/'another component.tra';extra.write_bytes(b'prepared')
+    root=tmp_path/'experiment'
+    runner=Mimrec(working_space=root,analysis_id='mixed',input_data=tra,config_file=cfg,
+                  external_components=[background,extra],executable=tool)
+    selected=runner.extract_events(task='energy-cut',TotalEnergy_Min=100)
+    record=selected.record
+    assert record['operation']=='extract_events'
+    assert len(SimulationWorkspace(root)._read()['executions'])==1
+    expected=[str(tra),str(background.outputs['tra'][0]),str(extra)]
+    assert [d['path'] for d in record['component_inputs']]==expected
+    assert record['include_list']['content']=='# Prepared TRA components; native MEGAlib reads the events\n'+''.join('IN '+p+'\n' for p in expected)+'END\n'
+    assert [r['execution_id'] for r in record['upstream']]==[background.execution_id]
+    assert record['upstream'][0]['execution_record']['execution_id']==background.execution_id
+    assert record['execution_overrides']==[{'parameter':'TotalEnergy.Min','value':'100'}]
+    assert not Path(record['command'][record['command'].index('-f')+1]).exists()
+    assert record['command'][-1]=='-x'
+    assert SimulationWorkspace(root)._read()['origin']=={'kind':'external_tra','path':str(tra)}
+    spectrum=runner.spectrum()
+    assert spectrum.record['upstream'][0]['execution_id']==selected.execution_id
+    assert spectrum.record['configuration_overrides']==[]
+    # Explicit re-filtering consumes only the selected TRA, without re-adding components.
+    narrowed=runner.extract_events(input_data=selected,task='further-cut',TotalEnergy_Min=200)
+    assert narrowed.record['upstream'][0]['execution_id']==selected.execution_id
+    assert 'component_inputs' not in narrowed.record
+    # Default extraction starts from the declaration again, even with several prior extractions.
+    reopened=Mimrec(working_space=root,analysis_id='mixed',executable=tool)
+    repeated=reopened.extract_events(task='independent-cut')
+    assert [d['path'] for d in repeated.record['component_inputs']]==expected
+    assert repeated.record['upstream'][0]['execution_id']==background.execution_id
+    with pytest.raises(ValueError,match='found 3'):
+        reopened.spectrum()
+    assert reopened.image(input_data=repeated).record['upstream'][0]['execution_id']==repeated.execution_id
+
+
+def test_direct_component_extraction_records_primary_parent_and_failure_retry(analysis,tmp_path):
+    tra,cfg,tool=analysis
+    sim=tmp_path/'events.sim';sim.write_bytes(b'sim')
+    root=tmp_path/'experiment'
+    parent=Revan(working_space=root,analysis_id='reconstruction-a',executable=tool).reconstruct(sim_path=sim,config_file=cfg)
+    extra=tmp_path/'extra.tra';extra.write_bytes(b'prepared')
+    cfg.write_bytes(b'missing')
+    runner=Mimrec(working_space=root,analysis_id='mixed',input_data=parent,config_file=cfg,
+                  external_components=[extra],executable=tool)
+    for _ in range(2):
+        with pytest.raises(ExecutionError) as failure:
+            runner.extract_events()
+        record=SimulationWorkspace(root)._read()['executions'][failure.value.execution_id]
+        assert record['status']=='failed'
+        assert record['operation']=='extract_events'
+        assert record['upstream'][0]['execution_id']==parent.execution_id
+        assert [d['path'] for d in record['component_inputs']]==[str(parent.outputs['tra'][0]),str(extra)]
+        assert not Path(record['command'][record['command'].index('-f')+1]).exists()
+    assert len(SimulationWorkspace(root)._read()['executions'])==3
+    with pytest.raises(ValueError,match='Call extract_events'):
+        runner.spectrum()
+
+
+def test_deleted_failed_mimrec_group_can_rebind_without_losing_component_lineage(analysis,tmp_path):
+    import shutil
+    tra,cfg,tool=analysis
+    root=tmp_path/'experiment'
+    extra=tmp_path/'background.tra';extra.write_bytes(b'prepared')
+    cfg.write_bytes(b'missing')
+    runner=Mimrec(working_space=root,analysis_id='same',input_data=tra,config_file=cfg,
+                  geometry='wrong',external_components=[extra],executable=tool,Old_Setting=True)
+    with pytest.raises(ExecutionError) as failure:runner.extract_events()
+    old_id=failure.value.execution_id
+    old=SimulationWorkspace(root)._read()['executions'][old_id]
+    shutil.rmtree(root/'mimrec/same')
+    cfg.write_bytes(b'corrected opaque cfg')
+    corrected=Mimrec(working_space=root,analysis_id='same',config_file=cfg,geometry='corrected',executable=tool)
+    assert not (root/'mimrec/same').exists()
+    selected=corrected.extract_events()
+    assert selected.record['number']==2
+    assert selected.record['geometry']=='corrected'
+    assert selected.record['configuration_overrides']==[]
+    assert [r['path'] for r in selected.record['component_inputs']]==[str(tra),str(extra)]
+    assert SimulationWorkspace(root)._read()['executions'][old_id]==old
+    assert corrected.spectrum().record['upstream'][0]['execution_id']==selected.execution_id

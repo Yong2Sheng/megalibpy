@@ -12,6 +12,8 @@ import sys
 from dataclasses import replace
 
 import numpy as np
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 import pytest
 
 from megalibpy import (
@@ -50,7 +52,16 @@ def test_peak_is_native_pixel_center_with_separate_verified_mapping():
     assert image.coordinate_system == image.projection == "unknown"
     mapped = replace(image, longitude_mapping={"scale": -1., "offset": 12.})
     assert mapped.peak_position == image.peak_position
-    assert mapped.peak_galactic_position == (11., -6.)  # not a blanket -x
+    coordinate = mapped.peak_galactic_position
+    assert isinstance(coordinate, SkyCoord) and coordinate.isscalar
+    assert coordinate.frame.name == "galactic"
+    assert coordinate.l.deg == pytest.approx(11.)  # not a blanket -x
+    assert coordinate.b.deg == pytest.approx(-6.)
+    assert coordinate.separation(SkyCoord(l=11*u.deg, b=-6*u.deg, frame="galactic")).deg == pytest.approx(0.)
+    wrapped = replace(image, longitude_mapping={"scale": -1., "offset": 0.}).peak_galactic_position
+    assert wrapped.l.deg == pytest.approx(359.)
+    with pytest.raises(ValueError, match="shared"):
+        replace(mapped, values=np.ones((2, 2))).peak_galactic_position
     with pytest.raises(ValueError, match="shared"):
         replace(image, values=np.ones((2, 2))).peak_position
     with pytest.raises(ValueError, match="no finite"):
@@ -164,7 +175,11 @@ def test_real_image_mapping_and_unknown_projection(root_fixture):
     image = extract_image(path, root_python=python, object_path="image;1/image-hist")
     assert image.values.shape == (2, 2)
     assert image.peak_position == (-5., 2.5)
-    assert image.peak_galactic_position == (115., 2.5)
+    coordinate = image.peak_galactic_position
+    assert isinstance(coordinate, SkyCoord)
+    assert coordinate.frame.name == "galactic"
+    assert coordinate.l.deg == pytest.approx(115.)
+    assert coordinate.b.deg == pytest.approx(2.5)
     assert image.coordinate_system == "galactic" and image.projection == "rectangular"
     unknown = extract_image(path, root_python=python, object_path="unknown;1")
     assert unknown.peak_position == (-5., 2.5)

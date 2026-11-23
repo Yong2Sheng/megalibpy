@@ -433,3 +433,180 @@ def test_revan_analysis_change_warns_and_different_input_is_rejected(reconstruct
 def test_invalid_revan_analysis_id_is_rejected(identifier):
     with pytest.raises(ValueError, match='analysis_id'):
         Revan(analysis_id=identifier)
+
+
+def test_constructor_configuration_freezes_bytes_and_baseline_not_first_execution(reconstruction, tmp_path):
+    source, config, geometry, tool = reconstruction
+    root = tmp_path / 'bound-experiment'
+    original = config.read_bytes()
+    value = [1, 2]
+    runner = Revan(working_space=root, analysis_id='a', config_file=config,
+                   geometry=geometry, Native_Vector=value, executable=tool)
+    assert not root.exists()
+    value.append(3)
+    config.unlink()
+    first = runner.reconstruct(sim_path=source, TotalEnergy_Min=100)
+    baseline = [{'parameter': 'Native.Vector', 'value': '[1, 2]'}]
+    assert first.record['analysis_baseline_overrides'] == baseline
+    assert first.record['execution_overrides'] == [{'parameter': 'TotalEnergy.Min', 'value': '100'}]
+    assert first.record['configuration_overrides'] == baseline + first.record['execution_overrides']
+    assert first.record['configuration']['content'] == original.decode()
+    reopened = Revan(working_space=root, analysis_id='a', executable=tool)
+    second = reopened.reconstruct()
+    assert second.record['configuration_overrides'] == baseline
+    assert second.record['execution_overrides'] == []
+    assert second.record['geometry'] == str(geometry)
+    assert first.outputs['tra'][0] != second.outputs['tra'][0]
+    assert first.outputs['tra'][0].exists()
+
+
+def test_constructor_configuration_requires_identity_and_rejects_changed_baselines(reconstruction, tmp_path):
+    source, config, geometry, tool = reconstruction
+    root = tmp_path / 'bound-experiment'
+    with pytest.raises(ValueError, match='working_space and analysis_id'):
+        Revan(config_file=config)
+    runner = Revan(working_space=root, analysis_id='a', config_file=config,
+                   geometry=geometry, executable=tool, Native_Setting=True)
+    result = runner.reconstruct(sim_path=source)
+    for kwargs in ({'geometry': 'different'}, {'Native_Setting': False}):
+        with pytest.raises(ValueError, match='new analysis_id'):
+            Revan(working_space=root, analysis_id='a', executable=tool, **kwargs)
+    changed = config.with_name('changed.cfg')
+    changed.write_bytes(b'opaque changed cfg')
+    for kwargs in ({'config_file': changed}, {'geometry': 'different'}):
+        with pytest.raises(ValueError, match='new analysis_id'):
+            runner.reconstruct(**kwargs)
+    fork = Revan(working_space=root, analysis_id='b', config_file=changed, executable=tool)
+    assert fork.reconstruct().record['data_group'] != result.record['data_group']
+    assert len(SimulationWorkspace(root)._read()["executions"]) == 2
+
+
+def test_bound_revan_rejects_identifier_mutation_and_changed_input(reconstruction, tmp_path):
+    source, config, _, tool = reconstruction
+    root = tmp_path / 'bound-experiment'
+    runner = Revan(working_space=root, analysis_id='a', config_file=config, executable=tool)
+    runner.reconstruct(sim_path=source)
+    other = source.with_name('other.sim'); other.write_bytes(b'other')
+    with pytest.raises(ValueError, match='different sim/evta input'):
+        runner.reconstruct(sim_path=other)
+    runner.analysis_id = 'b'
+    with pytest.raises(ValueError, match='Construct a new Revan'):
+        runner.reconstruct()
+
+
+def test_legacy_calls_cannot_bypass_bound_revan_and_can_adopt_matching_defaults(reconstruction, tmp_path):
+    source, config, geometry, tool = reconstruction
+    root = tmp_path / 'bound-experiment'
+    legacy = Revan(analysis_id='a', executable=tool)
+    legacy.reconstruct(sim_path=source, output_dir=root, config_file=config, geometry=geometry)
+    bound = Revan(working_space=root, analysis_id='a', config_file=config, geometry=geometry, executable=tool)
+    bound.reconstruct()
+    changed = config.with_name('changed.cfg'); changed.write_bytes(b'different')
+    with pytest.raises(ValueError, match='new analysis_id'):
+        legacy.reconstruct(working_space=root, config_file=changed)
+    temporary = legacy.reconstruct(working_space=root, Native_Setting=3)
+    assert temporary.record['execution_overrides'] == [{'parameter': 'Native.Setting', 'value': '3'}]
+    assert bound.reconstruct().record['configuration_overrides'] == []
+
+
+def test_failed_first_bound_execution_keeps_opaque_baseline(reconstruction, tmp_path):
+    source, config, _, tool = reconstruction
+    config.write_bytes(b'\xff\x00 opaque native config <TestMode>exit</TestMode>')
+    root = tmp_path / 'failed-experiment'
+    runner = Revan(working_space=root, analysis_id='a', config_file=config, executable=tool)
+    with pytest.raises(ExecutionError):
+        runner.reconstruct(sim_path=source, Temporary_Setting=True)
+    config.unlink()
+    reopened = Revan(working_space=root, analysis_id='a', executable=tool)
+    assert reopened._configuration.content == b'\xff\x00 opaque native config <TestMode>exit</TestMode>'
+    assert reopened._configuration.overrides == {}
+    assert SimulationWorkspace(root)._read()['groups']['revan/a']['definition']['overrides'] == []
+
+
+def test_deleted_failed_analysis_accepts_corrected_baseline_and_keeps_history(reconstruction,tmp_path):
+    import shutil
+    source,config,geometry,tool=reconstruction
+    root=tmp_path/'experiment'
+    config.write_bytes(b'<TestMode>exit</TestMode>')
+    failed_runner=Revan(working_space=root,analysis_id='same',config_file=config,
+                        geometry='wrong-geometry',executable=tool,Old_Setting=True)
+    with pytest.raises(ExecutionError) as failure:
+        failed_runner.reconstruct(sim_path=source)
+    old_id=failure.value.execution_id
+    old=SimulationWorkspace(root)._read()['executions'][old_id]
+    # Existing folders still protect their definition, even after a failure.
+    config.write_bytes(b'corrected opaque native config')
+    with pytest.raises(ValueError,match='new analysis_id'):
+        Revan(working_space=root,analysis_id='same',config_file=config,geometry=geometry,executable=tool)
+    shutil.rmtree(root/'revan/same')
+    before=(root/'manifest.json').read_bytes()
+    corrected=Revan(working_space=root,analysis_id='same',config_file=config,
+                    geometry=geometry,executable=tool)
+    assert (root/'manifest.json').read_bytes()==before
+    assert not (root/'revan/same').exists()
+    result=corrected.reconstruct()
+    data=SimulationWorkspace(root)._read()
+    assert data['executions'][old_id]==old
+    assert result.execution_id!=old_id
+    assert result.record['number']==2
+    assert result.record['geometry']==str(geometry)
+    assert result.record['configuration_overrides']==[]
+    assert data['groups']['revan/same']['defaults']['geometry']==str(geometry)
+    assert data['groups']['revan/same']['recovery_history'][0]['previous_execution_ids']==[old_id]
+    reopened=Revan(working_space=root,analysis_id='same',executable=tool)
+    assert reopened.reconstruct().record['geometry']==str(geometry)
+
+
+def test_deleted_successful_analysis_still_protects_settings_but_can_rerun(reconstruction,tmp_path):
+    import shutil
+    source,config,geometry,tool=reconstruction
+    root=tmp_path/'experiment'
+    original=Revan(working_space=root,analysis_id='same',config_file=config,geometry=geometry,executable=tool)
+    first=original.reconstruct(sim_path=source)
+    shutil.rmtree(root/'revan/same')
+    with pytest.raises(ValueError,match='new analysis_id'):
+        Revan(working_space=root,analysis_id='same',geometry='changed',executable=tool)
+    result=Revan(working_space=root,analysis_id='same',executable=tool).reconstruct()
+    assert result.execution_id!=first.execution_id
+    assert result.record['number']==2
+    assert 'recovery_history' not in SimulationWorkspace(root)._read()['groups']['revan/same']
+
+
+def test_deleted_failed_group_recovery_is_rechecked_before_execution(reconstruction,tmp_path):
+    import shutil
+    source,config,_,tool=reconstruction
+    root=tmp_path/'experiment'
+    config.write_bytes(b'<TestMode>exit</TestMode>')
+    runner=Revan(working_space=root,analysis_id='same',config_file=config,executable=tool)
+    with pytest.raises(ExecutionError):runner.reconstruct(sim_path=source)
+    shutil.rmtree(root/'revan/same')
+    corrected=Revan(working_space=root,analysis_id='same',config_file=config,geometry='corrected',executable=tool)
+    # Another actor recreating the directory cancels the implicit reset.
+    (root/'revan/same').mkdir(parents=True)
+    with pytest.raises(ValueError,match='new analysis_id'):
+        corrected.reconstruct()
+
+
+def test_deleted_preparation_failure_keeps_baseline_in_recovery_history(reconstruction,tmp_path,monkeypatch):
+    import importlib
+    import shutil
+    module=importlib.import_module('megalibpy.revan.runner')
+    source,config,_,tool=reconstruction
+    root=tmp_path/'experiment'
+    runner=Revan(working_space=root,analysis_id='same',config_file=config,executable=tool)
+    original=module._prepare
+    def broken_prepare(*args,**kwargs):
+        raise RuntimeError('preparation failed before an execution plan existed')
+    monkeypatch.setattr(module,'_prepare',broken_prepare)
+    with pytest.raises(ExecutionError) as failure:runner.reconstruct(sim_path=source)
+    data=SimulationWorkspace(root)._read()
+    definition=data['groups']['revan/same']['definition']
+    assert 'configuration' not in data['executions'][failure.value.execution_id]
+    shutil.rmtree(root/'revan/same')
+    config.write_bytes(b'corrected baseline')
+    monkeypatch.setattr(module,'_prepare',original)
+    result=Revan(working_space=root,analysis_id='same',config_file=config,executable=tool).reconstruct()
+    history=SimulationWorkspace(root)._read()['groups']['revan/same']['recovery_history']
+    assert history[0]['previous_definition']==definition
+    assert history[0]['previous_execution_ids']==[failure.value.execution_id]
+    assert result.record['status']=='succeeded'

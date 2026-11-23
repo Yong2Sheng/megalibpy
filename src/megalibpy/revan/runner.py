@@ -108,15 +108,51 @@ class Revan:
     executable : str or pathlib.Path, optional
         Native executable name or path, default ``"revan"``.
 
+    config_file : str or pathlib.Path or None, optional
+        Main opaque native cfg, default None. Supplying it binds its nonempty
+        bytes and resource cwd at construction and requires working_space and
+        analysis_id. Construction reads metadata/configuration only and writes
+        no files or processes. A recorded bound definition is restored when
+        reopening without this argument, even if the original file was removed.
+        Different main bytes or resource cwd require a new analysis_id.
+    geometry : str or pathlib.Path or None, optional
+        Baseline literal -g value, default None (omit -g in a new definition;
+        restore the saved setting when reopening). Never parsed or inspected.
+        A different bound geometry requires a new analysis_id.
+    **configuration
+        Baseline native -C settings: key underscores become dots, booleans
+        become true/false and other values use str. Native text is frozen at
+        construction. reconstruct() overrides apply only to that execution.
+
+    Raises
+    ------
+    ValueError
+        Invalid identifier, missing bound root/analysis_id/configuration, empty
+        cfg or conflicting recorded baseline. Different baselines need a new ID.
+    FileNotFoundError
+        An explicitly supplied configuration file cannot be read.
+
+    Examples
+    --------
+    >>> revan = Revan(runtime, working_space=experiment, analysis_id="reconstruction-a",  # doctest: +SKIP
+    ...               config_file="baseline.revan.cfg", geometry="detector.geo.setup")
+    >>> reconstructed = revan.reconstruct()  # doctest: +SKIP
+
     Notes
     -----
+    A removed analysis directory with only failed executions may be reopened
+    under the same analysis_id with corrected constructor settings. The next
+    command rechecks eligibility under the manifest lock, preserves old failed
+    records and recreates the layout with a fresh baseline. Construction writes
+    nothing. Existing, successful or in-progress groups remain protected.
     No PyROOT is imported. Geometry, input and output CLI arguments override
     saved file selections in the supplied configuration. Native configuration
     bytes are passed through unchanged; no configuration parser, serializer or
     fixed Python settings model is used.
     """
 
-    def __init__(self, runtime=None, *, working_space=None, analysis_id=None, executable="revan"):
+    def __init__(self, runtime=None, *, working_space=None, analysis_id=None,
+                 config_file=None, geometry=None, executable="revan", **configuration):
         if analysis_id is not None and (not isinstance(analysis_id, str) or
                                         not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", analysis_id)):
             raise ValueError("analysis_id must contain letters, digits, '_' or '-' and start with a letter/digit")
@@ -124,6 +160,14 @@ class Revan:
         self.working_space = _bound_workspace(working_space)
         self.runtime = runtime if runtime is not None else MEGAlibRuntime.direct()
         self.executable = str(executable)
+        self._configuration = None
+        saved = None
+        if self.working_space is not None and self.analysis_id is not None:
+            saved = SimulationWorkspace(self.working_space)._read().get("groups", {}).get(
+                "revan/" + self.analysis_id, {}).get("definition")
+        if saved is not None or config_file is not None or geometry is not None or configuration:
+            from .analysis import BoundConfiguration
+            self._configuration = BoundConfiguration(self, config_file, geometry, configuration)
 
     def reconstruct(self, working_space=None, *, sim_path=None, output_dir=None,
                     config_file=None, geometry=None,
@@ -146,14 +190,19 @@ class Revan:
             stays in place; no simulation contents are read, copied or hashed.
             Any native continuation references remain MEGAlib's responsibility.
         config_file : str or pathlib.Path or None, optional
-            Readable, nonempty native MEGAlib configuration, required for a new
-            analysis. None (default) restores a bound analysis group's saved
+            Default None uses the construction-bound configuration. In that
+            mode an explicit file must have identical bytes and resource cwd;
+            changing the main cfg requires a new analysis_id. Legacy calls
+            without a bound definition require a cfg for a new group.
+            None in legacy mode restores a named analysis group's saved
             bytes, original cwd, geometry and overrides. Original
             bytes are copied unchanged to the execution snapshot and passed to
             Revan via ``-c``. No syntax, field names or values are interpreted.
             Relative resources resolve from this file's parent directory.
         geometry : str or pathlib.Path or None, optional
-            With explicit config_file, None (default) omits -g and uses the cfg
+            Default None uses construction-bound geometry when present; a
+            different bound geometry requires a new analysis_id. In legacy mode,
+            with explicit config_file, None omits -g and uses the cfg
             geometry. With inherited configuration it reuses the bound defaults.
             Otherwise forwarded unchanged to ``-g``; MEGAlib handles path
             expansion, opening and overriding. Python does not inspect the file.
@@ -195,6 +244,9 @@ class Revan:
             Values are passed as one argument without path/value rewriting;
             booleans become ``true``/``false``, other values use ``str``. Field
             existence, value validity and external files are MEGAlib's concern.
+            In construction-bound mode these affect THIS COMMAND ONLY; they
+            never replace the constructor baseline or later calls' defaults.
+            Both execution_overrides and analysis_baseline_overrides are saved.
             CLI ``-g/-f/-o`` selections take precedence according to native rules.
 
         Returns
@@ -221,7 +273,8 @@ class Revan:
         Warns
         -----
         UserWarning
-            Settings differ from a bound analysis group's defaults. The variant
+            In legacy groups without a construction-bound definition, settings
+            differ from the saved defaults. The variant
             is recorded without replacing its saved baseline.
 
         Notes
@@ -233,6 +286,9 @@ class Revan:
         native Revan may diagnose errors or fall back to defaults. Inspect logs.
         A zero exit status plus nonempty output is not a scientific check. External configuration files are managed by MEGAlib and the caller.
         """
+        for option in ("analysis_id", "runtime", "input_data"):
+            if option in configuration:
+                raise TypeError(f"{option} is not a native Revan configuration parameter")
         working_space, output_dir = _workspace_arguments(
             self.working_space, working_space, sim_path, output_dir)
         if (working_space is None) == (sim_path is None):
@@ -254,6 +310,9 @@ class Revan:
         experiment = SimulationWorkspace(output_dir) if output_dir is not None else inherited
         if experiment is None:
             raise ValueError("An explicit output_dir is required for this input reference")
+        if self._configuration is not None and (self.analysis_id != self._configuration.analysis_id or
+                                                self.working_space != self._configuration.root):
+            raise ValueError("Construct a new Revan object instead of changing bound workspace/analysis identifiers")
         group = "revan/" + self.analysis_id if self.analysis_id is not None else None
         existing = group is not None and group in experiment._writable()["groups"]
         defaults = experiment.group_defaults(group) if existing else None
@@ -261,45 +320,67 @@ class Revan:
             entry = experiment._writable()["groups"][group]
             if "input_file" in entry and entry["input_file"]["path"] != str(path):
                 raise ValueError("A different sim/evta input requires a new Revan analysis_id")
-        config_content = None
-        config_base = None
-        original_path = None
-        if config_file is None:
-            if defaults is None:
-                raise ValueError("config_file is required when creating a Revan analysis group")
-            saved = defaults["configuration"]
-            config_content = decode_content(saved) if saved.get("content") is not None else None
-            config = Path(saved["original_path"]) if config_content is not None else experiment.root/group/saved["executed_snapshot"]
-            config_base = Path(saved["relative_path_base"])
-            original_path = saved["original_path"]
-            if geometry is None:
-                geometry = defaults["geometry"]
-            inherited_overrides = {p["parameter"].replace(".", "_"): p["value"]
-                                   for p in defaults["configuration_overrides"]}
-            inherited_overrides.update(configuration)
-            configuration = inherited_overrides
+        bound = self._configuration
+        context = self
+        if bound is None and existing and entry.get("definition"):
+            context = Revan(self.runtime, working_space=experiment, analysis_id=self.analysis_id,
+                            executable=self.executable)
+            bound = context._configuration
+        execution_overrides = dict(configuration)
+        if bound is not None:
+            bound.validate(context, experiment, config_file, geometry)
+            config = bound.config
+            config_content = bound.content
+            config_base = bound.cwd
+            original_path = str(bound.config)
+            geometry = bound.geometry
+            configuration = {**bound.overrides, **configuration}
         else:
-            config = Path(config_file).expanduser().resolve()
-        if defaults is not None:
-            changes = [{"parameter": k.replace("_", "."),
-                        "value": ("true" if v else "false") if isinstance(v, bool) else str(v)}
-                       for k,v in configuration.items()]
-            digest = hashlib.sha256(config_content).hexdigest() if config_content is not None else sha256(config)
-            if (digest != defaults["configuration"]["executed_sha256"] or
-                    (None if geometry is None else str(geometry)) != defaults["geometry"] or
-                    changes != defaults["configuration_overrides"] or
-                    str(config_base or config.parent) != defaults["configuration"]["relative_path_base"]):
-                warnings.warn("Revan settings differ from this analysis group's defaults; "
-                              "the variant is recorded without replacing defaults.", UserWarning, stacklevel=2)
-
+            config_content = None
+            config_base = None
+            original_path = None
+            if config_file is None:
+                if defaults is None:
+                    raise ValueError("config_file is required when creating a Revan analysis group")
+                saved = defaults["configuration"]
+                config_content = decode_content(saved) if saved.get("content") is not None else None
+                config = Path(saved["original_path"]) if config_content is not None else experiment.root/group/saved["executed_snapshot"]
+                config_base = Path(saved["relative_path_base"])
+                original_path = saved["original_path"]
+                if geometry is None:
+                    geometry = defaults["geometry"]
+                inherited_overrides = {p["parameter"].replace(".", "_"): p["value"]
+                                       for p in defaults["configuration_overrides"]}
+                inherited_overrides.update(configuration)
+                configuration = inherited_overrides
+            else:
+                config = Path(config_file).expanduser().resolve()
+            if defaults is not None:
+                changes = [{"parameter": k.replace("_", "."),
+                            "value": ("true" if v else "false") if isinstance(v, bool) else str(v)}
+                           for k,v in configuration.items()]
+                digest = hashlib.sha256(config_content).hexdigest() if config_content is not None else sha256(config)
+                if (digest != defaults["configuration"]["executed_sha256"] or
+                        (None if geometry is None else str(geometry)) != defaults["geometry"] or
+                        changes != defaults["configuration_overrides"] or
+                        str(config_base or config.parent) != defaults["configuration"]["relative_path_base"]):
+                    warnings.warn("Revan settings differ from this analysis group's defaults; "
+                                  "the variant is recorded without replacing defaults.", UserWarning, stacklevel=2)
         def execute(target):
+            if bound is not None:
+                bound.bind()
+            def prepare(attempt):
+                plan = _prepare(attempt, path, geometry, config, self.executable,
+                                compressed, reference, configuration, isolate_settings,
+                                config_content, config_base, original_path)
+                if bound is not None:
+                    from .analysis import changes
+                    plan = replace(plan, metadata={**plan.metadata,
+                        "analysis_baseline_overrides": changes(bound.overrides),
+                        "execution_overrides": changes(execution_overrides)})
+                return plan
             return Executor(self.runtime).execute(
-                "revan", target,
-                lambda attempt: _prepare(attempt, path, geometry, config, self.executable,
-                                         compressed, reference, configuration, isolate_settings,
-                                         config_content, config_base, original_path),
-                timeout=timeout, log_mode=log_mode,
-            )
+                "revan", target, prepare, timeout=timeout, log_mode=log_mode)
         if reference is None:
             experiment.attach_sim(path)
         if reference is not None:

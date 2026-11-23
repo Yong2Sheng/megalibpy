@@ -10,7 +10,7 @@ import re
 from ..execution import ExecutionInput, ExecutionPlan, ExecutionResult, MEGAlibRuntime, SimulationWorkspace
 from ..execution.executor import Executor
 from ..execution.experiment import _bound_workspace, _workspace_arguments
-from ..execution.provenance import configuration_snapshot, decode_content, file_record, read_execution, resolve_upstream, sha256
+from ..execution.provenance import configuration_snapshot, decode_content, encode_content, file_record, read_execution, resolve_upstream, sha256
 
 
 def _event_file(path):
@@ -80,7 +80,8 @@ def _revan_analysis(reference):
 
 
 def _prepare(attempt, event_file, geometry, config, executable, operation, output_name, reference,
-             overrides, isolate_settings, config_base=None, original_path=None, config_content=None, revan_analysis_id=None):
+             overrides, isolate_settings, config_base=None, original_path=None, config_content=None, revan_analysis_id=None,
+             components=None):
     executed, config_record = configuration_snapshot(attempt, config, "mimrec", content=config_content, cwd=config_base, original_path=original_path)
     home = attempt.log_path("native-home")
     if isolate_settings:
@@ -88,7 +89,19 @@ def _prepare(attempt, event_file, geometry, config, executable, operation, outpu
     product = attempt.products_dir / output_name
     if attempt.owner is not None:
         product = attempt.owner._claim_product(attempt, product)
-    command = [executable, "-c", str(executed), "-f", str(event_file), "-o", str(product)]
+    native_input = event_file
+    component_metadata = {}
+    references = () if reference is None else (reference,)
+    if components is not None:
+        content = ("# Prepared TRA components; native MEGAlib reads the events\n"
+                   + "".join(f"IN {path}\n" for path, _ in components) + "END\n").encode("utf-8")
+        native_input = attempt.snapshot("components.tra", content)
+        references = tuple(ref for _, ref in components if ref is not None)
+        component_metadata = {
+            "component_inputs": [file_record(path, hash_limit=0) for path, _ in components],
+            "include_list": {**encode_content(content),
+                             "snapshot": str(native_input.relative_to(attempt.root)) if attempt.archive_inputs else None}}
+    command = [executable, "-c", str(executed), "-f", str(native_input), "-o", str(product)]
     if geometry is not None:
         command.extend(("-g", str(geometry)))
     changes = []
@@ -97,8 +110,8 @@ def _prepare(attempt, event_file, geometry, config, executable, operation, outpu
         text = ("true" if value else "false") if isinstance(value, bool) else str(value)
         command.extend(("-C", f"{name}={text}"))
         changes.append({"parameter": name, "value": text})
-    command.extend(("-n", {"extract_events": "-x", "image": "-i", "spectrum": "-s", "arm": "-a"}[operation]))
-    return ExecutionPlan(tuple(command), config_base or config.parent, {"tra" if operation == "extract_events" else operation: escape(product.name)}, {
+    command.extend(("-n", {"extract_events": "-x", "add_external_components": "-x", "image": "-i", "spectrum": "-s", "arm": "-a"}[operation]))
+    return ExecutionPlan(tuple(command), config_base or config.parent, {"tra" if operation in ("extract_events", "add_external_components") else operation: escape(product.name)}, {
         "operation": operation,
         "revan_analysis_id": revan_analysis_id,
         "input_file": file_record(event_file, hash_limit=0),
@@ -106,7 +119,8 @@ def _prepare(attempt, event_file, geometry, config, executable, operation, outpu
                           "settings_home": str(home.relative_to(attempt.root)) if isolate_settings else None},
         "geometry": None if geometry is None else str(geometry),
         "configuration_overrides": changes,
-    }, upstream=() if reference is None else (reference,), environment={"HOME": str(home)} if isolate_settings else {})
+        **component_metadata,
+    }, upstream=references, environment={"HOME": str(home)} if isolate_settings else {})
 
 
 class Mimrec:
@@ -143,9 +157,43 @@ class Mimrec:
         or digit. The same name can be reused in independent workspaces.
     executable : str or pathlib.Path, optional
         Native executable name or path, default ``"mimrec"``.
+    config_file : str or pathlib.Path or None, optional
+        Main opaque native configuration, default None. Supplying it enables a
+        bound analysis definition and requires working_space and analysis_id
+        (the latter may default to revan_analysis_id). Bytes and resource cwd
+        are fixed at construction; construction runs no command and writes no
+        files. Reopening a bound group may omit this argument to restore its
+        recorded bytes even if the original cfg was removed. Different main
+        bytes or resource cwd require a new analysis_id.
+    geometry : str or pathlib.Path or None, optional
+        Baseline literal geometry override. None (default) omits -g for a new
+        definition or restores a recorded definition's setting. Never parsed
+        or checked as a resource. Changing a bound value requires a new ID.
+    input_data : ExecutionResult or ExecutionInput or str or pathlib.Path or None, optional
+        Exact primary TRA result/reference or external TRA path. Default None
+        resolves the registered primary input or unique specified Revan parent.
+        Multiple Revan executions require an explicit result; no latest rule.
+        An external path requires working_space and analysis_id. A result can
+        supply its workspace when working_space is omitted.
+    external_components : iterable or None, optional
+        Prepared TRA results/references or file paths, default None. Components
+        are bound with the primary input, not interpreted as background/GRB.
+        None restores a recorded definition; an empty iterable explicitly means
+        no components. Different inputs require a new analysis_id.
+        extract_events() reads the primary and these components together via
+        one native -x command. No separate combination call is required.
+    **configuration
+        Baseline native overrides. Keys replace underscores with dots for -C;
+        values are unchanged except booleans become true/false. Method overrides
+        apply only to that command and never replace these baseline defaults.
 
     Notes
     -----
+    A removed analysis directory with only failed executions may be reopened
+    under the same analysis_id with corrected constructor settings. The next
+    command rechecks eligibility under the manifest lock, preserves old failed
+    records and recreates the layout with a fresh baseline. Construction writes
+    nothing. Existing, successful or in-progress groups remain protected.
     Configurations are opaque snapshots. MEGAlib controls event selection,
     configuration semantics, geometry and external resources. Each call runs
     one native operation with an independent execution record in a shared data group.
@@ -154,7 +202,9 @@ class Mimrec:
     folder inside that group. None preserves result-based automatic grouping.
     """
 
-    def __init__(self, runtime=None, *, working_space=None, revan_analysis_id=None, analysis_id=None, executable="mimrec"):
+    def __init__(self, runtime=None, *, working_space=None, revan_analysis_id=None, analysis_id=None,
+                 config_file=None, geometry=None, external_components=None, input_data=None,
+                 executable="mimrec", **configuration):
         for name, value in (("analysis_id", analysis_id), ("revan_analysis_id", revan_analysis_id)):
             if value is not None and (not isinstance(value, str) or
                                       not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", value)):
@@ -164,8 +214,98 @@ class Mimrec:
         self.working_space = _bound_workspace(working_space)
         self.runtime = runtime if runtime is not None else MEGAlibRuntime.direct()
         self.executable = str(executable)
+        self._analysis = None
+        saved = None
+        if self.working_space is not None and self.analysis_id is not None:
+            saved = SimulationWorkspace(self.working_space)._read().get("groups", {}).get(
+                "mimrec/" + self.analysis_id, {}).get("definition")
+        if (saved is not None or config_file is not None or geometry is not None or
+                external_components is not None or input_data is not None or configuration):
+            from .analysis import BoundAnalysis
+            self._analysis = BoundAnalysis(self, config_file, geometry, external_components, input_data, configuration)
 
     def _run(self, operation, working_space, tra_path, output_dir, config_file,
+             geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode):
+        if "working_space" in configuration:
+            raise TypeError("spectrum() no longer accepts working_space; bind it in Mimrec() and use input_data for a result")
+        constructor_options = {"external_components", "analysis_id", "revan_analysis_id", "runtime"}
+        misplaced = constructor_options.intersection(configuration)
+        if misplaced:
+            raise TypeError(f"Bind {', '.join(sorted(misplaced))} in Mimrec(), not in a command")
+        if self._analysis is not None:
+            return self._analysis.run(operation, working_space, tra_path, output_dir, config_file,
+                                      geometry, task, output_name, timeout, isolate_settings,
+                                      configuration, attempt, log_mode)
+        return self._run_legacy(operation, working_space, tra_path, output_dir, config_file,
+                                geometry, task, output_name, timeout, isolate_settings,
+                                configuration, attempt, log_mode)
+
+    def add_external_components(self, *, task="components", output_name="combined.tra.gz",
+                                timeout=None, isolate_settings=False, log_mode="full", **configuration):
+        """Combine the primary and constructor-declared TRA components via native -x.
+
+        Parameters
+        ----------
+        task : str, optional
+            Output directory label within the analysis, default ``"components"``.
+            It does not identify data or participate in downstream selection.
+        output_name : str, optional
+            Native .tra/.tra.gz filename, default ``"combined.tra.gz"``. Existing
+            outputs receive a new suffix; previous results are never overwritten.
+        timeout : float or None, optional
+            Native-command timeout in seconds, default None (no time limit).
+        isolate_settings : bool, optional
+            False (default) preserves native HOME. True isolates native settings
+            for this command only, without modifying the configuration.
+        log_mode : str, optional
+            Python log capture, currently only ``"full"`` (default).
+        **configuration
+            Overrides for this combination command only, on top of the bound
+            main configuration and baseline overrides. Keys map _ to . for -C.
+            They do not inherit time selections from component preparation.
+
+        Returns
+        -------
+        ExecutionResult
+            Native mixed TRA in outputs['tra'], with an independent execution ID
+            and every supplied result/reference recorded as a real upstream.
+            Raw external paths are recorded separately with size/mtime only.
+
+        Raises
+        ------
+        ValueError
+            No bound definition/components, changed input, invalid output/label,
+            or inconsistent analysis definition. A new dataset needs a new ID.
+        ExecutionError
+            Native preparation/execution fails; the failed record is retained.
+
+        Notes
+        -----
+        Optional explicit materialization; ordinary analyses call extract_events()
+        directly, which already includes the declared components in one -x.
+        This method executes mimrec -x on an IN/END list using the main
+        configuration plus this call's overrides. Native selections still apply;
+        this is not unfiltered byte concatenation. No event parser, time shift,
+        exposure/flux scaling or background classification is added. The list
+        content is recorded in the manifest and its native file is temporary
+        unless archive_inputs=True. The workspace's primary origin is preserved.
+        Later operations select a unique successful extraction first, otherwise
+        a unique successful combination. Multiple candidates require input_data.
+
+        Examples
+        --------
+        >>> analysis = Mimrec(working_space="experiment", analysis_id="mixed",
+        ...                   input_data="signal.tra.gz", config_file="analysis.cfg",
+        ...                   external_components=["prepared-background.tra.gz"])
+        >>> selected = analysis.extract_events()  # doctest: +SKIP
+        >>> spectrum = analysis.spectrum(input_data=selected)  # doctest: +SKIP
+        """
+        if self._analysis is None:
+            raise ValueError("Declare config_file and external_components in Mimrec() first")
+        return self._run("add_external_components", None, None, None, None, None,
+                         task, output_name, timeout, isolate_settings, configuration, None, log_mode)
+
+    def _run_legacy(self, operation, working_space, tra_path, output_dir, config_file,
              geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode):
         if self.analysis_id is not None:
             if attempt is not None and attempt != self.analysis_id:
@@ -233,6 +373,14 @@ class Mimrec:
             if upstream.get("tool") == "mimrec" and inherited is not None and experiment.root == inherited.root:
                 group = upstream.get("data_group")
         existing_group = group is not None and group in experiment._writable()["groups"]
+        if existing_group and experiment._writable()["groups"][group].get("definition"):
+            entry = experiment._writable()["groups"][group]
+            bound = Mimrec(self.runtime, working_space=experiment, analysis_id=Path(group).name,
+                           revan_analysis_id=self.revan_analysis_id or entry.get("revan_analysis_id"),
+                           executable=self.executable)
+            return bound._analysis.run(operation, working_space, tra_path, None, config_file,
+                                       geometry, task, output_name, timeout, isolate_settings,
+                                       configuration, attempt, log_mode)
         defaults = experiment.group_defaults(group) if existing_group else None
         parent_analysis = _revan_analysis(reference)
         if self.revan_analysis_id is not None and parent_analysis != self.revan_analysis_id:
@@ -294,490 +442,419 @@ class Mimrec:
             )
         return experiment.execute("mimrec", task, execute, group=group, native_operation=operation)
 
-    def extract_events(self, working_space=None, *, tra_path=None, output_dir=None,
+    def extract_events(self, working_space=None, *, input_data=None, tra_path=None, output_dir=None,
                config_file=None, geometry=None, task="extract_events", output_name="events.tra.gz",
                timeout=None, isolate_settings=False, attempt=None,
                log_mode="full", **configuration):
-        """Extract selected events into a native TRA file (``-x``).
+        """Execute native Mimrec extract_events (-x) with explicit data provenance.
 
         Parameters
         ----------
         working_space : SimulationWorkspace or ExecutionResult or ExecutionInput or str or pathlib.Path or None, optional
-            Defaults to the constructor-bound root, if supplied. Otherwise none.
-            Existing experiment directory, selected Revan result, or selected
-            Mimrec extraction result/reference. Without a bound root, supply exactly
-            one of this and ``tra_path``. A directory selects its unique successful
-            Revan attempt; multiple branches require an explicit selection.
-            A TRA-origin experiment without Revan tasks uses its original TRA.
-            A named Mimrec group uses its unique successful extraction first;
-            pass an explicit result to select among multiple extractions.
+            Legacy per-command workspace/result entry, default None. Prefer
+            binding the root in Mimrec() and selecting results with input_data.
+            Must not conflict with input_data or the constructor-bound root.
+        input_data : ExecutionResult or ExecutionInput or None, optional
+            Exact TRA result/reference for this command, default None. For a
+            bound analysis it must belong to that analysis's data chain.
+            With declared external_components, None reads the primary and all
+            declared components together via one native IN/END list and -x.
+            Every such call starts from the declared dataset, not a prior
+            extraction. An explicit previous result re-filters only that TRA;
+            components are not added again. Without declared components,
+            None queries the root manifest (not the filesystem): select this
+            group's unique successful extract_events record first, otherwise
+            its unique successful add_external_components record, otherwise the
+            registered primary input. Multiple successful candidates require an
+            explicit result, never latest/mtime or a fixed task folder name.
         tra_path : str or pathlib.Path or None, optional
-            External ``.tra`` or ``.tra.gz`` file, default none. Requires
-            ``output_dir`` or a constructor-bound working_space. Data stays in place and is not read, copied or hashed.
-            Native include/continuation handling belongs to MEGAlib.
+            Legacy external TRA entry, default None. Requires output_dir or a
+            constructor-bound workspace. For the new bound-definition API,
+            declare the primary path as input_data in Mimrec(), not here.
         output_dir : str or pathlib.Path or None, optional
-            Destination experiment root, default none continues in the selected
-            result's workspace. Required for external TRA or references without
-            workspace context. Records go below ``mimrec/attempt-NNN``.
-            External step inputs do not replace an existing experiment origin.
+            Legacy destination experiment root, default None. Bound definitions
+            fix their destination in Mimrec() and reject per-command changes.
         config_file : str or pathlib.Path or None, optional
-            None (default) reuses the selected Mimrec group configuration, cwd,
-            geometry and overrides. A new group requires a readable nonempty native configuration. Original bytes are
-            snapshotted unchanged and passed via ``-c``. The child runs in this
-            file's parent directory so relative configuration resources retain
-            their base. Python does not parse or repair settings.
+            Default None uses the constructor-bound main configuration or saved
+            group default. In a bound definition an explicit file must have the
+            same bytes and resource cwd; a different main cfg requires a new
+            analysis_id. Legacy calls require a cfg when creating a new group.
+            Native bytes are opaque and are never parsed or edited.
         geometry : str or pathlib.Path or None, optional
-            With an explicit config_file, None (default) omits ``-g`` and uses
-            the configuration's geometry. With an inherited configuration, None
-            reuses the group's geometry override. Otherwise forwarded literally via ``-g``; no expansion, resource
-            checks or snapshots are performed by Python.
+            Default None reuses bound geometry, or saved legacy defaults when
+            cfg is omitted. A different geometry in a bound definition requires
+            a new analysis_id. The literal -g value is never read or rewritten.
         task : str, optional
-            Task label, default ``"extract_events"``. Labels name output directories inside a data group. Repeated
-            operations get independent execution IDs. Requested output filenames are
-            preserved unless already present or reserved; conflicts use -002,
-            -003, etc. before the extension. Log numbering remains independent.
+            Arbitrary output directory label, default "extract_events". Letters,
+            digits, underscores and hyphens, starting with a letter/digit.
+            inputs/logs are reserved. This is NOT the operation identity and
+            does not identify which extracted TRA a downstream command reads.
         output_name : str, optional
-            Filename inside this group's task output directory, default
-            ``"events.tra.gz"``. Extraction requires ``.tra`` or ``.tra.gz``;
-            compression follows the suffix. Plot formats are chosen by native
-            MEGAlib/ROOT (e.g. ``.root`` or ``.png``); include an explicit suffix.
+            Native output filename, default "events.tra.gz". Existing products
+            receive numbered suffixes; no historical product is overwritten.
         timeout : float or None, optional
-            Positive process timeout in seconds including setup. None (default)
-            waits indefinitely; preparation and final record writing are excluded.
+            Native command timeout in seconds, default None (unlimited).
         isolate_settings : bool, optional
-            False (default) retains native HOME/settings behavior. True gives
-            the tool a private HOME after setup, without editing configuration
-            paths or the parent environment.
+            False (default) preserves native HOME. True gives this native command
+            private settings after setup, without modifying cfg contents.
         attempt : str or None, optional
-            Existing Mimrec data group basename, e.g. ``"attempt-001"``.
-            Legacy explicit group selector. Omit when the object binds analysis_id;
-            a conflicting value is rejected. Without a bound ID, None inherits
-            the group from a selected Mimrec TRA result, or creates a new group
-            for Revan/external input. Reopening a group
-            uses its unique successful extraction, then its recorded entry input,
-            otherwise the explicitly bound revan_analysis_id.
+            Legacy explicit group selector, default None. A different value
+            conflicts with a constructor-bound analysis_id.
         log_mode : str, optional
-            "full" (default) streams complete stdout/stderr without a byte cap.
-            Summary selection is currently available only for Cosima, whose
-            native boundary marker is defined. Empty logs are removed. This
-            Python option is never forwarded as a native -C setting.
-
+            Python log capture, currently "full" (default), not a native flag.
         **configuration
-            Native overrides: keyword underscores become dots, e.g.
-            ``EventSelections_TimeMode=1`` becomes a separate
-            ``-C EventSelections.TimeMode=1`` pair. Values preserve underscores,
-            spaces and equals signs; booleans use lowercase true/false, others
-            use str. Native MEGAlib validates parameter paths and values.
+            Native -C overrides: key underscores become dots; booleans become
+            true/false, other values use str without further rewriting. With a
+            constructor-bound definition these override the baseline for THIS
+            COMMAND ONLY. They are recorded in execution_overrides and never
+            become later calls' defaults. Legacy groups retain their recorded
+            default/variant behavior until explicitly opened as a bound definition.
 
         Returns
         -------
         ExecutionResult
-            ``outputs["tra"]`` contains native output paths; manifests record
-            operation, command, configuration hashes, runtime, input and explicit
-            upstream lineage. ROOT outputs remain native files, not Python arrays.
+            Native outputs['tra'], exact upstream references, execution UUID,
+            root manifest path and optional nonempty stdout/stderr paths.
+            Nonempty products and exit zero establish execution success, not
+            scientific correctness. ROOT data extraction is a separate call.
 
         Raises
         ------
         ValueError
-            Conflicting/missing entry arguments, invalid labels or output name,
-            unsupported input, missing destination or ambiguous upstream selection.
+            Input/definition conflict, multiple input candidates, absent prepared
+            components, invalid output/settings, or missing required configuration.
         FileNotFoundError
-            Input/reference cannot be resolved before attempt allocation.
-        FileExistsError
-            Experiment lock contention or an occupied attempt directory.
+            A bound configuration or selected data file cannot be read.
         ExecutionError
-            Configuration snapshot, launch, native execution, timeout or nonempty
-            output checks fail after allocation; logs and manifest are retained.
-        KeyboardInterrupt
-            Interrupted execution; process-group cleanup and records are retained.
-
-        Warns
-        -----
-        UserWarning
-            Explicit configuration bytes, resource cwd, geometry or overrides
-            differ from group defaults. Execution proceeds and records the
-            variant without replacing defaults; Python does not interpret settings.
+            Native preparation, execution, timeout or output validation fails.
+            The independent failed record and nonempty logs remain available.
 
         Notes
         -----
-        Each operation applies the native event selections in its own supplied
-        configuration. No automatic time alignment, exposure scaling, configuration
-        interpretation or scientific validation is performed. Zero exit status
-        and a nonempty file only establish execution success. Inspect native logs;
-        failed imaging/ARM fits can exit zero while producing no output.
+        Each native command applies its own selections from the main cfg plus
+        explicit overrides; reading selected TRA does not inherit the command
+        parameters that produced it. task is a label only. Reopening a group
+        uses manifest operation/status/UUID/path records, not directory names.
+        Setup executes in a child process; the parent environment is unchanged.
+        Declared components require no preliminary add_external_components().
+        Their include list and all real parent references are recorded in this
+        same extract_events execution; no intermediate combined TRA is created.
+        No event parsing, time shift or physical scaling is performed.
 
         Examples
         --------
-        >>> runner = Mimrec()  # MEGAlib initialized in the current environment
-        >>> result = runner.extract_events(  # doctest: +SKIP
-        ...     tra_path="selected.tra.gz", output_dir="experiment",
-        ...     config_file="analysis.mimrec.cfg", task="extract_events")
+        >>> result = analysis.extract_events(task="my-extract_events")  # doctest: +SKIP
+        >>> print(result.outputs["tra"])  # doctest: +SKIP
         """
+        if input_data is not None:
+            if working_space is not None:
+                raise ValueError("Supply input_data or legacy working_space, not both")
+            working_space = input_data
         return self._run("extract_events", working_space, tra_path, output_dir, config_file,
                          geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode)
 
-    def image(self, working_space=None, *, tra_path=None, output_dir=None,
+    def image(self, working_space=None, *, input_data=None, tra_path=None, output_dir=None,
                config_file=None, geometry=None, task="image", output_name="image.root",
                timeout=None, isolate_settings=False, attempt=None,
                log_mode="full", **configuration):
-        """Reconstruct and save a native image (``-i``).
+        """Execute native Mimrec image (-i) with explicit data provenance.
 
         Parameters
         ----------
         working_space : SimulationWorkspace or ExecutionResult or ExecutionInput or str or pathlib.Path or None, optional
-            Defaults to the constructor-bound root, if supplied. Otherwise none.
-            Existing experiment directory, selected Revan result, or selected
-            Mimrec extraction result/reference. Without a bound root, supply exactly
-            one of this and ``tra_path``. A directory selects its unique successful
-            Revan attempt; multiple branches require an explicit selection.
-            A TRA-origin experiment without Revan tasks uses its original TRA.
-            A named Mimrec group uses its unique successful extraction first;
-            pass an explicit result to select among multiple extractions.
+            Legacy per-command workspace/result entry, default None. Prefer
+            binding the root in Mimrec() and selecting results with input_data.
+            Must not conflict with input_data or the constructor-bound root.
+        input_data : ExecutionResult or ExecutionInput or None, optional
+            Exact TRA result/reference for this command, default None. For a
+            bound analysis it must belong to that analysis's data chain.
+            None queries the root manifest (not the filesystem): select this
+            group's unique successful extract_events record first, otherwise
+            its unique successful add_external_components record, otherwise the
+            registered primary input. Multiple successful candidates require an
+            explicit result, never latest/mtime or a fixed task folder name.
         tra_path : str or pathlib.Path or None, optional
-            External ``.tra`` or ``.tra.gz`` file, default none. Requires
-            ``output_dir`` or a constructor-bound working_space. Data stays in place and is not read, copied or hashed.
-            Native include/continuation handling belongs to MEGAlib.
+            Legacy external TRA entry, default None. Requires output_dir or a
+            constructor-bound workspace. For the new bound-definition API,
+            declare the primary path as input_data in Mimrec(), not here.
         output_dir : str or pathlib.Path or None, optional
-            Destination experiment root, default none continues in the selected
-            result's workspace. Required for external TRA or references without
-            workspace context. Records go below ``mimrec/attempt-NNN``.
-            External step inputs do not replace an existing experiment origin.
+            Legacy destination experiment root, default None. Bound definitions
+            fix their destination in Mimrec() and reject per-command changes.
         config_file : str or pathlib.Path or None, optional
-            None (default) reuses the selected Mimrec group configuration, cwd,
-            geometry and overrides. A new group requires a readable nonempty native configuration. Original bytes are
-            snapshotted unchanged and passed via ``-c``. The child runs in this
-            file's parent directory so relative configuration resources retain
-            their base. Python does not parse or repair settings.
+            Default None uses the constructor-bound main configuration or saved
+            group default. In a bound definition an explicit file must have the
+            same bytes and resource cwd; a different main cfg requires a new
+            analysis_id. Legacy calls require a cfg when creating a new group.
+            Native bytes are opaque and are never parsed or edited.
         geometry : str or pathlib.Path or None, optional
-            With an explicit config_file, None (default) omits ``-g`` and uses
-            the configuration's geometry. With an inherited configuration, None
-            reuses the group's geometry override. Otherwise forwarded literally via ``-g``; no expansion, resource
-            checks or snapshots are performed by Python.
+            Default None reuses bound geometry, or saved legacy defaults when
+            cfg is omitted. A different geometry in a bound definition requires
+            a new analysis_id. The literal -g value is never read or rewritten.
         task : str, optional
-            Task label, default ``"image"``. Labels name output directories inside a data group. Repeated
-            operations get independent execution IDs. Requested output filenames are
-            preserved unless already present or reserved; conflicts use -002,
-            -003, etc. before the extension. Log numbering remains independent.
+            Arbitrary output directory label, default "image". Letters,
+            digits, underscores and hyphens, starting with a letter/digit.
+            inputs/logs are reserved. This is NOT the operation identity and
+            does not identify which extracted TRA a downstream command reads.
         output_name : str, optional
-            Filename inside this group's task output directory, default
-            ``"image.root"``. Extraction requires ``.tra`` or ``.tra.gz``;
-            compression follows the suffix. Plot formats are chosen by native
-            MEGAlib/ROOT (e.g. ``.root`` or ``.png``); include an explicit suffix.
+            Native output filename, default "image.root". Existing products
+            receive numbered suffixes; no historical product is overwritten.
         timeout : float or None, optional
-            Positive process timeout in seconds including setup. None (default)
-            waits indefinitely; preparation and final record writing are excluded.
+            Native command timeout in seconds, default None (unlimited).
         isolate_settings : bool, optional
-            False (default) retains native HOME/settings behavior. True gives
-            the tool a private HOME after setup, without editing configuration
-            paths or the parent environment.
+            False (default) preserves native HOME. True gives this native command
+            private settings after setup, without modifying cfg contents.
         attempt : str or None, optional
-            Existing Mimrec data group basename, e.g. ``"attempt-001"``.
-            Legacy explicit group selector. Omit when the object binds analysis_id;
-            a conflicting value is rejected. Without a bound ID, None inherits
-            the group from a selected Mimrec TRA result, or creates a new group
-            for Revan/external input. Reopening a group
-            uses its unique successful extraction, then its recorded entry input,
-            otherwise the explicitly bound revan_analysis_id.
+            Legacy explicit group selector, default None. A different value
+            conflicts with a constructor-bound analysis_id.
         log_mode : str, optional
-            "full" (default) streams complete stdout/stderr without a byte cap.
-            Summary selection is currently available only for Cosima, whose
-            native boundary marker is defined. Empty logs are removed. This
-            Python option is never forwarded as a native -C setting.
-
+            Python log capture, currently "full" (default), not a native flag.
         **configuration
-            Native overrides: keyword underscores become dots, e.g.
-            ``EventSelections_TimeMode=1`` becomes a separate
-            ``-C EventSelections.TimeMode=1`` pair. Values preserve underscores,
-            spaces and equals signs; booleans use lowercase true/false, others
-            use str. Native MEGAlib validates parameter paths and values.
+            Native -C overrides: key underscores become dots; booleans become
+            true/false, other values use str without further rewriting. With a
+            constructor-bound definition these override the baseline for THIS
+            COMMAND ONLY. They are recorded in execution_overrides and never
+            become later calls' defaults. Legacy groups retain their recorded
+            default/variant behavior until explicitly opened as a bound definition.
 
         Returns
         -------
         ExecutionResult
-            ``outputs["image"]`` contains native output paths; manifests record
-            operation, command, configuration hashes, runtime, input and explicit
-            upstream lineage. ROOT outputs remain native files, not Python arrays.
+            Native outputs['image'], exact upstream references, execution UUID,
+            root manifest path and optional nonempty stdout/stderr paths.
+            Nonempty products and exit zero establish execution success, not
+            scientific correctness. ROOT data extraction is a separate call.
 
         Raises
         ------
         ValueError
-            Conflicting/missing entry arguments, invalid labels or output name,
-            unsupported input, missing destination or ambiguous upstream selection.
+            Input/definition conflict, multiple input candidates, absent prepared
+            components, invalid output/settings, or missing required configuration.
         FileNotFoundError
-            Input/reference cannot be resolved before attempt allocation.
-        FileExistsError
-            Experiment lock contention or an occupied attempt directory.
+            A bound configuration or selected data file cannot be read.
         ExecutionError
-            Configuration snapshot, launch, native execution, timeout or nonempty
-            output checks fail after allocation; logs and manifest are retained.
-        KeyboardInterrupt
-            Interrupted execution; process-group cleanup and records are retained.
-
-        Warns
-        -----
-        UserWarning
-            Explicit configuration bytes, resource cwd, geometry or overrides
-            differ from group defaults. Execution proceeds and records the
-            variant without replacing defaults; Python does not interpret settings.
+            Native preparation, execution, timeout or output validation fails.
+            The independent failed record and nonempty logs remain available.
 
         Notes
         -----
-        Each operation applies the native event selections in its own supplied
-        configuration. No automatic time alignment, exposure scaling, configuration
-        interpretation or scientific validation is performed. Zero exit status
-        and a nonempty file only establish execution success. Inspect native logs;
-        failed imaging/ARM fits can exit zero while producing no output.
+        Each native command applies its own selections from the main cfg plus
+        explicit overrides; reading selected TRA does not inherit the command
+        parameters that produced it. task is a label only. Reopening a group
+        uses manifest operation/status/UUID/path records, not directory names.
+        Setup executes in a child process; the parent environment is unchanged.
+        No event parsing, time shift or physical scaling is performed.
 
         Examples
         --------
-        >>> runner = Mimrec()  # MEGAlib initialized in the current environment
-        >>> result = runner.image(  # doctest: +SKIP
-        ...     tra_path="selected.tra.gz", output_dir="experiment",
-        ...     config_file="analysis.mimrec.cfg", task="image")
+        >>> result = analysis.image(task="my-image")  # doctest: +SKIP
+        >>> print(result.outputs["image"])  # doctest: +SKIP
         """
+        if input_data is not None:
+            if working_space is not None:
+                raise ValueError("Supply input_data or legacy working_space, not both")
+            working_space = input_data
         return self._run("image", working_space, tra_path, output_dir, config_file,
                          geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode)
 
-    def spectrum(self, working_space=None, *, tra_path=None, output_dir=None,
+    def spectrum(self, *, input_data=None, tra_path=None, output_dir=None,
                config_file=None, geometry=None, task="spectrum", output_name="spectrum.root",
                timeout=None, isolate_settings=False, attempt=None,
                log_mode="full", **configuration):
-        """Create a native selected-event energy spectrum (``-s``).
+        """Execute native Mimrec spectrum (-s) with explicit data provenance.
 
         Parameters
         ----------
-        working_space : SimulationWorkspace or ExecutionResult or ExecutionInput or str or pathlib.Path or None, optional
-            Defaults to the constructor-bound root, if supplied. Otherwise none.
-            Existing experiment directory, selected Revan result, or selected
-            Mimrec extraction result/reference. Without a bound root, supply exactly
-            one of this and ``tra_path``. A directory selects its unique successful
-            Revan attempt; multiple branches require an explicit selection.
-            A TRA-origin experiment without Revan tasks uses its original TRA.
-            A named Mimrec group uses its unique successful extraction first;
-            pass an explicit result to select among multiple extractions.
+        input_data : ExecutionResult or ExecutionInput or None, optional
+            Exact TRA result/reference for this command, default None. For a
+            bound analysis it must belong to that analysis's data chain.
+            None queries the root manifest (not the filesystem): select this
+            group's unique successful extract_events record first, otherwise
+            its unique successful add_external_components record, otherwise the
+            registered primary input. Multiple successful candidates require an
+            explicit result, never latest/mtime or a fixed task folder name.
         tra_path : str or pathlib.Path or None, optional
-            External ``.tra`` or ``.tra.gz`` file, default none. Requires
-            ``output_dir`` or a constructor-bound working_space. Data stays in place and is not read, copied or hashed.
-            Native include/continuation handling belongs to MEGAlib.
+            Legacy external TRA entry, default None. Requires output_dir or a
+            constructor-bound workspace. For the new bound-definition API,
+            declare the primary path as input_data in Mimrec(), not here.
         output_dir : str or pathlib.Path or None, optional
-            Destination experiment root, default none continues in the selected
-            result's workspace. Required for external TRA or references without
-            workspace context. Records go below ``mimrec/attempt-NNN``.
-            External step inputs do not replace an existing experiment origin.
+            Legacy destination experiment root, default None. Bound definitions
+            fix their destination in Mimrec() and reject per-command changes.
         config_file : str or pathlib.Path or None, optional
-            None (default) reuses the selected Mimrec group configuration, cwd,
-            geometry and overrides. A new group requires a readable nonempty native configuration. Original bytes are
-            snapshotted unchanged and passed via ``-c``. The child runs in this
-            file's parent directory so relative configuration resources retain
-            their base. Python does not parse or repair settings.
+            Default None uses the constructor-bound main configuration or saved
+            group default. In a bound definition an explicit file must have the
+            same bytes and resource cwd; a different main cfg requires a new
+            analysis_id. Legacy calls require a cfg when creating a new group.
+            Native bytes are opaque and are never parsed or edited.
         geometry : str or pathlib.Path or None, optional
-            With an explicit config_file, None (default) omits ``-g`` and uses
-            the configuration's geometry. With an inherited configuration, None
-            reuses the group's geometry override. Otherwise forwarded literally via ``-g``; no expansion, resource
-            checks or snapshots are performed by Python.
+            Default None reuses bound geometry, or saved legacy defaults when
+            cfg is omitted. A different geometry in a bound definition requires
+            a new analysis_id. The literal -g value is never read or rewritten.
         task : str, optional
-            Task label, default ``"spectrum"``. Labels name output directories inside a data group. Repeated
-            operations get independent execution IDs. Requested output filenames are
-            preserved unless already present or reserved; conflicts use -002,
-            -003, etc. before the extension. Log numbering remains independent.
+            Arbitrary output directory label, default "spectrum". Letters,
+            digits, underscores and hyphens, starting with a letter/digit.
+            inputs/logs are reserved. This is NOT the operation identity and
+            does not identify which extracted TRA a downstream command reads.
         output_name : str, optional
-            Filename inside this group's task output directory, default
-            ``"spectrum.root"``. Extraction requires ``.tra`` or ``.tra.gz``;
-            compression follows the suffix. Plot formats are chosen by native
-            MEGAlib/ROOT (e.g. ``.root`` or ``.png``); include an explicit suffix.
+            Native output filename, default "spectrum.root". Existing products
+            receive numbered suffixes; no historical product is overwritten.
         timeout : float or None, optional
-            Positive process timeout in seconds including setup. None (default)
-            waits indefinitely; preparation and final record writing are excluded.
+            Native command timeout in seconds, default None (unlimited).
         isolate_settings : bool, optional
-            False (default) retains native HOME/settings behavior. True gives
-            the tool a private HOME after setup, without editing configuration
-            paths or the parent environment.
+            False (default) preserves native HOME. True gives this native command
+            private settings after setup, without modifying cfg contents.
         attempt : str or None, optional
-            Existing Mimrec data group basename, e.g. ``"attempt-001"``.
-            Legacy explicit group selector. Omit when the object binds analysis_id;
-            a conflicting value is rejected. Without a bound ID, None inherits
-            the group from a selected Mimrec TRA result, or creates a new group
-            for Revan/external input. Reopening a group
-            uses its unique successful extraction, then its recorded entry input,
-            otherwise the explicitly bound revan_analysis_id.
+            Legacy explicit group selector, default None. A different value
+            conflicts with a constructor-bound analysis_id.
         log_mode : str, optional
-            "full" (default) streams complete stdout/stderr without a byte cap.
-            Summary selection is currently available only for Cosima, whose
-            native boundary marker is defined. Empty logs are removed. This
-            Python option is never forwarded as a native -C setting.
-
+            Python log capture, currently "full" (default), not a native flag.
         **configuration
-            Native overrides: keyword underscores become dots, e.g.
-            ``EventSelections_TimeMode=1`` becomes a separate
-            ``-C EventSelections.TimeMode=1`` pair. Values preserve underscores,
-            spaces and equals signs; booleans use lowercase true/false, others
-            use str. Native MEGAlib validates parameter paths and values.
+            Native -C overrides: key underscores become dots; booleans become
+            true/false, other values use str without further rewriting. With a
+            constructor-bound definition these override the baseline for THIS
+            COMMAND ONLY. They are recorded in execution_overrides and never
+            become later calls' defaults. Legacy groups retain their recorded
+            default/variant behavior until explicitly opened as a bound definition.
 
         Returns
         -------
         ExecutionResult
-            ``outputs["spectrum"]`` contains native output paths; manifests record
-            operation, command, configuration hashes, runtime, input and explicit
-            upstream lineage. ROOT outputs remain native files, not Python arrays.
+            Native outputs['spectrum'], exact upstream references, execution UUID,
+            root manifest path and optional nonempty stdout/stderr paths.
+            Nonempty products and exit zero establish execution success, not
+            scientific correctness. ROOT data extraction is a separate call.
 
         Raises
         ------
         ValueError
-            Conflicting/missing entry arguments, invalid labels or output name,
-            unsupported input, missing destination or ambiguous upstream selection.
+            Input/definition conflict, multiple input candidates, absent prepared
+            components, invalid output/settings, or missing required configuration.
+        TypeError
+            spectrum is passed the removed working_space argument or a positional
+            input; bind the root in Mimrec() and use input_data for exact results.
         FileNotFoundError
-            Input/reference cannot be resolved before attempt allocation.
-        FileExistsError
-            Experiment lock contention or an occupied attempt directory.
+            A bound configuration or selected data file cannot be read.
         ExecutionError
-            Configuration snapshot, launch, native execution, timeout or nonempty
-            output checks fail after allocation; logs and manifest are retained.
-        KeyboardInterrupt
-            Interrupted execution; process-group cleanup and records are retained.
-
-        Warns
-        -----
-        UserWarning
-            Explicit configuration bytes, resource cwd, geometry or overrides
-            differ from group defaults. Execution proceeds and records the
-            variant without replacing defaults; Python does not interpret settings.
+            Native preparation, execution, timeout or output validation fails.
+            The independent failed record and nonempty logs remain available.
 
         Notes
         -----
-        Each operation applies the native event selections in its own supplied
-        configuration. No automatic time alignment, exposure scaling, configuration
-        interpretation or scientific validation is performed. Zero exit status
-        and a nonempty file only establish execution success. Inspect native logs;
-        failed imaging/ARM fits can exit zero while producing no output.
+        Each native command applies its own selections from the main cfg plus
+        explicit overrides; reading selected TRA does not inherit the command
+        parameters that produced it. task is a label only. Reopening a group
+        uses manifest operation/status/UUID/path records, not directory names.
+        Setup executes in a child process; the parent environment is unchanged.
+        No event parsing, time shift or physical scaling is performed.
 
         Examples
         --------
-        >>> runner = Mimrec()  # MEGAlib initialized in the current environment
-        >>> result = runner.spectrum(  # doctest: +SKIP
-        ...     tra_path="selected.tra.gz", output_dir="experiment",
-        ...     config_file="analysis.mimrec.cfg", task="spectrum")
+        >>> result = analysis.spectrum(task="my-spectrum")  # doctest: +SKIP
+        >>> print(result.outputs["spectrum"])  # doctest: +SKIP
         """
-        return self._run("spectrum", working_space, tra_path, output_dir, config_file,
+        if input_data is not None and not isinstance(input_data, (ExecutionResult, ExecutionInput)):
+            raise ValueError("input_data expects an explicit TRA result/reference; bind working_space in Mimrec()")
+        return self._run("spectrum", input_data, tra_path, output_dir, config_file,
                          geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode)
 
-    def arm(self, working_space=None, *, tra_path=None, output_dir=None,
+    def arm(self, working_space=None, *, input_data=None, tra_path=None, output_dir=None,
                config_file=None, geometry=None, task="arm", output_name="arm.root",
                timeout=None, isolate_settings=False, attempt=None,
                log_mode="full", **configuration):
-        """Create the native gamma-ray ARM fit and plot (``-a``).
+        """Execute native Mimrec arm (-a) with explicit data provenance.
 
         Parameters
         ----------
         working_space : SimulationWorkspace or ExecutionResult or ExecutionInput or str or pathlib.Path or None, optional
-            Defaults to the constructor-bound root, if supplied. Otherwise none.
-            Existing experiment directory, selected Revan result, or selected
-            Mimrec extraction result/reference. Without a bound root, supply exactly
-            one of this and ``tra_path``. A directory selects its unique successful
-            Revan attempt; multiple branches require an explicit selection.
-            A TRA-origin experiment without Revan tasks uses its original TRA.
-            A named Mimrec group uses its unique successful extraction first;
-            pass an explicit result to select among multiple extractions.
+            Legacy per-command workspace/result entry, default None. Prefer
+            binding the root in Mimrec() and selecting results with input_data.
+            Must not conflict with input_data or the constructor-bound root.
+        input_data : ExecutionResult or ExecutionInput or None, optional
+            Exact TRA result/reference for this command, default None. For a
+            bound analysis it must belong to that analysis's data chain.
+            None queries the root manifest (not the filesystem): select this
+            group's unique successful extract_events record first, otherwise
+            its unique successful add_external_components record, otherwise the
+            registered primary input. Multiple successful candidates require an
+            explicit result, never latest/mtime or a fixed task folder name.
         tra_path : str or pathlib.Path or None, optional
-            External ``.tra`` or ``.tra.gz`` file, default none. Requires
-            ``output_dir`` or a constructor-bound working_space. Data stays in place and is not read, copied or hashed.
-            Native include/continuation handling belongs to MEGAlib.
+            Legacy external TRA entry, default None. Requires output_dir or a
+            constructor-bound workspace. For the new bound-definition API,
+            declare the primary path as input_data in Mimrec(), not here.
         output_dir : str or pathlib.Path or None, optional
-            Destination experiment root, default none continues in the selected
-            result's workspace. Required for external TRA or references without
-            workspace context. Records go below ``mimrec/attempt-NNN``.
-            External step inputs do not replace an existing experiment origin.
+            Legacy destination experiment root, default None. Bound definitions
+            fix their destination in Mimrec() and reject per-command changes.
         config_file : str or pathlib.Path or None, optional
-            None (default) reuses the selected Mimrec group configuration, cwd,
-            geometry and overrides. A new group requires a readable nonempty native configuration. Original bytes are
-            snapshotted unchanged and passed via ``-c``. The child runs in this
-            file's parent directory so relative configuration resources retain
-            their base. Python does not parse or repair settings.
+            Default None uses the constructor-bound main configuration or saved
+            group default. In a bound definition an explicit file must have the
+            same bytes and resource cwd; a different main cfg requires a new
+            analysis_id. Legacy calls require a cfg when creating a new group.
+            Native bytes are opaque and are never parsed or edited.
         geometry : str or pathlib.Path or None, optional
-            With an explicit config_file, None (default) omits ``-g`` and uses
-            the configuration's geometry. With an inherited configuration, None
-            reuses the group's geometry override. Otherwise forwarded literally via ``-g``; no expansion, resource
-            checks or snapshots are performed by Python.
+            Default None reuses bound geometry, or saved legacy defaults when
+            cfg is omitted. A different geometry in a bound definition requires
+            a new analysis_id. The literal -g value is never read or rewritten.
         task : str, optional
-            Task label, default ``"arm"``. Labels name output directories inside a data group. Repeated
-            operations get independent execution IDs. Requested output filenames are
-            preserved unless already present or reserved; conflicts use -002,
-            -003, etc. before the extension. Log numbering remains independent.
+            Arbitrary output directory label, default "arm". Letters,
+            digits, underscores and hyphens, starting with a letter/digit.
+            inputs/logs are reserved. This is NOT the operation identity and
+            does not identify which extracted TRA a downstream command reads.
         output_name : str, optional
-            Filename inside this group's task output directory, default
-            ``"arm.root"``. Extraction requires ``.tra`` or ``.tra.gz``;
-            compression follows the suffix. Plot formats are chosen by native
-            MEGAlib/ROOT (e.g. ``.root`` or ``.png``); include an explicit suffix.
+            Native output filename, default "arm.root". Existing products
+            receive numbered suffixes; no historical product is overwritten.
         timeout : float or None, optional
-            Positive process timeout in seconds including setup. None (default)
-            waits indefinitely; preparation and final record writing are excluded.
+            Native command timeout in seconds, default None (unlimited).
         isolate_settings : bool, optional
-            False (default) retains native HOME/settings behavior. True gives
-            the tool a private HOME after setup, without editing configuration
-            paths or the parent environment.
+            False (default) preserves native HOME. True gives this native command
+            private settings after setup, without modifying cfg contents.
         attempt : str or None, optional
-            Existing Mimrec data group basename, e.g. ``"attempt-001"``.
-            Legacy explicit group selector. Omit when the object binds analysis_id;
-            a conflicting value is rejected. Without a bound ID, None inherits
-            the group from a selected Mimrec TRA result, or creates a new group
-            for Revan/external input. Reopening a group
-            uses its unique successful extraction, then its recorded entry input,
-            otherwise the explicitly bound revan_analysis_id.
+            Legacy explicit group selector, default None. A different value
+            conflicts with a constructor-bound analysis_id.
         log_mode : str, optional
-            "full" (default) streams complete stdout/stderr without a byte cap.
-            Summary selection is currently available only for Cosima, whose
-            native boundary marker is defined. Empty logs are removed. This
-            Python option is never forwarded as a native -C setting.
-
+            Python log capture, currently "full" (default), not a native flag.
         **configuration
-            Native overrides: keyword underscores become dots, e.g.
-            ``EventSelections_TimeMode=1`` becomes a separate
-            ``-C EventSelections.TimeMode=1`` pair. Values preserve underscores,
-            spaces and equals signs; booleans use lowercase true/false, others
-            use str. Native MEGAlib validates parameter paths and values.
+            Native -C overrides: key underscores become dots; booleans become
+            true/false, other values use str without further rewriting. With a
+            constructor-bound definition these override the baseline for THIS
+            COMMAND ONLY. They are recorded in execution_overrides and never
+            become later calls' defaults. Legacy groups retain their recorded
+            default/variant behavior until explicitly opened as a bound definition.
 
         Returns
         -------
         ExecutionResult
-            ``outputs["arm"]`` contains native output paths; manifests record
-            operation, command, configuration hashes, runtime, input and explicit
-            upstream lineage. ROOT outputs remain native files, not Python arrays.
+            Native outputs['arm'], exact upstream references, execution UUID,
+            root manifest path and optional nonempty stdout/stderr paths.
+            Nonempty products and exit zero establish execution success, not
+            scientific correctness. ROOT data extraction is a separate call.
 
         Raises
         ------
         ValueError
-            Conflicting/missing entry arguments, invalid labels or output name,
-            unsupported input, missing destination or ambiguous upstream selection.
+            Input/definition conflict, multiple input candidates, absent prepared
+            components, invalid output/settings, or missing required configuration.
         FileNotFoundError
-            Input/reference cannot be resolved before attempt allocation.
-        FileExistsError
-            Experiment lock contention or an occupied attempt directory.
+            A bound configuration or selected data file cannot be read.
         ExecutionError
-            Configuration snapshot, launch, native execution, timeout or nonempty
-            output checks fail after allocation; logs and manifest are retained.
-        KeyboardInterrupt
-            Interrupted execution; process-group cleanup and records are retained.
-
-        Warns
-        -----
-        UserWarning
-            Explicit configuration bytes, resource cwd, geometry or overrides
-            differ from group defaults. Execution proceeds and records the
-            variant without replacing defaults; Python does not interpret settings.
+            Native preparation, execution, timeout or output validation fails.
+            The independent failed record and nonempty logs remain available.
 
         Notes
         -----
-        Each operation applies the native event selections in its own supplied
-        configuration. No automatic time alignment, exposure scaling, configuration
-        interpretation or scientific validation is performed. Zero exit status
-        and a nonempty file only establish execution success. Inspect native logs;
-        failed imaging/ARM fits can exit zero while producing no output.
+        Each native command applies its own selections from the main cfg plus
+        explicit overrides; reading selected TRA does not inherit the command
+        parameters that produced it. task is a label only. Reopening a group
+        uses manifest operation/status/UUID/path records, not directory names.
+        Setup executes in a child process; the parent environment is unchanged.
+        No event parsing, time shift or physical scaling is performed.
 
         Examples
         --------
-        >>> runner = Mimrec()  # MEGAlib initialized in the current environment
-        >>> result = runner.arm(  # doctest: +SKIP
-        ...     tra_path="selected.tra.gz", output_dir="experiment",
-        ...     config_file="analysis.mimrec.cfg", task="arm")
+        >>> result = analysis.arm(task="my-arm")  # doctest: +SKIP
+        >>> print(result.outputs["arm"])  # doctest: +SKIP
         """
+        if input_data is not None:
+            if working_space is not None:
+                raise ValueError("Supply input_data or legacy working_space, not both")
+            working_space = input_data
         return self._run("arm", working_space, tra_path, output_dir, config_file,
                          geometry, task, output_name, timeout, isolate_settings, configuration, attempt, log_mode)

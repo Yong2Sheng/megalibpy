@@ -154,7 +154,8 @@ class MEGAlibRuntime:
         Notes
         -----
         This is a low-level executor interface. It does not launch a process;
-        normal users select a runtime and pass it to ``Cosima`` instead.
+        normal users pass a runtime to Cosima/Revan/Mimrec, or use
+        run_command() for a standalone native command without a workspace.
         """
         env = os.environ.copy()
         overrides = dict(tool_environment or {})

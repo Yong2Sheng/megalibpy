@@ -62,6 +62,11 @@ for more examples. To run it locally, install JupyterLab with
 `conda install -c conda-forge jupyterlab`, then launch `jupyter lab` from the
 activated environment.
 
+The [single-trial GRB localization tutorial](docs/tutorials/Localization_workflow.ipynb)
+combines Cosima, Revan, a prepared background interval, Mimrec imaging, and a CSV
+summary. Configure its external MEGAlib installation and scientific input paths
+before running; use a fresh workspace for each trial.
+
 `config.run_config` exposes the parameters of the source file's `Run` block;
 it does not execute a simulation. The earlier `Run` class name and `config.run`
 property remain available as compatibility aliases for `RunConfig` and
@@ -107,11 +112,13 @@ configuration and optional geometry override:
 from megalibpy import MEGAlibRuntime, Revan
 
 runtime = MEGAlibRuntime.from_setup_script("~/initialize-megalib.sh")
-reconstructed = Revan(runtime).reconstruct(
+revan = Revan(
+    runtime,
     working_space="experiments/cosima-smoke-005",
+    analysis_id="reconstruction-a",
     config_file="configurations/baseline.revan.cfg",
-    task="baseline",
 )
+reconstructed = revan.reconstruct(task="baseline")
 print(reconstructed.outputs["tra"])
 ```
 
@@ -185,17 +192,13 @@ from megalibpy import Mimrec, SimulationWorkspace
 
 experiment = SimulationWorkspace("grb-localization-001")
 reconstructed = experiment.select("revan", task="baseline")
-mimrec = Mimrec(runtime)
-selected = mimrec.extract_events(
-    working_space=reconstructed,
-    config_file="configurations/analysis.mimrec.cfg",
-    task="event-selection",
+mimrec = Mimrec(
+    runtime, working_space=experiment, analysis_id="selection-a",
+    input_data=reconstructed, config_file="configurations/analysis.mimrec.cfg",
 )
-image = mimrec.image(
-    working_space=selected,
-    task="image-selected",
-    output_name="image.png",
-)
+selected = mimrec.extract_events(task="energy-cut", TotalEnergy_Min=100)
+image = mimrec.image(task="image-selected", output_name="image.root")
+spectrum = mimrec.spectrum()
 print(image.outputs["image"])
 ```
 
@@ -205,7 +208,20 @@ Independent `extract_events`, `image`, `spectrum` and `arm` methods prepare nati
 configuration, and keyword overrides become native `-C` arguments. Each command
 records its own execution ID and exact upstream; Mimrec operations share a
 data/configuration group, its configuration snapshot, inputs and logs. ROOT outputs remain
-native files. Component workflows will be added after basic native validation.
+native files. Constructor-bound main configuration and data define the analysis;
+method overrides affect only that command. `task="energy-cut"` is a custom output
+label, not a data lookup key: later operations query the root manifest for this
+analysis's unique successful `extract_events` record. Multiple extractions need
+an exact `input_data=selected` result. `spectrum` has no `working_space` argument;
+bind the experiment root in `Mimrec(...)` instead.
+
+Declare prepared `external_components=[background_result, ...]` in the constructor
+and call `extract_events()` directly. One native IN-list + `mimrec -x` execution
+reads the primary and all declared components and applies the selections, without
+an intermediate combined TRA. All real parents are recorded; the primary origin
+is retained. `megalibpy.mimrec.workflows.analyze_components` extracts, images and
+produces a spectrum using exact result references. Background-window
+preparation is separate, with no automatic time alignment or physical scaling.
 See the [Mimrec guide](docs/mimrec.rst), [API reference](docs/api/index.rst) and
 [command-line example](examples/mimrec_analysis.py).
 
@@ -215,8 +231,9 @@ from `megalibpy`. PyROOT runs in a separate ROOT-compatible Python process;
 the analysis environment never imports another environment's PyROOT.
 Spectrum results preserve bin edges, contents and units; `total_counts`
 integrates verified counts/keV by bin width. Image `peak_position` is the maximum
-pixel's native bin center, while `peak_galactic_position` is provided separately
-only when the file contains a verified coordinate mapping. Neither is a centroid.
+pixel's native bin center, while `peak_galactic_position` returns a scalar
+Galactic Astropy `SkyCoord` only when the file contains a verified coordinate
+mapping (otherwise `None`). Use `.l.deg`, `.b.deg` and `.separation()`. Neither is a centroid.
 Use `list_root_objects` and an explicit `object_path` for files with multiple
 histograms. No additional data files are saved by these functions. See the
 [ROOT extraction guide](docs/mimrec.rst#extract-numerical-root-results) for examples
@@ -240,17 +257,37 @@ Empty logs and temporary launch/path handoff files are removed. See the
 Analysis branches can be bound once on the tool objects:
 
 ```python
-revan = Revan(runtime, analysis_id="reconstruction-a")
-reconstructed = revan.reconstruct(
-    working_space=simulated, config_file="baseline.revan.cfg")
+revan = Revan(
+    runtime, working_space=experiment, analysis_id="reconstruction-a",
+    config_file="baseline.revan.cfg", geometry="detector.geo.setup")
+reconstructed = revan.reconstruct()
 mimrec = Mimrec(
-    runtime, revan_analysis_id="reconstruction-a", analysis_id="selection-b")
-selected = mimrec.extract_events(
-    working_space=experiment, config_file="analysis.mimrec.cfg", task="event-selected")
-spectrum = mimrec.spectrum(working_space=experiment, output_name="spectrum.png")
+    runtime, working_space=experiment, revan_analysis_id="reconstruction-a",
+    analysis_id="selection-b", config_file="analysis.mimrec.cfg")
+selected = mimrec.extract_events(task="event-selected")
+spectrum = mimrec.spectrum(input_data=selected, output_name="spectrum.root")
 ```
 
 Omitting Mimrec's own `analysis_id` defaults it to `revan_analysis_id`. Existing
 extracted events in the own analysis are reused as input; otherwise the registered
 entry or explicit Revan parent is selected. `task` names an operation output
 folder; `execution_id` identifies one native command. See the workspace guide.
+
+
+## Standalone native commands
+
+For one-off preparation such as selecting a background time interval, use
+`run_command` with an external runtime; no workspace or manifest is created:
+
+```python
+from megalibpy import MEGAlibRuntime, run_command
+
+runtime = MEGAlibRuntime.from_setup_script("initialize-megalib.sh")
+result = run_command(["mimrec", "--help"], runtime=runtime, capture_output=True)
+print(result.stdout)
+```
+
+It returns `subprocess.CompletedProcess`, passes argv literally, raises on a
+nonzero exit by default, and leaves the parent environment unchanged. See the
+[standalone command guide](docs/commands.rst) for a complete random one-second
+background extraction example and output/timeout behavior.
