@@ -6,6 +6,14 @@ The current parser supports one run with one source per file.
 
 [Read the documentation](https://yong2sheng.github.io/megalibpy/)
 
+The [architecture guide](docs/architecture.rst) explains the modules, data flow,
+analysis branches, runtime separation and execution records with diagrams.
+
+English is the default documentation language. Use the sidebar's
+**English · 简体中文** links for the corresponding Chinese page; notebook content
+and code examples remain in English. See the [documentation language guide](docs/languages.rst)
+for bilingual builds and translation maintenance.
+
 ## Installation
 
 Conda manages the dependencies and development tools. Pip installs

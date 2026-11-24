@@ -1,0 +1,9 @@
+flowchart TB
+    P["分析 Python<br/>父环境保持不变"] --> R{"MEGAlibRuntime"}
+    R -->|Direct| D["继承当前环境的子进程"]
+    R -->|Setup script| B["独立 Bash 子进程"]
+    B --> S["source 指定 setup 脚本<br/>可激活另一 Conda 环境"]
+    S --> N["exec 原生 MEGAlib 工具"]
+    D --> N
+    N --> O["返回产物与诊断"]
+    O --> P

@@ -1,0 +1,9 @@
+flowchart TB
+    P["Analysis Python<br/>Parent environment unchanged"] --> R{"MEGAlibRuntime"}
+    R -->|Direct| D["Child using the current environment"]
+    R -->|Setup script| B["Separate Bash child"]
+    B --> S["source the supplied setup script<br/>May activate another Conda environment"]
+    S --> N["exec native MEGAlib tool"]
+    D --> N
+    N --> O["Return products and diagnostics"]
+    O --> P

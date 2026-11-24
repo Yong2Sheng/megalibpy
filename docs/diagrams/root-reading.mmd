@@ -1,0 +1,13 @@
+flowchart TB
+    subgraph A["Analysis environment, e.g. Python 3.12"]
+      U["ExecutionResult or exact ROOT path"] --> API["extract_spectrum / extract_image"]
+      OUT["SpectrumData / ImageData<br/>Arrays, bin edges, units and metadata"]
+    end
+    API --> RT["MEGAlibRuntime.launch"]
+    subgraph B["Separate ROOT-compatible Python environment"]
+      W["_root_worker.py<br/>PyROOT · Python >= 3.10"]
+      F["Original ROOT file<br/>Directory / Canvas / Pad"] --> W
+    end
+    RT --> W
+    W --> TMP["Temporary structured transport<br/>Removed after the call"] --> OUT
+    OUT --> P["Counts or verified Galactic peak position"]

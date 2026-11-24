@@ -1,0 +1,41 @@
+# Simplified Chinese documentation for megalibpy.
+# Copyright (C) 2026 Yong Sheng
+# Distributed under the same license as megalibpy.
+msgid ""
+msgstr ""
+"Project-Id-Version: megalibpy 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-23 19:05-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: megalibpy contributors\n"
+"Language: zh_CN\n"
+"Language-Team: Simplified Chinese\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "Installation"
+msgstr "安装"
+
+msgid ""
+"Install Miniforge, Miniconda, or Anaconda to get Conda. From a terminal, clone the repository and"
+" create the project environment."
+msgstr "安装 Miniforge、Miniconda 或 Anaconda 以获得 Conda。在终端克隆仓库并创建项目环境。"
+
+msgid ""
+"Conda installs Python 3.12 and the dependencies in ``environment.yml``. Pip installs the package "
+"in editable mode, so changes to the source code take effect without reinstalling."
+msgstr "Conda 安装 Python 3.12 和 ``environment.yml`` 中的依赖；Pip 以 editable 模式安装本包，源码修改无需重新安装即可生效。"
+
+msgid "Run a smoke test to verify the installation."
+msgstr "运行 smoke test 检查安装。"
+
+msgid "When the environment definition changes, update it from the repository root."
+msgstr "环境定义发生变化时，在仓库根目录执行更新。"
+
+msgid ""
+"You can read the notebook in :doc:`tutorials/index` in a browser. To run it interactively, "
+"install JupyterLab in the activated environment."
+msgstr "可以在浏览器阅读 :doc:`tutorials/index` 中的 notebook。如需交互运行，在已激活的环境中安装 JupyterLab。"

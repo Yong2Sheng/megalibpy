@@ -1,0 +1,11 @@
+flowchart TB
+    C["一次 Cosima 模拟"] --> RA["Revan 事件重建<br/>analysis_id = reconstruction-a"]
+    C --> RB["Revan 事件重建<br/>analysis_id = reconstruction-b"]
+    RA --> ML["Mimrec 事件筛选<br/>analysis_id = selection-loose"]
+    RA --> MS["Mimrec 事件筛选<br/>analysis_id = selection-strict"]
+    RB --> MB["Mimrec 事件筛选<br/>analysis_id = alternate"]
+    ML --> X["筛选后的 TRA 事件"]
+    X --> I["图像重建"]
+    X --> SP["能谱提取"]
+    MS --> XS["严格筛选后的 TRA 事件"]
+    MB --> XB["另一重建分支的 TRA 事件"]

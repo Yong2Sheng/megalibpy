@@ -1,0 +1,53 @@
+/* Long flowcharts need their natural aspect ratio, not the renderer's 500px height. */
+.wy-nav-content:has(#architecture-and-data-flow) {
+  max-width: 1180px;
+}
+
+.rst-content .mermaid {
+  background: transparent;
+  border: 0;
+  margin: 1.5rem 0 .75rem;
+  padding: .5rem;
+  overflow-x: auto;
+  text-align: center;
+  font-family: sans-serif;
+  font-size: 16px;
+  white-space: normal;
+}
+
+.rst-content .mermaid svg,
+.mermaid-fullscreen-modal .mermaid-container-fullscreen .mermaid svg {
+  display: block;
+  /* Never enlarge a narrow graph just because the article is wider. */
+  width: min(100%, var(--diagram-natural-width, 100%)) !important;
+  min-width: var(--diagram-readable-width, 0px);
+  height: auto !important;
+  max-height: none !important;
+  margin: 0 auto;
+}
+
+/* The fullscreen clone must retain the same layout, rather than re-fit to 90vh. */
+.mermaid-fullscreen-modal .mermaid-container-fullscreen {
+  display: block;
+}
+.mermaid-fullscreen-modal .mermaid-container-fullscreen pre.mermaid {
+  display: block;
+  height: auto;
+  min-height: 100%;
+  background: transparent;
+  border: 0;
+}
+
+/* Keep diagram fonts consistent in the page, fullscreen clone and measurement. */
+.mermaid .nodeLabel,
+.mermaid .edgeLabel,
+.mermaid .label {
+  font-family: sans-serif;
+  font-size: 16px;
+}
+.mermaid .nodeLabel p,
+.mermaid .edgeLabel p {
+  font-family: inherit;
+  font-size: inherit;
+  margin: 0;
+}

@@ -1,0 +1,9 @@
+{% extends "!layout.html" %}
+{% block sidebartitle %}
+{{ super() }}
+<nav class="documentation-languages" aria-label="Language / 语言">
+  <a href="{{ english_url|e }}" lang="en" hreflang="en"{% if documentation_language == 'en' %} aria-current="true"{% endif %}>English</a>
+  <span aria-hidden="true"> · </span>
+  <a href="{{ chinese_url|e }}" lang="zh-CN" hreflang="zh-CN"{% if documentation_language == 'zh_CN' %} aria-current="true"{% endif %}>简体中文</a>
+</nav>
+{% endblock %}

@@ -1,0 +1,8 @@
+.documentation-languages {
+  margin: .75rem 0 .25rem;
+  color: white;
+  font-size: .9rem;
+}
+.documentation-languages a { color: white; padding: .25rem; }
+.documentation-languages a[aria-current="true"] { font-weight: bold; text-decoration: underline; }
+.documentation-languages a:focus-visible { outline: 2px solid white; outline-offset: 2px; }

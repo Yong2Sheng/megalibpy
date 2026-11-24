@@ -1,0 +1,11 @@
+flowchart TB
+    S["Original source / cfg"] --> M["Root manifest<br/>Bytes and SHA-256"]
+    S --> T["Temporary native input files"] --> N["Cosima / Revan / Mimrec"]
+    E["Shared orientation / geometry / spectrum"] -. "reference in place" .-> N
+    N --> P["Persistent native products"]
+    N --> O["Cosima summary-mode stdout"]
+    O --> K{"Line starting Summary for run?"}
+    K -->|before marker| D["Discard earlier stdout"]
+    K -->|from marker| L["Stream complete block to EOF<br/>No size cap; last marker wins"]
+    N --> ERR["Retain full stderr"]
+    N --> C["Remove temporary inputs and helpers"]

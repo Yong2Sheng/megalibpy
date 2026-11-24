@@ -1,0 +1,10 @@
+flowchart TB
+    A["Allocate execution UUID<br/>Record in root manifest"] --> P["preparing<br/>Prepare input, plan and upstream references"]
+    P --> R["running<br/>Launch native tool; stream logs"]
+    P -. "preparation error" .-> F["failed<br/>ExecutionError"]
+    R --> V{"Zero exit and nonempty expected outputs?"}
+    V -->|yes| S["succeeded<br/>ExecutionResult"]
+    V -->|no| F
+    R -. "timeout" .-> F
+    R -. "keyboard interruption" .-> I["interrupted<br/>KeyboardInterrupt"]
+    R -. "hard termination" .-> U["Unfinished record<br/>Never selected as success"]

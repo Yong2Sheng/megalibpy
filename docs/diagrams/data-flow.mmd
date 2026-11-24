@@ -1,0 +1,13 @@
+flowchart TB
+    S["Source file, resources and seed"] --> C["Cosima simulation<br/>simulate()"] --> SIM["Simulated detector events"]
+    SIM --> R["Revan event reconstruction<br/>reconstruct()"] --> TRA["Reconstructed TRA events"]
+    EXT["Existing external data"] -. "SIM / EVTA" .-> R
+    EXT -. "TRA" .-> D
+    TRA --> D["Mimrec<br/>Primary TRA, cfg and baseline overrides"]
+    B["Prepared external TRA events<br/>e.g. background"] --> D
+    D --> X["extract_events()<br/>One IN/END list + one native -x"]
+    X --> SEL["selected: ExecutionResult<br/>Combined and selected TRA events"]
+    SEL --> I["Image reconstruction<br/>image(input_data=selected)"] --> IR["image.root"]
+    SEL --> SP["Spectrum extraction<br/>spectrum(input_data=selected)"] --> SR["spectrum.root"]
+    IR --> IM["extract_image<br/>ImageData · SkyCoord"]
+    SR --> SD["extract_spectrum<br/>SpectrumData · total_counts"]

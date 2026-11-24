@@ -1,0 +1,11 @@
+flowchart TB
+    C["One Cosima simulation"] --> RA["Revan event reconstruction<br/>analysis_id = reconstruction-a"]
+    C --> RB["Revan event reconstruction<br/>analysis_id = reconstruction-b"]
+    RA --> ML["Mimrec event selection<br/>analysis_id = selection-loose"]
+    RA --> MS["Mimrec event selection<br/>analysis_id = selection-strict"]
+    RB --> MB["Mimrec event selection<br/>analysis_id = alternate"]
+    ML --> X["Selected TRA events"]
+    X --> I["Image reconstruction"]
+    X --> SP["Spectrum extraction"]
+    MS --> XS["TRA events after stricter cuts"]
+    MB --> XB["TRA events from alternate reconstruction"]
