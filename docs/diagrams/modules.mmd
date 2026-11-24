@@ -1,0 +1,13 @@
+flowchart TB
+    U["User script / notebook"] --> S["megalib_source/<br/>MEGAlibSource · RunConfig · Source"]
+    U --> T["cosima/ · revan/ · mimrec/<br/>Tool-specific adapters"]
+    U --> W["SimulationWorkspace<br/>Experiment identity and records"]
+    F["mimrec/workflows.py<br/>Event selection and analysis<br/>with external components"] --> T
+    T --> D["revan/analysis.py · mimrec/analysis.py<br/>Bound configuration / data definitions"]
+    W -. "allocate and record" .-> T
+    T --> P["ExecutionPlan<br/>Arguments, inputs, expected products"]
+    P --> E["Executor<br/>Processes, logs, timeout, output checks"]
+    E --> RT["MEGAlibRuntime<br/>Direct / Setup script"]
+    RT --> N["External MEGAlib programs<br/>cosima · revan · mimrec"]
+    E --> O["ExecutionResult / ExecutionError<br/>Exact products and execution record"]
+    E -. "persist state and lineage" .-> W

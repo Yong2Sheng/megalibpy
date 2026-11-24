@@ -1,0 +1,58 @@
+# Simplified Chinese documentation for megalibpy.
+# Copyright (C) 2026 Yong Sheng
+# Distributed under the same license as megalibpy.
+msgid ""
+msgstr ""
+"Project-Id-Version: megalibpy 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-23 19:05-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: megalibpy contributors\n"
+"Language: zh_CN\n"
+"Language-Team: Simplified Chinese\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "Inspect and edit a source file"
+msgstr "检查与编辑源文件"
+
+msgid "Single-trial GRB localization"
+msgstr "单 trial GRB 定位"
+
+msgid "Tutorials"
+msgstr "教程"
+
+msgid ""
+"Read a Cosima source file, inspect the run and source parameters, and save an updated copy. The "
+"example uses a GRB template included with the package."
+msgstr "读取 Cosima 源文件、检查 run 与 source 参数，并保存修改后的副本。示例使用本包附带的 GRB 模板。"
+
+msgid ""
+"To simulate the saved configuration, use a separate MEGAlib installation and point the geometry "
+"and orientation entries to files on your system."
+msgstr "模拟保存后的配置需要独立安装 MEGAlib，并将 geometry 和 orientation 指向自己系统上的文件。"
+
+msgid ""
+"The notebook below shows how to inspect the individual parameter tables. To run it locally, "
+":download:`download the notebook <Source_file_interpretion.ipynb>` and open it in JupyterLab from"
+" the ``megalibpy`` environment."
+msgstr ""
+"下面的 notebook 展示各参数表的检查方式。如需本地运行，请 :download:`下载 notebook <Source_file_interpretion.ipynb>`，在 "
+"``megalibpy`` 环境下使用 JupyterLab 打开。Notebook 内容保留英文。"
+
+msgid ""
+"The localization notebook demonstrates one simulation and reconstruction, random one-second "
+"background extraction using a standalone runtime command, component-aware event selection, "
+"spectrum/image generation, Galactic peak coordinates and angular separation, and a one-row CSV "
+"summary. Update its external paths, scientific configurations and background time bounds before "
+"running. Each new simulation requires a fresh workspace. Native execution is not performed during"
+" the documentation build."
+msgstr ""
+"定位 notebook 展示一次模拟与重建、通过独立 runtime 命令随机抽取一秒背景、包含外部成分的事件筛选、谱与图像生成、银河峰位置与角距，以及单行 CSV "
+"summary。运行前需修改外部路径、科学配置和背景时间范围。每次新模拟需要新 workspace。文档构建不会执行原生命令；notebook 保持英文。"
+
+msgid ":download:`Download the localization notebook <Localization_workflow.ipynb>`."
+msgstr ":download:`下载定位 notebook <Localization_workflow.ipynb>`。"

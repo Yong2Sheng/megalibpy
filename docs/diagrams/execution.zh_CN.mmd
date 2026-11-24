@@ -1,0 +1,10 @@
+flowchart TB
+    A["分配 execution UUID<br/>记录到根 manifest"] --> P["preparing<br/>准备输入、执行计划与上游引用"]
+    P --> R["running<br/>启动原生工具；流式日志"]
+    P -. "准备失败" .-> F["failed<br/>ExecutionError"]
+    R --> V{"零退出且预期输出非空？"}
+    V -->|是| S["succeeded<br/>ExecutionResult"]
+    V -->|否| F
+    R -. "超时" .-> F
+    R -. "键盘中断" .-> I["interrupted<br/>KeyboardInterrupt"]
+    R -. "强制终止" .-> U["未完成记录<br/>绝不当作成功结果"]

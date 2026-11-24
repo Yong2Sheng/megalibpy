@@ -1,0 +1,1957 @@
+# Simplified Chinese documentation for megalibpy.
+# Copyright (C) 2026 Yong Sheng
+# Distributed under the same license as megalibpy.
+msgid ""
+msgstr ""
+"Project-Id-Version: megalibpy 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-23 19:10-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: megalibpy contributors\n"
+"Language: zh_CN\n"
+"Language-Team: Simplified Chinese\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "API reference"
+msgstr "API 参考"
+
+msgid "On this page"
+msgstr "本页内容"
+
+msgid ""
+"Import these classes directly from ``megalibpy``. Start with :class:`MEGAlibSource` to load and "
+"edit a source file. Its :attr:`~MEGAlibSource.run_config` and :attr:`~MEGAlibSource.source` "
+"properties give you access to the parsed :class:`RunConfig` and :class:`Source` objects."
+msgstr ""
+"从 ``megalibpy`` 顶层导入这些类。先用 :class:`MEGAlibSource` 读取和编辑源文件，再通过 :attr:`~MEGAlibSource.run_config` "
+"与 :attr:`~MEGAlibSource.source` 获取解析后的 :class:`RunConfig` 和 :class:`Source`。"
+
+msgid "Source file"
+msgstr "源文件"
+
+msgid "Read and edit a Cosima source file with one run and one source."
+msgstr "读取和编辑仅含一个 run 与一个 source 的 Cosima 源文件。"
+
+msgid "Load the global, run, and source parameters from a file."
+msgstr "从文件加载全局、run 和 source 参数。"
+
+msgid "Parameters"
+msgstr "参数"
+
+msgid "Path to the input Cosima ``.source`` file."
+msgstr "输入 Cosima ``.source`` 文件路径。"
+
+msgid "Display the global simulation parameters."
+msgstr "显示全局模拟参数。"
+
+msgid ""
+"Set ``return_table=True`` to return a list of ``[key, value]`` rows and ``should_print=False`` to"
+" skip printing the table."
+msgstr "``return_table=True`` 返回 ``[key, value]`` 行列表；``should_print=False`` 关闭表格打印。"
+
+msgid "Display the run parameters and, by default, the source parameters."
+msgstr "显示 run 参数，默认也显示 source 参数。"
+
+msgid ""
+"Set ``source_detail=False`` to show the source as a single :class:`Source` object in the run "
+"table. Set ``return_table=True`` to return a list of ``[key, value]`` rows and "
+"``should_print=False`` to skip printing the table."
+msgstr ""
+"``source_detail=False`` 在 run 表中把源显示为单个 :class:`Source` 对象。``return_table=True`` 返回 ``[key, "
+"value]`` 行列表；``should_print=False`` 不打印。"
+
+msgid "Display the parameters for the run's source."
+msgstr "显示 run 中源的参数。"
+
+msgid "Display the global, run, and source parameters in one table."
+msgstr "在一个表中显示全局、run 和 source 参数。"
+
+msgid "The parsed :class:`RunConfig`; accessing it does not execute Cosima."
+msgstr "已解析的 :class:`RunConfig`；访问此属性不会执行 Cosima。"
+
+msgid "Compatibility alias for :attr:`run_config`."
+msgstr ":attr:`run_config` 的兼容别名。"
+
+msgid "The parsed :class:`Source` associated with the run."
+msgstr "与 run 关联的 :class:`Source`。"
+
+msgid "Set the Galactic coordinate of the source."
+msgstr "设置源的银河坐标。"
+
+msgid "The new coordinate in the Galactic frame."
+msgstr "新的 Galactic 坐标。"
+
+msgid "Set the photon flux of the source."
+msgstr "设置源的光子流量。"
+
+msgid "Photon flux in photons per square centimeter per second."
+msgstr "光子流量，单位 photons/cm²/s。"
+
+msgid "Write the stored parameters to a Cosima source file."
+msgstr "将保存的参数写入 Cosima 源文件。"
+
+msgid "Output path. An existing file at this path is overwritten."
+msgstr "输出路径。若存在同名文件会覆盖。"
+
+msgid "Print the parameter table when true. Defaults to false."
+msgstr "为 true 时打印参数表，默认 false。"
+
+msgid "Global parameters"
+msgstr "全局参数"
+
+msgid "Global simulation parameters shared by the entire Cosima run."
+msgstr "整个 Cosima run 共用的全局模拟参数。"
+
+msgid "Create global parameters from a mapping or individual values."
+msgstr "从映射或单独的值创建全局参数。"
+
+msgid "A dictionary keyed by Cosima directives. If given, it supplies all the parameter values."
+msgstr "以 Cosima 指令为键的字典；提供时由此读取全部参数值。"
+
+msgid "Geometry setup path used by ``Geometry``."
+msgstr "``Geometry`` 使用的几何设置路径。"
+
+msgid "Source file format version used by ``Version``."
+msgstr "``Version`` 指定的源文件格式版本。"
+
+msgid "Electromagnetic physics list used by ``PhysicsListEM``."
+msgstr "``PhysicsListEM`` 指定的电磁物理列表。"
+
+msgid "Simulation information storage mode used by ``StoreSimulationInfo``."
+msgstr "``StoreSimulationInfo`` 指定的模拟信息保存模式。"
+
+msgid "Event pre-trigger mode used by ``PreTriggerMode``."
+msgstr "``PreTriggerMode`` 指定的事件预触发模式。"
+
+msgid "Read the supported global directives from a Cosima source file."
+msgstr "从 Cosima 源文件读取受支持的全局指令。"
+
+msgid "Path to the input ``.source`` file."
+msgstr "输入 ``.source`` 文件路径。"
+
+msgid "Returns"
+msgstr "返回值"
+
+msgid "An instance of BaseParams initialized with the source file."
+msgstr "根据源文件初始化的 BaseParams 实例。"
+
+msgid "Return type"
+msgstr "返回类型"
+
+msgid "The geometry setup path as specified in the source file."
+msgstr "源文件中指定的 geometry 设置路径。"
+
+msgid "The value of the ``Version`` directive."
+msgstr "``Version`` 指令的值。"
+
+msgid "The name of the electromagnetic physics list."
+msgstr "电磁物理列表名称。"
+
+msgid "The mode used to store simulation information."
+msgstr "模拟信息保存模式。"
+
+msgid "The event pre-trigger mode."
+msgstr "事件预触发模式。"
+
+msgid "Display the global directives and their values."
+msgstr "显示全局指令及其值。"
+
+msgid "Cosima run configuration"
+msgstr "Cosima run 配置"
+
+msgid ""
+"This object describes a ``Run`` block in a source file; it does not execute Cosima. ``Run`` "
+"remains a compatibility alias for ``RunConfig``, and ``MEGAlibSource.run`` remains an alias for "
+"``MEGAlibSource.run_config``."
+msgstr ""
+"该对象描述源文件中的 ``Run`` 块，不执行 Cosima。``Run`` 是 ``RunConfig`` 的兼容别名，``MEGAlibSource.run`` 是 "
+"``MEGAlibSource.run_config`` 的兼容别名。"
+
+msgid "Configuration of a ``Run`` block in a Cosima source file."
+msgstr "Cosima 源文件中 ``Run`` 块的配置。"
+
+msgid ""
+"This object describes input parameters and the associated source. It does not launch Cosima or "
+"represent a process execution."
+msgstr "描述输入参数及关联 source，不启动 Cosima，也不表示进程执行。"
+
+msgid "Create a run configuration from a mapping or individual values."
+msgstr "从映射或单独的值创建 run 配置。"
+
+msgid "Name declared in the ``Run`` directive."
+msgstr "``Run`` 指令中声明的名称。"
+
+msgid "Output name specified by the run's ``FileName`` directive."
+msgstr "run 的 ``FileName`` 输出名称。"
+
+msgid "Sky orientation specification from ``OrientationSky``."
+msgstr "``OrientationSky`` 天空姿态说明。"
+
+msgid "Value of the run's ``Time`` directive."
+msgstr "run 的 ``Time`` 值。"
+
+msgid "The source associated with this run."
+msgstr "与 run 关联的源。"
+
+msgid "Read a run and its single source from a Cosima source file."
+msgstr "从 Cosima 源文件读取一个 run 和唯一源。"
+
+msgid "The run configuration initialized with the source file."
+msgstr "根据源文件初始化的 run 配置。"
+
+msgid "The name declared in the ``Run`` directive."
+msgstr "``Run`` 指令声明的名称。"
+
+msgid "The output name specified by the run's ``FileName`` directive."
+msgstr "run 中 ``FileName`` 指定的输出名称。"
+
+msgid "The raw ``OrientationSky`` specification for the run."
+msgstr "run 的原始 ``OrientationSky`` 文本。"
+
+msgid "The value of the run's ``Time`` directive, read from file as text."
+msgstr "run 的 ``Time`` 指令值，从文件读取时为文本。"
+
+msgid "The :class:`Source` associated with this run."
+msgstr "与 run 关联的 :class:`Source`。"
+
+msgid "Display the run directives and their values."
+msgstr "显示 run 指令及其值。"
+
+msgid ""
+"Set ``source_detail=True`` to expand the source object into its individual directives. Set "
+"``return_table=True`` to return a list of ``[key, value]`` rows and ``should_print=False`` to "
+"skip printing."
+msgstr ""
+"``source_detail=True`` 将源对象展开为各项指令；``return_table=True`` 返回 ``[key, value]`` "
+"列表，``should_print=False`` 不打印。"
+
+msgid "The underlying dictionary of run directives and their values."
+msgstr "run 指令与值的底层字典。"
+
+msgid "Source parameters"
+msgstr "源参数"
+
+msgid "Particle, beam, orientation, spectrum, and flux for one Cosima source."
+msgstr "一个 Cosima 源的粒子、beam、姿态、谱和流量。"
+
+msgid "Create a source from a mapping or individual values."
+msgstr "从映射或单独的值创建源。"
+
+msgid "Name of the run that references this source."
+msgstr "引用此源的 run 名称。"
+
+msgid "Name assigned to the source in the run's ``Source`` directive."
+msgstr "run 的 ``Source`` 指令赋予源的名称。"
+
+msgid "Cosima particle type code."
+msgstr "Cosima 粒子类型代码。"
+
+msgid "Beam model and its arguments, as used in the ``Beam`` directive."
+msgstr "``Beam`` 指令使用的 beam 模型及参数。"
+
+msgid "Orientation specification, such as ``Galactic Fixed -21.6 44.6``."
+msgstr "姿态说明，如 ``Galactic Fixed -21.6 44.6``。"
+
+msgid ""
+"For direct construction, supply the ``<source>.Spectrum`` entry in ``param_dict`` to store the "
+"spectral specification."
+msgstr "直接构造时，在 ``param_dict`` 中提供 ``<source>.Spectrum`` 项保存谱定义。"
+
+msgid "The name assigned to the source in the run's ``Source`` directive."
+msgstr "run 中 ``Source`` 指令赋予的源名称。"
+
+msgid "The Cosima particle type code, read from file as text."
+msgstr "Cosima 粒子类型代码，读取文件时为文本。"
+
+msgid "The beam model and parameters as specified in the source file."
+msgstr "源文件中的 beam 模型与参数。"
+
+msgid "The raw orientation specification for this source."
+msgstr "该源的原始姿态文本。"
+
+msgid "The spectral model and its arguments as specified in the source file."
+msgstr "源文件中的谱模型与参数。"
+
+msgid ""
+"A parsed flux is a string. After :meth:`set_flux`, this property returns the value supplied to "
+"the setter."
+msgstr "解析流量时为字符串；调用 :meth:`set_flux` 后返回 setter 传入值。"
+
+msgid "The source position as an ``astropy.coordinates.SkyCoord``."
+msgstr "源位置，类型为 ``astropy.coordinates.SkyCoord``。"
+
+msgid ""
+"This property reads the last two orientation values as Galactic latitude and longitude, in that "
+"order and in degrees."
+msgstr "依次将 orientation 的最后两项读取为银河纬度和经度，单位为度。"
+
+msgid "Display the source directives and their values."
+msgstr "显示 source 指令及其值。"
+
+msgid "The underlying dictionary of source directives and their values."
+msgstr "source 指令与值的底层字典。"
+
+msgid "Replace latitude and longitude in the existing orientation string."
+msgstr "替换现有 orientation 字符串中的纬度和经度。"
+
+msgid "A single position in the Galactic frame. The latitude and longitude are written in degrees."
+msgstr "Galactic frame 中的单个位置，以度写入纬度和经度。"
+
+msgid "Set the flux of the source."
+msgstr "设置源流量。"
+
+msgid "Cosima simulation"
+msgstr "Cosima 模拟"
+
+msgid ""
+"Use :meth:`Cosima.simulate` to start an external simulation. Its parameter reference below "
+"includes defaults, units, output layout, return values, errors, and the limits of dependency "
+"capture. See :doc:`../cosima` for complete examples and the two runtime modes."
+msgstr "通过 :meth:`Cosima.simulate` 启动外部模拟。以下参数说明包括默认值、单位、输出布局、返回值、错误与依赖捕获范围。完整示例与两种运行模式见 :doc:`../cosima`。"
+
+msgid "Execute ordinary single-run Cosima event simulations."
+msgstr "执行普通单 run Cosima 事件模拟。"
+
+msgid ""
+"Defaults to direct execution. A setup-script runtime initializes MEGAlib in a separate Bash "
+"process without modifying the calling Python process."
+msgstr "默认直接执行。setup-script runtime 在独立 Bash 进程初始化 MEGAlib，不修改调用者 Python 进程。"
+
+msgid ""
+"Command name or executable path, defaulting to ``cosima``. Direct mode resolves it before "
+"changing the child working directory; setup-script mode resolves it inside the initialized child "
+"environment."
+msgstr "命令名或可执行路径，默认 ``cosima``。direct 在改变子进程 cwd 前解析，setup-script 在初始化后的子环境内解析。"
+
+msgid "Runtime used for every call to :meth:`simulate` on this instance."
+msgstr "本实例每次 :meth:`simulate` 使用的 runtime。"
+
+msgid "type"
+msgstr "类型"
+
+msgid "MEGAlibRuntime"
+msgstr "MEGAlibRuntime"
+
+msgid "Executable command or path supplied to the selected runtime."
+msgstr "传给所选 runtime 的可执行命令或路径。"
+
+msgid "str"
+msgstr "str"
+
+msgid "Notes"
+msgstr "说明"
+
+msgid ""
+"Constructing this object does not start a process or check MEGAlib's availability. Checks occur "
+"when :meth:`simulate` is called. This wrapper requires a separate MEGAlib installation and does "
+"not import PyROOT."
+msgstr "构造不启动进程，也不检查 MEGAlib 是否可用；检查发生在 :meth:`simulate`。需要独立安装 MEGAlib，不导入 PyROOT。"
+
+msgid "Simulate events with Cosima and save an execution record."
+msgstr "用 Cosima 模拟事件并保存执行记录。"
+
+msgid ""
+"UTF-8 Cosima source file with one inline ``Run`` declaration and one corresponding ``FileName`` "
+"directive. Relative paths to this file are resolved against the calling Python working directory."
+" Supported relative references inside the file are resolved against the source file's directory. "
+"The original file is never modified."
+msgstr ""
+"UTF-8 Cosima 源文件，包含一个内联 ``Run`` 及对应 ``FileName``。该文件相对路径按调用 Python cwd 解析；文件内受支持的相对资源按 source "
+"目录解析。原文件不修改。"
+
+msgid ""
+"Experiment root. Missing parents are created; the Cosima stage must not already exist. Its "
+"absolute path cannot contain whitespace or ``$``. Creates cosima/inputs, logs and products, plus "
+"one root manifest.json. A new experiment is required for every rerun. Supply exactly one of "
+"``output_dir`` or ``workspace``."
+msgstr ""
+"实验根目录，缺失父目录会创建，Cosima stage 不能已存在。绝对路径不能含空白或 ``$``。建立 cosima/inputs、logs、products 及根 "
+"manifest.json。每次重跑需要新实验。output_dir 与 workspace 必须且只能选一个。"
+
+msgid ""
+"Experiment object or root, default none. Writes directly into cosima/ without an attempt "
+"directory. Exactly one Cosima execution is allowed, including failure; retries need a new "
+"workspace."
+msgstr "实验对象或根，默认 None。直接写入 cosima/，无 attempt 层。只允许一次 Cosima（包括失败），重试需要新 workspace。"
+
+msgid ""
+"Positive integer in ``[1, 2147483647]`` passed to Cosima's ``-s`` option. Defaults to ``None``, "
+"which generates and records a random seed in that range. Boolean values are rejected."
+msgstr "传给 Cosima ``-s`` 的 ``[1, 2147483647]`` 正整数。默认 ``None`` 自动生成并记录随机 seed；拒绝布尔值。"
+
+msgid ""
+"If ``True`` (default), pass ``-z`` and discover ``*.sim.gz`` files. If ``False``, pass ``-u`` and"
+" discover uncompressed ``*.sim`` files."
+msgstr "``True``（默认）传 ``-z`` 并发现 ``*.sim.gz``；``False`` 传 ``-u`` 并发现未压缩 ``*.sim``。"
+
+msgid ""
+"Positive wall-clock limit in seconds for the child process, including environment initialization "
+"and Cosima execution. Defaults to ``None`` (no limit). Preparation and snapshot copying occur "
+"before this timer. A timeout terminates the process group and raises ``ExecutionError``."
+msgstr "子进程墙钟超时，正数秒，包含环境初始化和 Cosima，默认 ``None`` 不限时。准备和快照复制发生在计时前。超时终止进程组并抛出 ``ExecutionError``。"
+
+msgid ""
+"Additional external files to record, defaulting to an empty tuple. Relative paths are resolved "
+"against the source directory. These declarations supplement supported automatically discovered "
+"inputs; they do not rewrite arbitrary directives or recursively discover geometry includes."
+msgstr "额外登记的外部文件，默认空元组。相对路径按 source 目录解析。它补充自动发现的受支持输入，不改写任意指令或递归发现 geometry includes。"
+
+msgid ""
+"Maximum external dependency size to hash, in bytes. Default zero records path, size and mtime "
+"without reading nonempty resources. None hashes all discovered/declared resources. Copies are "
+"made only when runtime.archive_inputs=True and a file is within this hash limit. Compact mode "
+"never copies geometry/orientation/spectrum dependencies. Source bytes and checksums are stored in"
+" the manifest by default."
+msgstr ""
+"外部依赖 hash 大小上限，单位 bytes。默认零只记路径/大小/mtime，不读非空资源；None 对所有已发现/声明资源计算 hash。仅 "
+"runtime.archive_inputs=True 且在上限内才复制。精简模式不复制 geometry/orientation/spectrum；source 字节及校验和默认存 "
+"manifest。"
+
+msgid ""
+"\"full\" (default) streams complete stdout/stderr. \"summary\" streams stdout from the last line "
+"starting \"Summary for run \" to EOF, including the complete summary and shutdown text without a "
+"size cap. Earlier stdout is discarded while reading, not written first. Stderr is always retained"
+" in full. If no summary marker appears, stdout is absent and logs.capture marks summary_missing; "
+"no arbitrary tail is substituted. Empty logs are removed. This is a Python capture option, not a "
+"native MEGAlib flag."
+msgstr ""
+"默认 \"full\" 流式保留完整 stdout/stderr。\"summary\" 保留最后一个行首 \"Summary for run \" 到 EOF "
+"的全部内容，包括摘要和退出文字，不限大小；之前 stdout 边读边丢，不先落盘。stderr 始终完整。没有标记则 stdout 缺失并记 "
+"summary_missing，不代以任意尾部。空日志删除。这是 Python 捕获选项，不是原生 flag。"
+
+msgid ""
+"Successful execution with absolute paths to the workspace, logs, and manifest. "
+"``result.outputs[\"sim\"]`` is a sorted tuple of one or more nonempty simulation files; no "
+"``inc1.id1`` naming assumption is made. ``result.returncode`` is zero."
+msgstr ""
+"成功结果包含 workspace、日志与 manifest 的绝对路径。``result.outputs[\"sim\"]`` 是排序的非空模拟文件元组，可有多个，不假设 "
+"inc1.id1。result.returncode 为零。"
+
+msgid "Raises"
+msgstr "异常"
+
+msgid ""
+"The seed, hash limit, or timeout is invalid before preparation.     No execution manifest is "
+"created for these argument errors."
+msgstr "准备前 seed、hash 上限或 timeout 无效。此类参数错误不创建执行 manifest。"
+
+msgid ""
+"The execution directory already exists. It is never overwritten     or reused, even if it is "
+"empty."
+msgstr "执行目录已存在。即使为空也不覆盖或复用。"
+
+msgid "The execution directory or its initial record cannot be created."
+msgstr "无法创建执行目录或初始记录。"
+
+msgid ""
+"Source/setup preparation, program discovery, process startup,     native execution, timeout, or "
+"output validation fails after the     execution record is created. Inspect "
+"``error.manifest_path``,     ``error.returncode``, and the files in ``logs/`` for diagnostics."
+"     Unsupported source layouts are reported through this exception."
+msgstr ""
+"建立记录后 source/setup 准备、程序发现、启动、执行、超时或产物校验失败。检查 ``error.manifest_path``、``error.returncode`` 和 "
+"logs/。不支持的 source 布局也经此异常报告。"
+
+msgid ""
+"The caller interrupts execution. The process group is terminated,     the attempt is recorded as "
+"interrupted, and the interrupt is     propagated to the caller."
+msgstr "调用者中断执行：终止进程组，记 interrupted，并继续向调用者传播中断。"
+
+msgid "The host is not POSIX-compatible."
+msgstr "宿主系统不兼容 POSIX。"
+
+msgid ""
+"This synchronous method blocks until the child finishes or fails. It preserves the parent Python "
+"environment and working directory. Source comments and unknown directives are retained in the "
+"execution copy; ``FileName`` is redirected to ``products/events`` and supported input paths are "
+"rebased. Source ``Include`` directives and activation/cross-section jobs are not supported in "
+"this version."
+msgstr ""
+"同步阻塞直到子进程结束或失败，不改父环境/cwd。保留 source 注释和未知指令，FileName 定向 products/events，受支持输入按源目录解析。本版本不支持 source "
+"Include 或 activation/cross-section。"
+
+msgid ""
+"Dependency capture is explicitly incomplete. Nested geometry includes and runtime-expanded paths "
+"require external archival, and external inputs must remain unchanged while the tool runs. Success"
+" checks only the exit status and nonempty output files; it does not establish scientific validity"
+" or complete gzip integrity."
+msgstr "依赖捕获不完整。嵌套 geometry include 和运行时展开路径需外部归档；执行期间输入保持不变。成功仅检查退出码与非空输出，不证明科学有效性或完整 gzip 完整性。"
+
+msgid "Examples"
+msgstr "示例"
+
+msgid "In an already initialized MEGAlib environment:"
+msgstr "已经初始化 MEGAlib 的环境中："
+
+msgid ""
+"To initialize a separate MEGAlib environment, pass a :class:`~megalibpy.MEGAlibRuntime` created "
+"with ``from_setup_script`` to the ``Cosima`` constructor."
+msgstr "要初始化独立 MEGAlib 环境，将用 ``from_setup_script`` 创建的 :class:`~megalibpy.MEGAlibRuntime` 传给 Cosima 构造函数。"
+
+msgid "Runtime selection"
+msgstr "运行环境选择"
+
+msgid ""
+"Choose :meth:`MEGAlibRuntime.direct` for an already initialized environment, or "
+":meth:`MEGAlibRuntime.from_setup_script` to initialize MEGAlib in a Bash child. Both modes "
+"preserve the calling Python environment."
+msgstr ""
+"已初始化环境用 :meth:`MEGAlibRuntime.direct`；需在 Bash 子进程初始化则用 "
+":meth:`MEGAlibRuntime.from_setup_script`。均保留调用 Python 环境。"
+
+msgid "MEGAlib runtime selection, independent of individual tool options."
+msgstr "MEGAlib 运行环境选择，独立于各工具参数。"
+
+msgid ""
+"Use :meth:`direct` for an already initialized environment, or :meth:`from_setup_script` to source"
+" a trusted Bash script in a child process. The parent process's environment is never modified."
+msgstr "用 :meth:`direct` 选择已初始化环境，或用 :meth:`from_setup_script` 在子进程 source 可信 Bash 脚本。父进程环境始终不改。"
+
+msgid ""
+"Absolute path to a trusted Bash initialization script. ``None`` selects direct execution. Prefer "
+"the factory methods to constructing this dataclass directly; :meth:`from_setup_script` expands "
+"``~`` and resolves relative paths for you."
+msgstr "可信 Bash 初始化脚本的绝对路径。None 选择 direct。推荐工厂方法，:meth:`from_setup_script` 会展开 ~ 并解析相对路径。"
+
+msgid "Bash command name or executable path, defaulting to ``\"bash\"``. Used only in setup-script mode."
+msgstr "Bash 命令名或路径，默认 ``\"bash\"``，仅 setup-script 模式使用。"
+
+msgid ""
+"False (default) records native source/configuration bytes in the root manifest and removes "
+"temporary native input files after execution. True retains source/configuration snapshots in "
+"inputs/. Setup helpers and executable-path handoff files are temporary in both modes."
+msgstr "默认 False 将 source/cfg 字节存根 manifest，执行后删除临时原生输入。True 在 inputs/ 保留实体快照。两种模式下启动和可执行路径传递文件均临时。"
+
+msgid "Script selected for initialization, or ``None`` in direct mode."
+msgstr "选定的初始化脚本，direct 模式为 None。"
+
+msgid "pathlib.Path or None"
+msgstr "pathlib.Path or None"
+
+msgid "Bash executable selected for setup-script mode."
+msgstr "setup-script 模式选用的 Bash 可执行文件。"
+
+msgid ""
+"Both modes launch external processes. Setup-script mode removes common inherited Python and "
+"native-library search paths, then sources the script and executes the tool in the same Bash "
+"child. The script must establish the complete runtime; this is not a container or fully hermetic "
+"environment. Scripts are executed from their original location so ``BASH_SOURCE``-based resource "
+"lookup continues to work. Only load scripts you trust."
+msgstr ""
+"均启动外部进程。setup-script 清除常见继承 Python/动态库路径，随后同一 Bash 子进程 source 并执行工具。脚本必须建立完整 "
+"runtime；这不是容器或完全隔离环境。脚本始终从原位置执行，保留 BASH_SOURCE 查找资源的能力。仅加载可信脚本。"
+
+msgid "Select direct execution in the current process environment."
+msgstr "选择当前进程环境中的直接执行。"
+
+msgid ""
+"Default false stores configuration content in the manifest; true retains source/config files. "
+"Launch helpers are always temporary."
+msgstr "默认 false 将配置内容存 manifest，true 保留 source/cfg 文件；启动文件始终临时。"
+
+msgid ""
+"Runtime with no setup script. Tool availability is checked later, when an execution is prepared; "
+"this factory does not launch a tool."
+msgstr "不含 setup 脚本的 runtime。工厂不启动工具；程序可用性在执行准备时检查。"
+
+msgid "Select environment initialization in a separate Bash child."
+msgstr "选择在独立 Bash 子进程中初始化环境。"
+
+msgid ""
+"Trusted Bash script to source before executing a tool. ``~`` is expanded and relative paths are "
+"resolved against the calling Python working directory. The script may activate a separate Conda "
+"environment and must establish MEGAlib's runtime paths."
+msgstr "工具执行前 source 的可信脚本。展开 ~，相对路径以调用 Python cwd 解析。可激活独立 Conda，必须建立 MEGAlib 所需路径。"
+
+msgid ""
+"Bash executable name or path, defaulting to ``\"bash\"``. Login and interactive startup files are"
+" not automatically loaded."
+msgstr "Bash 名称或路径，默认 ``\"bash\"``。不自动加载 login 或 interactive 启动文件。"
+
+msgid ""
+"False (default) stores source/configuration content in the manifest; true retains their files in "
+"inputs/. Helpers remain temporary."
+msgstr "默认 False 将 source/cfg 内容存 manifest，True 在 inputs/ 保留文件；helper 始终临时。"
+
+msgid ""
+"Runtime containing the resolved script path. This method neither sources the script nor verifies "
+"its existence. Missing scripts or Bash executables are reported when an execution is prepared."
+msgstr "包含已解析脚本路径的 runtime。此方法不 source 或检查脚本存在性；缺失脚本或 Bash 在准备执行时报告。"
+
+msgid ""
+"Environment changes occur only in the child process. The calling Python process remains in its "
+"original environment. The initialization script and tool arguments are passed as positional "
+"parameters rather than interpolated into shell syntax."
+msgstr "环境变化只发生在子进程，调用者 Python 保持原环境。初始化脚本和工具参数以位置参数传递，不插入 shell 语法。"
+
+msgid "Standalone native command"
+msgstr "独立原生命令"
+
+msgid "Run one native command in a MEGAlib runtime without a workspace."
+msgstr "不创建工作区，在 MEGAlib runtime 中运行一条原生命令。"
+
+msgid ""
+"Nonempty argv sequence, beginning with the executable name or path. Each argument is passed "
+"literally with shell=False. Shell command strings, pipelines, redirections and variable expansion"
+" are not parsed. Format numeric native values as strings before passing them."
+msgstr "非空 argv 序列，以可执行名称或路径开始。每项按字面传入 shell=False，不解析 shell 字符串、管道、重定向或变量展开。数值原生参数应先格式化为字符串。"
+
+msgid ""
+"Runtime to initialize in the child, default None (direct mode). from_setup_script() sources its "
+"trusted script before executing the command, even if the parent shell has no MEGAlib environment."
+" The parent's environment and working directory remain unchanged."
+msgstr ""
+"子进程 runtime，默认 None 为 direct。from_setup_script() 即使父 shell 没有 MEGAlib 也会先 source 可信脚本再执行。不修改父环境或 "
+"cwd。"
+
+msgid ""
+"Child working directory. None (default) inherits the caller's directory. No directory is created;"
+" relative resource/output paths use this base."
+msgstr "子进程 cwd。默认 None 继承调用者目录。不创建目录，相对资源和输出以此为基准。"
+
+msgid ""
+"Positive timeout in seconds, including initialization. None (default) waits indefinitely. Process"
+" termination follows subprocess.run()."
+msgstr "包含初始化的正数秒超时；默认 None 无限等待。终止行为遵循 subprocess.run()。"
+
+msgid ""
+"True (default) raises subprocess.CalledProcessError on nonzero exit. False returns the process "
+"status, including setup or tool-discovery failures that occur inside the child."
+msgstr "默认 True 在非零退出时抛 subprocess.CalledProcessError；False 返回状态，包括子进程内 setup 或程序发现失败。"
+
+msgid ""
+"False (default) inherits stdout/stderr without capturing them in memory. True captures both, "
+"including setup output, as UTF-8 strings with invalid bytes replaced. Capture is unbounded; use "
+"only for suitable log volumes."
+msgstr "默认 False 继承 stdout/stderr，不捕获到内存。True 捕获两路（包括 setup 输出）为 UTF-8 字符串，替换无效字节。不限制大小，请按日志量选择。"
+
+msgid ""
+"Original native args and returncode; stdout/stderr are strings when captured, otherwise None. "
+"This is not an ExecutionResult and has no manifest, execution ID, discovered products or "
+"provenance registration."
+msgstr ""
+"返回原生 args 和 returncode；捕获时 stdout/stderr 为字符串，否则 None。不是 ExecutionResult，不含 manifest、execution "
+"ID、自动发现产物或来源登记。"
+
+msgid ""
+"command is a shell string, an argument is not text/path-like, or runtime     is not a "
+"MEGAlibRuntime."
+msgstr "command 为 shell 字符串、参数不是文本/路径类型，或 runtime 不是 MEGAlibRuntime。"
+
+msgid "Empty argv/executable, invalid boolean options or nonpositive timeout."
+msgstr "argv/可执行名称为空、布尔选项无效或 timeout 非正。"
+
+msgid "Direct-mode executable, setup script, Bash or cwd cannot be found."
+msgstr "找不到 direct 可执行程序、setup 脚本、Bash 或 cwd。"
+
+msgid ""
+"Initialization or command exits nonzero and check=True. cmd identifies     the original native "
+"argv, not a removed temporary launch script."
+msgstr "初始化或命令非零退出且 check=True。cmd 指向原始 argv，不是已删除的临时启动脚本。"
+
+msgid "Timeout expires. cmd identifies the original argv."
+msgstr "超时。cmd 为原始 argv。"
+
+msgid "Temporary helper creation or process launch fails."
+msgstr "创建临时 helper 或启动进程失败。"
+
+msgid ""
+"Uses the same runtime bootstrap as managed execution, including environment separation and the "
+"ROOT-compatible script launcher. Temporary helpers are removed on success, failure and timeout. "
+"No workspace/manifest, cfg archive, automatic -n/-x flags, output validation or file protection "
+"is added. Native commands may create or overwrite outputs according to their own rules. "
+"runtime.archive_inputs does not apply to this unmanaged command."
+msgstr ""
+"复用受管理执行的 runtime bootstrap，包括环境分离和兼容 ROOT 的脚本启动方式。成功、失败、超时均清理 helper。不添加 workspace/manifest、cfg "
+"归档、自动 -n/-x、输出检查或文件保护。原生命令按自身规则创建或覆盖文件；runtime.archive_inputs 不适用于此入口。"
+
+msgid "Revan reconstruction"
+msgstr "Revan 重建"
+
+msgid ""
+"Use an explicit configuration and geometry; see :doc:`../revan` for native settings isolation, "
+"input selection and examples."
+msgstr "请显式设置配置与 geometry；原生设置隔离、输入选择与示例见 :doc:`../revan`。"
+
+msgid "Reconstruct native event data with an explicit native MEGAlib configuration."
+msgstr "用显式原生 MEGAlib 配置重建事件数据。"
+
+msgid "Shared direct/setup-script runtime. ``None`` selects direct execution."
+msgstr "共用 direct/setup-script runtime，None 选择直接执行。"
+
+msgid ""
+"Experiment root, default none. Bind the directory containing the root manifest and sibling "
+"cosima/, revan/ and mimrec/ directories, never a stage, analysis or product directory. Calls can "
+"omit working_space; explicit results/references must belong to this same root. External event-"
+"file calls use this root as their destination when output_dir is omitted. Construction reads "
+"metadata but creates no files or processes. Conflicting per-call workspace/output_dir values "
+"raise ValueError."
+msgstr ""
+"实验根，默认 None。应绑定包含根 manifest 和同级 cosima/revan/mimrec 的目录，不能是 stage/分析/产物目录。后续可省 "
+"working_space；显式结果/引用必须属于同根。外部事件调用省 output_dir 时以此为目标。构造只读元数据，不建文件或进程。方法级根或目标冲突抛 ValueError。"
+
+msgid ""
+"Workspace-local reconstruction analysis name, default none. A bound name writes all calls to "
+"revan/<analysis_id> and reuses its recorded defaults when config_file is omitted. None creates a "
+"numbered group per call. Names use letters, digits, underscores and hyphens, starting with a "
+"letter/digit. Construction creates no files and launches no process."
+msgstr ""
+"workspace 内重建分析名，默认 None。绑定后所有调用写入 revan/<analysis_id>，省 cfg 则复用记录基准。None "
+"每次分配编号组。名称为字母/数字/下划线/连字符，首字符为字母/数字。构造不创建文件或进程。"
+
+msgid "Native executable name or path, default ``\"revan\"``."
+msgstr "原生程序名或路径，默认 ``\"revan\"``。"
+
+msgid ""
+"Main opaque native cfg, default None. Supplying it binds its nonempty bytes and resource cwd at "
+"construction and requires working_space and analysis_id. Construction reads "
+"metadata/configuration only and writes no files or processes. A recorded bound definition is "
+"restored when reopening without this argument, even if the original file was removed. Different "
+"main bytes or resource cwd require a new analysis_id."
+msgstr ""
+"主 opaque cfg，默认 None。提供时在构造冻结非空字节与资源 cwd，要求 working_space 和 "
+"analysis_id。只读取元数据/配置，不创建文件或启动进程。重开可省略以恢复已记录定义，即使原文件已删除。主字节或 cwd 不同要求新 analysis_id。"
+
+msgid ""
+"Baseline literal -g value, default None (omit -g in a new definition; restore the saved setting "
+"when reopening). Never parsed or inspected. A different bound geometry requires a new "
+"analysis_id."
+msgstr "基准字面 -g 值，默认 None（新定义省略 -g，重开恢复已记录值）。不解析或检查文件。绑定 geometry 不同要求新 analysis_id。"
+
+msgid ""
+"Baseline native -C settings: key underscores become dots, booleans become true/false and other "
+"values use str. Native text is frozen at construction. reconstruct() overrides apply only to that"
+" execution."
+msgstr "基准原生 -C 设置：键下划线转点，布尔转 true/false，其他用 str。构造冻结原生文本；reconstruct() 覆盖仅作用于本次。"
+
+msgid ""
+"Invalid identifier, missing bound root/analysis_id/configuration, empty     cfg or conflicting "
+"recorded baseline. Different baselines need a new ID."
+msgstr "标识符无效、缺少绑定根/analysis_id/配置、cfg 为空或与已记录基准冲突。不同基准需新 ID。"
+
+msgid "An explicitly supplied configuration file cannot be read."
+msgstr "无法读取显式配置文件。"
+
+msgid ""
+"A removed analysis directory with only failed executions may be reopened under the same "
+"analysis_id with corrected constructor settings. The next command rechecks eligibility under the "
+"manifest lock, preserves old failed records and recreates the layout with a fresh baseline. "
+"Construction writes nothing. Existing, successful or in-progress groups remain protected. No "
+"PyROOT is imported. Geometry, input and output CLI arguments override saved file selections in "
+"the supplied configuration. Native configuration bytes are passed through unchanged; no "
+"configuration parser, serializer or fixed Python settings model is used."
+msgstr ""
+"仅有失败执行且整个目录已删除的组，可同 ID 修正构造基准。下次命令在 manifest 锁内重查资格，保留旧失败并重建布局。构造不写文件；目录存在、有成功或在途执行仍受保护。不导入 "
+"PyROOT。geometry/input/output CLI 覆盖原生配置中的相应选择。cfg 原样传递，无解析器、序列化器或固定 Python 设置模型。"
+
+msgid "Reconstruct one native event file into a recorded ``tra`` product."
+msgstr "重建一个原生事件入口，记录为 ``tra`` 产物。"
+
+msgid ""
+"Defaults to the constructor-bound root, if supplied. Otherwise none. Existing experiment/legacy "
+"Cosima directory, result, or explicit upstream reference. Without a bound root, supply exactly "
+"one of ``working_space`` or ``sim_path``. Multiple declared files require explicit selection. "
+"Externally started experiments can be reopened here using their recorded input file."
+msgstr ""
+"默认使用构造绑定根，否则 None。可传既有实验、旧 Cosima 目录、结果或上游引用。未绑定时 working_space 与 sim_path "
+"恰选其一；多文件需显式选择。外部起点的实验也可通过登记输入重开。"
+
+msgid ""
+"External ``.sim[.gz]`` or ``.evta[.gz]`` entry file, default none. Requires ``output_dir`` or a "
+"constructor-bound working_space root. The file stays in place; no simulation contents are read, "
+"copied or hashed. Any native continuation references remain MEGAlib's responsibility."
+msgstr ""
+"外部 ``.sim[.gz]`` 或 ``.evta[.gz]``，默认 None。需 output_dir 或构造绑定根。数据留原位，不读取/复制/hash 模拟内容。continuation"
+" 引用由 MEGAlib 处理。"
+
+msgid ""
+"Default None uses the construction-bound configuration. In that mode an explicit file must have "
+"identical bytes and resource cwd; changing the main cfg requires a new analysis_id. Legacy calls "
+"without a bound definition require a cfg for a new group. None in legacy mode restores a named "
+"analysis group's saved bytes, original cwd, geometry and overrides. Original bytes are copied "
+"unchanged to the execution snapshot and passed to Revan via ``-c``. No syntax, field names or "
+"values are interpreted. Relative resources resolve from this file's parent directory."
+msgstr ""
+"默认 None 使用构造绑定 cfg；此模式下显式文件必须同字节与资源 cwd，修改主 cfg 要新 ID。无定义旧入口新组需 cfg；省略则恢复组内字节、原 cwd、geometry "
+"和覆盖。原文通过临时快照以 -c 传 Revan，不解释语法/字段/值。相对资源以配置父目录为基准。"
+
+msgid ""
+"Default None uses construction-bound geometry when present; a different bound geometry requires a"
+" new analysis_id. In legacy mode, with explicit config_file, None omits -g and uses the cfg "
+"geometry. With inherited configuration it reuses the bound defaults. Otherwise forwarded "
+"unchanged to ``-g``; MEGAlib handles path expansion, opening and overriding. Python does not "
+"inspect the file. Relative paths use the child cwd (the configuration directory)."
+msgstr ""
+"默认 None 复用已绑定 geometry，修改要求新 ID。旧入口显式 cfg 时 None 省 -g，由 cfg 决定；继承配置时复用 defaults。其他值原样传 "
+"-g，路径展开/打开/覆盖归 MEGAlib。Python 不检查文件，相对路径按子 cwd（配置目录）。"
+
+msgid ""
+"Destination experiment root, required with ``sim_path``. Creates ``manifest.json`` and ``revan"
+"/attempt-NNN`` below it; it is not an individual attempt directory. Existing matching experiments"
+" can be reused for new data groups. Legacy inputs require a fresh destination; their original "
+"directories are read-only. With ``working_space``, omission continues in that experiment; an "
+"explicit root records the existing Cosima origin by reference. Defaults to none."
+msgstr ""
+"目标实验根，外部 sim_path 时必需（或由绑定根提供）。在其下创建 manifest.json 与 revan/attempt-"
+"NNN，不是单次目录。相同既有实验可增加组；旧输入需新目标，旧目录只读。working_space 省目标则原地接续，显式新根按引用保留原 Cosima origin。默认 None。"
+
+msgid ""
+"Named reconstruction task, default ``\"default\"``. Workspace attempts are numbered under "
+"``revan/``. Labels remain queryable metadata, without another directory level. With analysis_id "
+"bound, repeated calls share that group; only occupied output filenames gain numeric suffixes. "
+"Without a bound ID, each call creates a new numbered group."
+msgstr "任务标签，默认 ``\"default\"``。未绑定时在 revan/ 分配编号组；标签是元数据，不增加目录层。绑定 ID 时重复调用共享组，只对冲突输出名编号。"
+
+msgid ""
+"Default true produces ``products/events.tra.gz``; false uses ``.tra``. Compression is selected "
+"through the output suffix, not Cosima flags."
+msgstr "默认 true 生成 products/events.tra.gz，false 为 .tra。按后缀选择压缩，不使用 Cosima flag。"
+
+msgid ""
+"Positive child-process timeout in seconds, including setup. None waits indefinitely. "
+"Preparation/final record writing are excluded."
+msgstr "包含 setup 的正数秒超时；None 无限等待，不含准备与最终记录写入。"
+
+msgid ""
+"Default false retains native HOME/settings behavior. Explicit true gives the tool a private HOME "
+"after setup. Configuration contents remain unchanged, so HOME-based paths then use the private "
+"HOME."
+msgstr "默认 false 保留原生 HOME。true 在 setup 后给工具私有 HOME，不改配置内容；基于 HOME 的路径也转向该目录。"
+
+msgid ""
+"\"full\" (default) streams complete stdout/stderr without a byte cap. Summary selection is "
+"currently available only for Cosima, whose native boundary marker is defined. Empty logs are "
+"removed. This Python option is never forwarded as a native -C setting."
+msgstr "默认 \"full\" 流式保留完整 stdout/stderr，无字节上限。summary 当前仅 Cosima 支持；空日志删除。此 Python 选项绝不转发原生 -C。"
+
+msgid ""
+"Native configuration overrides. Each keyword's underscores become dots: ``TotalEnergy_Min=100`` "
+"gives ``-C TotalEnergy.Min=100``. Values are passed as one argument without path/value rewriting;"
+" booleans become ``true``/``false``, other values use ``str``. Field existence, value validity "
+"and external files are MEGAlib's concern. In construction-bound mode these affect THIS COMMAND "
+"ONLY; they never replace the constructor baseline or later calls' defaults. Both "
+"execution_overrides and analysis_baseline_overrides are saved. CLI ``-g/-f/-o`` selections take "
+"precedence according to native rules."
+msgstr ""
+"原生覆盖：关键字下划线转点，如 ``TotalEnergy_Min=100`` 生成 ``-C TotalEnergy.Min=100``。值为独立参数，不改路径或文本；布尔 "
+"true/false，其他 str。字段、值、外部文件由 MEGAlib 判断。绑定模式仅影响本次，不改变构造基准/后续默认；分别记录 execution_overrides 与 "
+"analysis_baseline_overrides。CLI -g/-f/-o 优先级按原生规则。"
+
+msgid ""
+"``outputs[\"tra\"]`` contains the reconstructed file. The execution manifest records "
+"configuration hashes, CLI overrides, runtime and selected upstream input. Managed results also "
+"expose ``workspace_dir``."
+msgstr "``outputs[\"tra\"]`` 包含重建文件。manifest 记录配置 hash、CLI 覆盖、runtime 与精确上游；受管理结果另有 workspace_dir。"
+
+msgid "Invalid arguments, unsupported/ambiguous inputs or workspace selection."
+msgstr "参数无效、输入不支持/有歧义或 workspace 选择错误。"
+
+msgid "Input selection cannot be resolved before allocation."
+msgstr "分配前无法解析输入。"
+
+msgid "An attempt path is occupied or the experiment index is locked."
+msgstr "attempt 路径占用或实验索引锁定。"
+
+msgid ""
+"Configuration snapshot preparation, launch, execution, timeout or     nonempty-output checks fail"
+" after an attempt record is established."
+msgstr "建立记录后配置快照、启动、执行、超时或非空输出检查失败。"
+
+msgid "Execution is interrupted; diagnostics are retained."
+msgstr "执行中断，保留诊断。"
+
+msgid "Warns"
+msgstr "警告"
+
+msgid ""
+"**UserWarning** -- In legacy groups without a construction-bound definition, settings differ from"
+" the saved defaults. The variant is recorded without replacing its saved baseline."
+msgstr "**UserWarning** -- 无构造绑定的旧组设置与默认不同，记录变体但不替换原基准。"
+
+msgid ""
+"By default, native Revan uses its usual HOME and settings. Optional isolation changes HOME only "
+"for the tool after setup, without altering the parent's environment or rewriting configuration "
+"contents. No configuration syntax or settings semantics are checked by Python; native Revan may "
+"diagnose errors or fall back to defaults. Inspect logs. A zero exit status plus nonempty output "
+"is not a scientific check. External configuration files are managed by MEGAlib and the caller."
+msgstr ""
+"默认 Revan 使用通常 HOME/设置。可选隔离只在 setup 后更改工具 HOME，不改父环境或配置文本。Python 不检查配置语法/语义；原生 Revan "
+"可能报错或回退默认，请看日志。零退出和非空输出不是科学检查。外部配置资源由 MEGAlib 与调用者管理。"
+
+msgid "Mimrec selection and analysis"
+msgstr "Mimrec 筛选与分析"
+
+msgid ""
+"See :doc:`../mimrec` for event extraction, imaging, spectra and ARM. Revan and Mimrec bind named "
+"analysis groups at construction. Mimrec separately names its Revan parent and own analysis; see "
+":doc:`../workspaces`."
+msgstr ""
+"事件提取、成像、谱与 ARM 见 :doc:`../mimrec`。Revan/Mimrec 构造绑定命名分析组，Mimrec 分别命名 Revan 父节点和自身组，见 "
+":doc:`../workspaces`。"
+
+msgid "Run independent native Mimrec operations without importing PyROOT."
+msgstr "不导入 PyROOT，独立执行原生 Mimrec 操作。"
+
+msgid "Direct or setup-script runtime. None selects direct execution."
+msgstr "direct 或 setup-script runtime；None 为直接执行。"
+
+msgid ""
+"Explicit upstream Revan analysis name. Workspace entry selects this Revan group when the Mimrec "
+"group has no successful extraction or saved entry. Default none allows an explicit result or "
+"unambiguous legacy input. A supplied name must match the actual recorded Revan provenance."
+msgstr "上游 Revan 分析名。workspace 入口在没有本组提取或保存入口时选择该父组。默认 None 可用显式结果或无歧义旧输入。提供名称时必须与真实 Revan 来源一致。"
+
+msgid ""
+"Mimrec's own workspace-local group name. Defaults to revan_analysis_id when supplied, otherwise "
+"none. A bound name places all calls under mimrec/<analysis_id>, reusing that group's defaults. A "
+"workspace input uses the group's unique successful extraction first, then its recorded input, "
+"otherwise the explicitly bound revan_analysis_id. Explicit input results preserve their exact "
+"upstream identity, allowing differently named Mimrec branches from one Revan result. It "
+"identifies data/configuration context, not a command execution or configuration hash. "
+"Construction creates no files and runs no process. Names use letters, digits, underscores or "
+"hyphens, starting with a letter or digit. The same name can be reused in independent workspaces."
+msgstr ""
+"Mimrec 自身组名。提供 revan_analysis_id 时默认同名，否则 None。绑定后写 mimrec/<analysis_id> 并复用组基准。workspace "
+"选择优先唯一成功提取，再登记输入或精确绑定 Revan；显式结果保留精确来源，可从一个 Revan 分出不同名 Mimrec。名称表示数据/配置，不是命令 "
+"ID/hash。构造不写文件或启动；合法字符为字母/数字/下划线/连字符，首字符字母/数字。独立 workspace 可复用同名。"
+
+msgid "Native executable name or path, default ``\"mimrec\"``."
+msgstr "原生程序名或路径，默认 ``\"mimrec\"``。"
+
+msgid ""
+"Main opaque native configuration, default None. Supplying it enables a bound analysis definition "
+"and requires working_space and analysis_id (the latter may default to revan_analysis_id). Bytes "
+"and resource cwd are fixed at construction; construction runs no command and writes no files. "
+"Reopening a bound group may omit this argument to restore its recorded bytes even if the original"
+" cfg was removed. Different main bytes or resource cwd require a new analysis_id."
+msgstr ""
+"主 opaque cfg，默认 None。提供后启用绑定定义，要求 working_space 与 analysis_id（可默认用 "
+"revan_analysis_id）。构造冻结字节/cwd，不执行/写文件。重开可省略以恢复记录，即使原 cfg 删除。主字节/cwd 改变要求新 ID。"
+
+msgid ""
+"Baseline literal geometry override. None (default) omits -g for a new definition or restores a "
+"recorded definition's setting. Never parsed or checked as a resource. Changing a bound value "
+"requires a new ID."
+msgstr "基准字面 geometry 覆盖，默认 None：新定义省 -g，重开恢复设置。不解析或检查资源。绑定值改变要求新 ID。"
+
+msgid ""
+"Exact primary TRA result/reference or external TRA path. Default None resolves the registered "
+"primary input or unique specified Revan parent. Multiple Revan executions require an explicit "
+"result; no latest rule. An external path requires working_space and analysis_id. A result can "
+"supply its workspace when working_space is omitted."
+msgstr ""
+"精确主 TRA 结果/引用或外部路径。默认 None 解析登记主输入或唯一指定 Revan 父节点。多 Revan 执行需显式结果，不选最新。外部路径需根与 "
+"analysis_id；结果可在省根时提供自己的 workspace。"
+
+msgid ""
+"Prepared TRA results/references or file paths, default None. Components are bound with the "
+"primary input, not interpreted as background/GRB. None restores a recorded definition; an empty "
+"iterable explicitly means no components. Different inputs require a new analysis_id. "
+"extract_events() reads the primary and these components together via one native -x command. No "
+"separate combination call is required."
+msgstr ""
+"准备好的 TRA 结果/引用/路径，默认 None。与主输入绑定，不按背景/GRB 分类。None 恢复记录，空可迭代显式表示无成分。数据变化要求新 ID。extract_events() "
+"通过一次原生 -x 读取主数据与成分，无需先组合。"
+
+msgid ""
+"Baseline native overrides. Keys replace underscores with dots for -C; values are unchanged except"
+" booleans become true/false. Method overrides apply only to that command and never replace these "
+"baseline defaults."
+msgstr "基准原生覆盖。键下划线转点，布尔转 true/false，其他值保持；方法覆盖只用于该命令，不取代默认基准。"
+
+msgid ""
+"A removed analysis directory with only failed executions may be reopened under the same "
+"analysis_id with corrected constructor settings. The next command rechecks eligibility under the "
+"manifest lock, preserves old failed records and recreates the layout with a fresh baseline. "
+"Construction writes nothing. Existing, successful or in-progress groups remain protected. "
+"Configurations are opaque snapshots. MEGAlib controls event selection, configuration semantics, "
+"geometry and external resources. Each call runs one native operation with an independent "
+"execution record in a shared data group. A bound analysis_id avoids repeating group selection; "
+"actual input data still comes from the bound workspace or each call's explicit input. task names "
+"an operation output folder inside that group. None preserves result-based automatic grouping."
+msgstr ""
+"全部执行失败且整个目录已删除时，可同 ID 更正基准，下次命令在锁内重查、保留旧记录并重建。构造只读；已有目录、成功或在途组受保护。配置保持 opaque，事件选择/语义/资源由 MEGAlib"
+" 控制。每次操作独立记录，共享数据组。analysis_id 省去重复选组，但输入仍来自绑定根或精确方法结果。task 是组内输出目录标签；None 保留旧结果自动分组。"
+
+msgid "Combine the primary and constructor-declared TRA components via native -x."
+msgstr "通过原生 -x 合并主数据与构造声明 TRA 成分。"
+
+msgid ""
+"Output directory label within the analysis, default ``\"components\"``. It does not identify data"
+" or participate in downstream selection."
+msgstr "组内输出目录标签，默认 ``\"components\"``。不标识数据，也不参与下游选择。"
+
+msgid ""
+"Native .tra/.tra.gz filename, default ``\"combined.tra.gz\"``. Existing outputs receive a new "
+"suffix; previous results are never overwritten."
+msgstr "原生 TRA 文件名，默认 ``\"combined.tra.gz\"``，冲突加新后缀，不覆盖历史。"
+
+msgid "Native-command timeout in seconds, default None (no time limit)."
+msgstr "原生命令超时，秒，默认 None 不限时。"
+
+msgid ""
+"False (default) preserves native HOME. True isolates native settings for this command only, "
+"without modifying the configuration."
+msgstr "默认 False 保留原生 HOME，True 仅隔离本次设置，不改 cfg。"
+
+msgid "Python log capture, currently only ``\"full\"`` (default)."
+msgstr "Python 日志捕获，目前只支持默认 ``\"full\"``。"
+
+msgid ""
+"Overrides for this combination command only, on top of the bound main configuration and baseline "
+"overrides. Keys map _ to . for -C. They do not inherit time selections from component "
+"preparation."
+msgstr "叠加在主 cfg/基准上的本次组合覆盖，键 _ 转 .。不继承成分准备时的时间选择。"
+
+msgid ""
+"Native mixed TRA in outputs['tra'], with an independent execution ID and every supplied "
+"result/reference recorded as a real upstream. Raw external paths are recorded separately with "
+"size/mtime only."
+msgstr "outputs[\"tra\"] 中的混合 TRA，有独立 execution ID，全部结果/引用作为真实上游；裸外部路径单独登记 size/mtime。"
+
+msgid ""
+"No bound definition/components, changed input, invalid output/label,     or inconsistent analysis"
+" definition. A new dataset needs a new ID."
+msgstr "无绑定定义/成分、输入改变、输出/标签无效或定义冲突。新数据集需新 ID。"
+
+msgid "Native preparation/execution fails; the failed record is retained."
+msgstr "原生准备/执行失败，保留失败记录。"
+
+msgid ""
+"Optional explicit materialization; ordinary analyses call extract_events() directly, which "
+"already includes the declared components in one -x. This method executes mimrec -x on an IN/END "
+"list using the main configuration plus this call's overrides. Native selections still apply; this"
+" is not unfiltered byte concatenation. No event parser, time shift, exposure/flux scaling or "
+"background classification is added. The list content is recorded in the manifest and its native "
+"file is temporary unless archive_inputs=True. The workspace's primary origin is preserved. Later "
+"operations select a unique successful extraction first, otherwise a unique successful "
+"combination. Multiple candidates require input_data."
+msgstr ""
+"可选显式物化；普通分析直接 extract_events() 已包含一次 -x 组合。本方法用 IN/END 列表及主 cfg/本次覆盖运行 "
+"-x，仍应用原生筛选，并非无筛选字节拼接。不解析事件、不移动时钟、不缩放曝光/流量、不分类背景。列表内容存 manifest，默认临时文件，archive_inputs=True 才保留。主 "
+"origin 不变。下游先选唯一提取，再唯一组合，多候选需 input_data。"
+
+msgid "Execute native Mimrec extract_events (-x) with explicit data provenance."
+msgstr "执行原生 Mimrec extract_events (-x)，记录精确来源。"
+
+msgid ""
+"Legacy per-command workspace/result entry, default None. Prefer binding the root in Mimrec() and "
+"selecting results with input_data. Must not conflict with input_data or the constructor-bound "
+"root."
+msgstr "旧方法级 workspace/结果入口，默认 None。推荐构造绑定根，input_data 指定结果；不得与显式输入或绑定根冲突。"
+
+msgid ""
+"Exact TRA result/reference for this command, default None. For a bound analysis it must belong to"
+" that analysis's data chain. With declared external_components, None reads the primary and all "
+"declared components together via one native IN/END list and -x. Every such call starts from the "
+"declared dataset, not a prior extraction. An explicit previous result re-filters only that TRA; "
+"components are not added again. Without declared components, None queries the root manifest (not "
+"the filesystem): select this group's unique successful extract_events record first, otherwise its"
+" unique successful add_external_components record, otherwise the registered primary input. "
+"Multiple successful candidates require an explicit result, never latest/mtime or a fixed task "
+"folder name."
+msgstr ""
+"本次精确 TRA 结果/引用，默认 None；绑定模式必须属于自身数据链。有 external_components 时，None 用一次 IN/END+-x "
+"读取主输入及全部成分，每次从声明集开始；显式旧结果只重筛它，不再加成分。无成分时按根 manifest 依次选择本组唯一成功 extract_events、唯一成功 "
+"add_external_components、登记 primary。多候选必须明确，不按 latest/mtime/固定 task 文件夹选择。"
+
+msgid ""
+"Legacy external TRA entry, default None. Requires output_dir or a constructor-bound workspace. "
+"For the new bound-definition API, declare the primary path as input_data in Mimrec(), not here."
+msgstr "旧外部 TRA 入口，默认 None，需 output_dir 或绑定根。新绑定 API 应在构造 input_data 声明主路径。"
+
+msgid ""
+"Legacy destination experiment root, default None. Bound definitions fix their destination in "
+"Mimrec() and reject per-command changes."
+msgstr "旧目标实验根，默认 None。绑定定义在构造固定目标，拒绝逐命令改变。"
+
+msgid ""
+"Default None uses the constructor-bound main configuration or saved group default. In a bound "
+"definition an explicit file must have the same bytes and resource cwd; a different main cfg "
+"requires a new analysis_id. Legacy calls require a cfg when creating a new group. Native bytes "
+"are opaque and are never parsed or edited."
+msgstr "默认 None 用构造主 cfg 或组默认。绑定模式显式文件必须同字节/cwd，不同主 cfg 需新 ID；旧入口新组需 cfg。不解析或编辑原生字节。"
+
+msgid ""
+"Default None reuses bound geometry, or saved legacy defaults when cfg is omitted. A different "
+"geometry in a bound definition requires a new analysis_id. The literal -g value is never read or "
+"rewritten."
+msgstr "默认 None 复用绑定 geometry；旧入口省 cfg 时复用保存设置。绑定值不同需新 ID，字面 -g 不读取或重写。"
+
+msgid ""
+"Arbitrary output directory label, default \"extract_events\". Letters, digits, underscores and "
+"hyphens, starting with a letter/digit. inputs/logs are reserved. This is NOT the operation "
+"identity and does not identify which extracted TRA a downstream command reads."
+msgstr "输出目录标签，默认 \"extract_events\"。字母/数字/下划线/连字符，首字符字母/数字；inputs/logs 保留。不等于 operation 身份，也不决定下游读哪个 TRA。"
+
+msgid ""
+"Native output filename, default \"events.tra.gz\". Existing products receive numbered suffixes; "
+"no historical product is overwritten."
+msgstr "原生文件名，默认 \"events.tra.gz\"；冲突编号，不覆盖历史。"
+
+msgid "Native command timeout in seconds, default None (unlimited)."
+msgstr "原生命令超时，秒，默认 None 不限时。"
+
+msgid ""
+"False (default) preserves native HOME. True gives this native command private settings after "
+"setup, without modifying cfg contents."
+msgstr "默认 False 保留 HOME；True 在 setup 后赋本次命令私有设置，不改 cfg。"
+
+msgid ""
+"Legacy explicit group selector, default None. A different value conflicts with a constructor-"
+"bound analysis_id."
+msgstr "旧显式组选择器，默认 None。不得与构造 analysis_id 冲突。"
+
+msgid "Python log capture, currently \"full\" (default), not a native flag."
+msgstr "Python 日志捕获，当前默认 \"full\"，不是原生 flag。"
+
+msgid ""
+"Native -C overrides: key underscores become dots; booleans become true/false, other values use "
+"str without further rewriting. With a constructor-bound definition these override the baseline "
+"for THIS COMMAND ONLY. They are recorded in execution_overrides and never become later calls' "
+"defaults. Legacy groups retain their recorded default/variant behavior until explicitly opened as"
+" a bound definition."
+msgstr ""
+"原生 -C 覆盖：键下划线转点，布尔 true/false，其他 str，不进一步改写。绑定时仅覆盖本次基准，存 execution_overrides，不成为后续默认。旧组在显式绑定前保留原 "
+"default/变体行为。"
+
+msgid ""
+"Native outputs['tra'], exact upstream references, execution UUID, root manifest path and optional"
+" nonempty stdout/stderr paths. Nonempty products and exit zero establish execution success, not "
+"scientific correctness. ROOT data extraction is a separate call."
+msgstr "原生 outputs[\"tra\"]、精确上游、UUID、根 manifest 和可选非空 stdout/stderr 路径。非空产物加零退出只证明执行成功；ROOT 数值另行提取。"
+
+msgid ""
+"Input/definition conflict, multiple input candidates, absent prepared     components, invalid "
+"output/settings, or missing required configuration."
+msgstr "输入/定义冲突、多候选、准备好的成分缺失、无效输出/设置或缺主配置。"
+
+msgid "A bound configuration or selected data file cannot be read."
+msgstr "无法读取绑定 cfg 或选定数据文件。"
+
+msgid ""
+"Native preparation, execution, timeout or output validation fails.     The independent failed "
+"record and nonempty logs remain available."
+msgstr "原生准备、执行、超时或输出校验失败，独立失败记录与非空日志仍保留。"
+
+msgid ""
+"Each native command applies its own selections from the main cfg plus explicit overrides; reading"
+" selected TRA does not inherit the command parameters that produced it. task is a label only. "
+"Reopening a group uses manifest operation/status/UUID/path records, not directory names. Setup "
+"executes in a child process; the parent environment is unchanged. Declared components require no "
+"preliminary add_external_components(). Their include list and all real parent references are "
+"recorded in this same extract_events execution; no intermediate combined TRA is created. No event"
+" parsing, time shift or physical scaling is performed."
+msgstr ""
+"每命令应用自己的主 cfg 与显式覆盖；TRA 接续不继承产生它的参数。task 只标签，重开按 manifest operation/status/UUID/path "
+"选择，不按目录名。setup 在子进程，父环境不变。成分不需预先 add_external_components()，include 列表与全部父节点就在本次 extract_events "
+"记录，不建中间 combined TRA。不解析事件、改时钟或物理缩放。"
+
+msgid "Execute native Mimrec image (-i) with explicit data provenance."
+msgstr "执行原生 Mimrec image (-i)，记录精确来源。"
+
+msgid ""
+"Exact TRA result/reference for this command, default None. For a bound analysis it must belong to"
+" that analysis's data chain. None queries the root manifest (not the filesystem): select this "
+"group's unique successful extract_events record first, otherwise its unique successful "
+"add_external_components record, otherwise the registered primary input. Multiple successful "
+"candidates require an explicit result, never latest/mtime or a fixed task folder name."
+msgstr ""
+"本次精确 TRA 结果/引用，默认 None。绑定时必须属于自身数据链；None 依根 manifest 选本组唯一成功 extract_events，再唯一成功 "
+"add_external_components，最后登记 primary。多候选需显式结果，不按 latest/mtime 或固定 task 目录。"
+
+msgid ""
+"Arbitrary output directory label, default \"image\". Letters, digits, underscores and hyphens, "
+"starting with a letter/digit. inputs/logs are reserved. This is NOT the operation identity and "
+"does not identify which extracted TRA a downstream command reads."
+msgstr "输出目录标签，默认 \"image\"，合法字符字母/数字/下划线/连字符且以字母/数字开头，inputs/logs 保留。不等于 operation，也不标识下游 TRA。"
+
+msgid ""
+"Native output filename, default \"image.root\". Existing products receive numbered suffixes; no "
+"historical product is overwritten."
+msgstr "原生文件名，默认 \"image.root\"，冲突加编号，不覆盖历史。"
+
+msgid ""
+"Native outputs['image'], exact upstream references, execution UUID, root manifest path and "
+"optional nonempty stdout/stderr paths. Nonempty products and exit zero establish execution "
+"success, not scientific correctness. ROOT data extraction is a separate call."
+msgstr "outputs[\"image\"]、精确上游、execution UUID、根 manifest 及可选非空日志路径。零退出加非空产物仅为执行验证，ROOT 读取另行调用。"
+
+msgid ""
+"Each native command applies its own selections from the main cfg plus explicit overrides; reading"
+" selected TRA does not inherit the command parameters that produced it. task is a label only. "
+"Reopening a group uses manifest operation/status/UUID/path records, not directory names. Setup "
+"executes in a child process; the parent environment is unchanged. No event parsing, time shift or"
+" physical scaling is performed."
+msgstr ""
+"每命令用主 cfg 加自身覆盖，不继承输入 TRA 的生成参数。task 仅标签。重开按 manifest operation/status/UUID/path，不按目录。setup "
+"在子进程，不改父环境。不解析事件、不移动时钟或缩放物理量。"
+
+msgid "Execute native Mimrec spectrum (-s) with explicit data provenance."
+msgstr "执行原生 Mimrec spectrum (-s)，记录精确来源。"
+
+msgid ""
+"Arbitrary output directory label, default \"spectrum\". Letters, digits, underscores and hyphens,"
+" starting with a letter/digit. inputs/logs are reserved. This is NOT the operation identity and "
+"does not identify which extracted TRA a downstream command reads."
+msgstr "输出目录标签，默认 \"spectrum\"，字母/数字/下划线/连字符，首字符字母/数字；inputs/logs 保留。不等于 operation，也不决定上游 TRA。"
+
+msgid ""
+"Native output filename, default \"spectrum.root\". Existing products receive numbered suffixes; "
+"no historical product is overwritten."
+msgstr "原生文件名，默认 \"spectrum.root\"，冲突编号，不覆盖历史。"
+
+msgid ""
+"Native outputs['spectrum'], exact upstream references, execution UUID, root manifest path and "
+"optional nonempty stdout/stderr paths. Nonempty products and exit zero establish execution "
+"success, not scientific correctness. ROOT data extraction is a separate call."
+msgstr "outputs[\"spectrum\"]、精确上游、UUID、根 manifest、非空日志路径。零退出/非空产物仅为执行验证，ROOT 数值另行读取。"
+
+msgid ""
+"spectrum is passed the removed working_space argument or a positional     input; bind the root in"
+" Mimrec() and use input_data for exact results."
+msgstr "spectrum 收到已移除的 working_space 或位置输入；应构造绑定根，并用 input_data 指定精确结果。"
+
+msgid "Execute native Mimrec arm (-a) with explicit data provenance."
+msgstr "执行原生 Mimrec arm (-a)，记录精确来源。"
+
+msgid ""
+"Arbitrary output directory label, default \"arm\". Letters, digits, underscores and hyphens, "
+"starting with a letter/digit. inputs/logs are reserved. This is NOT the operation identity and "
+"does not identify which extracted TRA a downstream command reads."
+msgstr "输出目录标签，默认 \"arm\"。字母/数字/下划线/连字符，首字符字母/数字；inputs/logs 保留。不是 operation 身份，也不决定下游读取的 TRA。"
+
+msgid ""
+"Native output filename, default \"arm.root\". Existing products receive numbered suffixes; no "
+"historical product is overwritten."
+msgstr "原生文件名，默认 \"arm.root\"；已占用则编号，不覆盖历史。"
+
+msgid ""
+"Native outputs['arm'], exact upstream references, execution UUID, root manifest path and optional"
+" nonempty stdout/stderr paths. Nonempty products and exit zero establish execution success, not "
+"scientific correctness. ROOT data extraction is a separate call."
+msgstr "outputs[\"arm\"]、精确上游、UUID、根 manifest 与可选非空日志路径。零退出加非空产物只表示执行成功，不证明科学正确性。ROOT 数值需另行读取。"
+
+msgid "Prepared component workflow"
+msgstr "准备好成分的组合流程"
+
+msgid "Extract the declared dataset once, then produce image and spectrum."
+msgstr "对声明数据提取一次，再生成图像和谱。"
+
+msgid ""
+"Analysis constructed with working_space, analysis_id, main configuration and explicit "
+"external_components. Its primary input and all components must already be prepared. The function "
+"does not classify components."
+msgstr "已绑定 working_space、analysis_id、主配置及显式 external_components 的分析对象。主输入和成分必须已准备，不分类成分。"
+
+msgid ""
+"Native -C keyword overrides for each operation separately, default None. Keys replace _ with .; "
+"values follow the Mimrec native passthrough rule. Use these only for native settings, not Python "
+"method parameters. No operation inherits overrides from the preceding one."
+msgstr "三个操作各自的原生 -C 覆盖字典，默认 None。键 _ 转 .，值遵循 Mimrec 原生透传规则。仅传原生设置，不传 Python 方法选项；不继承前一命令覆盖。"
+
+msgid "Positive timeout in seconds for each command, default None (unlimited)."
+msgstr "各命令的正数秒超时，默认 None 不限时。"
+
+msgid ""
+"False (default) preserves native HOME; True isolates each command's native settings without "
+"editing the main configuration."
+msgstr "默认 False 保留原生 HOME；True 分别隔离各命令设置，不编辑主 cfg。"
+
+msgid ""
+"``selected`` contains the combined, selected TRA product; ``image`` and ``spectrum`` contain "
+"native ROOT products. Each has a separate execution UUID and immutable upstream references. Use "
+"extract_image/extract_spectrum separately to read numerical results into memory."
+msgstr ""
+"``selected`` 为组合并筛选后的 TRA；``image`` 与 ``spectrum`` 为原生 ROOT。三者各有 UUID 与不可变上游引用；另用 "
+"extract_image/extract_spectrum 读入内存。"
+
+msgid ""
+"The bound definition/components are invalid or an override dictionary     contains Python method "
+"options rather than native settings."
+msgstr "绑定定义/成分无效，或覆盖字典混入 Python 方法参数。"
+
+msgid ""
+"A native step fails. Successful earlier steps and the failed record     remain available; "
+"subsequent steps are not started."
+msgstr "某个原生步骤失败。此前成功结果及失败记录保留，后续不启动。"
+
+msgid ""
+"Every downstream step receives an explicit result. Repeating this function preserves historical "
+"products and does not guess the latest extraction. Prepare background time windows separately "
+"with native extract_events and pass those results as external_components. No random window "
+"selection, event parsing, time alignment, exposure/flux scaling or study scheduler is implemented"
+" here. One native -x reads the primary and declared components and applies extraction settings. "
+"Repeated calls with components start from the declared dataset, not a previous extraction. No "
+"intermediate combined TRA or separate combination command is created."
+msgstr ""
+"下游均显式接结果。重复调用保留历史，不猜最新提取。背景窗口需预先用原生 extract_events 准备，结果作为 "
+"external_components。本函数不随机抽窗、不解析事件、不对齐时钟、不缩放曝光/流量、不调度 study。一次 -x 读取声明主数据与成分并筛选；重复从声明集开始，不建中间 "
+"combined TRA 或单独组合命令。"
+
+msgid "Mimrec ROOT data extraction"
+msgstr "Mimrec ROOT 数据提取"
+
+msgid ""
+"These functions read files on demand in an isolated ROOT Python subprocess. See :doc:`../mimrec` "
+"for units, object selection and coordinate limits."
+msgstr "在隔离的 ROOT Python 子进程按需读取。单位、对象选择与坐标边界见 :doc:`../mimrec`。"
+
+msgid "Discover TH1/TH2 histograms recursively in directories and Canvas/Pad."
+msgstr "递归发现目录和 Canvas/Pad 中的 TH1/TH2。"
+
+msgid "A result with exactly one ROOT product across all groups, or a ROOT path."
+msgstr "全部产物组中恰有一个 ROOT 文件的结果，或 ROOT 文件路径。"
+
+msgid ""
+"None (default) uses direct execution. A setup-script runtime initializes ROOT in a separate "
+"child, allowing a Python 3.10 MEGAlib environment and a Python 3.12 caller. No PyROOT is imported"
+" into the caller."
+msgstr ""
+"默认 None 使用 direct。setup-script 在独立子进程初始化 ROOT，允许 Python 3.10 MEGAlib 与 Python 3.12 调用者共存，父进程不导入 "
+"PyROOT。"
+
+msgid ""
+"Child Python executable, default None: current Python for direct mode, or ``python`` resolved "
+"after setup for setup-script mode. Select the executable belonging to ROOT, never a different "
+"version's PyROOT path."
+msgstr "子 Python 路径，默认 None：direct 用当前解释器，setup 模式用初始化后解析的 python。请选择 ROOT 对应解释器，不要导入其他版本的 PyROOT 路径。"
+
+msgid "Whole child-process timeout in seconds, default 120; None disables it."
+msgstr "子进程整体超时，秒，默认 120；None 不限时。"
+
+msgid ""
+"Every supported histogram, with exact object_path selectors. All key cycles are included; no "
+"latest-cycle or fixed primitive index is used. TH3 and profiles are excluded. An empty file "
+"returns an empty tuple."
+msgstr "所有受支持直方图及精确 object_path。保留全部 key cycle，不取最新或固定 primitive 索引；排除 TH3/profile。空文件返回空元组。"
+
+msgid "Input path, executable or setup script is missing."
+msgstr "缺少输入文件、可执行程序或 setup 脚本。"
+
+msgid "Result has multiple/no ROOT products, or timeout is not positive."
+msgstr "结果没有/含多个 ROOT，或 timeout 非正。"
+
+msgid "ROOT import/read fails, the child fails, or the timeout expires."
+msgstr "ROOT 导入/读取失败、子进程失败或超时。"
+
+msgid "Read one 1D spectrum into memory without writing persistent files."
+msgstr "读取一维谱到内存，不写持久文件。"
+
+msgid ""
+"Mimrec spectrum result (one .root in outputs['spectrum']) or ROOT path. PNG products cannot be "
+"converted back to histogram bins."
+msgstr "Mimrec 谱结果（outputs[\"spectrum\"] 中一个 .root）或 ROOT 路径。PNG 不能恢复直方图 bins。"
+
+msgid ""
+"Exact selector from list_root_objects. Default None requires exactly one 1D histogram; multiple "
+"candidates or key cycles require explicit choice."
+msgstr "list_root_objects 返回的精确选择器。默认 None 要求唯一一维直方图；多个对象/cycle 需明确选择。"
+
+msgid ""
+"Default None uses direct execution; a setup-script runtime initializes the independent ROOT "
+"child. The analysis process never imports PyROOT."
+msgstr "默认 None 为 direct；setup-script 初始化独立 ROOT 子进程。分析进程始终不导入 PyROOT。"
+
+msgid ""
+"ROOT-compatible child Python. Default None uses current Python in direct mode or ``python`` after"
+" setup. No megalibpy installation is needed in the child environment, only PyROOT and Python "
+">=3.10."
+msgstr ""
+"ROOT 兼容子 Python。None 时 direct 用当前 Python，setup 后用 python。子环境不需 megalibpy，只需 PyROOT 和 Python "
+">=3.10。"
+
+msgid "Child timeout in seconds, default 120; None disables the timeout."
+msgstr "子进程超时，秒，默认 120；None 取消。"
+
+msgid ""
+"Bin edges, contents, labels/units, separate underflow/overflow and source metadata. total_counts "
+"integrates only recognized counts/keV with keV bin widths, or sums explicitly labeled counts. "
+"Unknown conventions raise ValueError when total_counts is requested, not during extraction."
+msgstr ""
+"bin 边界/内容、标签/单位、独立上下溢出和来源元数据。total_counts 仅按已知 counts/keV×keV 宽度积分，或对明确 counts 标签求和。未知约定在访问 "
+"total_counts 时抛 ValueError，不妨碍原始提取。"
+
+msgid "Input, executable or setup script is missing."
+msgstr "缺少输入、可执行程序或 setup 脚本。"
+
+msgid "The result has no unique ROOT spectrum product or timeout is invalid."
+msgstr "谱结果无唯一 ROOT 产物，或 timeout 无效。"
+
+msgid ""
+"Histogram choice is ambiguous/missing, ROOT cannot read the file,     PyROOT is unavailable in "
+"the child, or the child fails/times out."
+msgstr "直方图选择歧义/不存在、ROOT 无法读取、子环境无 PyROOT，或子进程失败/超时。"
+
+msgid ""
+"Only regular bins contribute to total_counts. No exposure, flux, background or time scaling is "
+"performed. The input file and manifest are read-only. Temporary IPC files are removed on success "
+"and failure; no TSV/cache is kept."
+msgstr "仅常规 bins 计入 total_counts。不做曝光、流量、背景或时间缩放。文件与 manifest 只读。成功/失败均删除 IPC 临时文件，不保留 TSV/cache。"
+
+msgid "Read one 2D image, preserving native bins and explicit coordinate metadata."
+msgstr "读取二维图像，保留原生 bins 与显式坐标元数据。"
+
+msgid "Mimrec image result (one .root in outputs['image']) or a ROOT path."
+msgstr "Mimrec 图像结果（outputs[\"image\"] 中一个 .root）或 ROOT 路径。"
+
+msgid ""
+"Exact list_root_objects selector. Default None requires one 2D histogram; multiple "
+"candidates/cycles require selection, never a latest-file rule."
+msgstr "list_root_objects 的精确选择器。None 要求唯一二维直方图；多对象/cycle 需选择，不按最新文件。"
+
+msgid ""
+"None (default) uses direct execution. Setup mode initializes a separate ROOT child; no PyROOT is "
+"loaded into the calling analysis Python."
+msgstr "默认 None 为 direct。setup 在独立 ROOT 子进程初始化，调用分析 Python 不加载 PyROOT。"
+
+msgid ""
+"ROOT-compatible Python executable. None uses current Python in direct mode or ``python`` after "
+"setup. Child requires PyROOT and Python >=3.10."
+msgstr "兼容 ROOT 的 Python。None 时 direct 用当前解释器，setup 后用 python。要求 PyROOT 与 Python >=3.10。"
+
+msgid "Child-process timeout in seconds, default 120; None disables it."
+msgstr "子进程超时，秒，默认 120；None 取消。"
+
+msgid ""
+"Contents indexed [x, y], native bin edges/titles/units, and metadata. peak_position is the unique"
+" maximum pixel's native bin center, not a centroid. peak_galactic_position is a scalar Galactic "
+"SkyCoord, available only for a verified rectangular Galactic TGaxis mapping; unknown projections "
+"and Hammer images remain unmapped. Tied maxima raise ValueError on access."
+msgstr ""
+"按 [x, y] 索引的内容、原生边界/标题/单位和元数据。peak_position 是唯一最大像素中心，不是 centroid。peak_galactic_position 是标量 "
+"Galactic SkyCoord，仅验证矩形银河 TGaxis 映射后提供；未知投影/Hammer 不映射。并列峰访问时报 ValueError。"
+
+msgid "Result has no unique ROOT image product or timeout is invalid."
+msgstr "图像结果无唯一 ROOT 产物，或 timeout 无效。"
+
+msgid ""
+"Histogram choice is ambiguous/missing, ROOT read/import fails, or child     execution fails/times"
+" out."
+msgstr "直方图选择歧义/缺失、ROOT 导入/读取失败，或子进程失败/超时。"
+
+msgid ""
+"No longitude sign rule is hardcoded. Coordinates and intensity are not reprojected, normalized or"
+" fitted. Flow bins are omitted. Files/manifests are unmodified, and temporary IPC files are "
+"removed; no image/TSV is saved."
+msgstr "不硬编码经度符号规则。不重投影、归一化或拟合坐标/强度；忽略 flow bins。不改文件/manifest，清理临时 IPC，不保存图像/TSV。"
+
+msgid "A discovered TH1/TH2 histogram (profiles and TH3 are excluded)."
+msgstr "发现的 TH1/TH2 直方图，排除 profile 与 TH3。"
+
+msgid ""
+"Exact selector including directory key cycles and Canvas/Pad names. Names are URL-escaped; "
+"duplicate primitive names receive a 1-based occurrence suffix. Unnamed primitives use "
+"``@unnamed``."
+msgstr "包含目录 key cycle 和 Canvas/Pad 名称的精确选择器。名称 URL 转义，重复 primitive 用从 1 开始的出现次数后缀，无名对象用 ``@unnamed``。"
+
+msgid "Original ROOT name, concrete class and title, respectively."
+msgstr "依次为原始 ROOT 名、具体类和标题。"
+
+msgid "One for spectra or two for images."
+msgstr "谱为 1，图像为 2。"
+
+msgid "int"
+msgstr "int"
+
+msgid "Unmodified ROOT axis titles; an empty title remains empty."
+msgstr "未修改的 ROOT 轴标题；空标题保持空。"
+
+msgid "Detached numerical bin axis with its original title and optional unit."
+msgstr "脱离 ROOT 的数值轴，保留原标题与可选单位。"
+
+msgid "Float64 array of length N+1, excluding underflow/overflow edges."
+msgstr "长度 N+1 的 Float64 边界数组，不含 underflow/overflow 边界。"
+
+msgid "numpy.ndarray"
+msgstr "numpy.ndarray"
+
+msgid "Original ROOT axis title."
+msgstr "原始 ROOT 轴标题。"
+
+msgid ""
+"Literal trailing bracketed unit, e.g. ``\"keV\"`` or ``\"deg\"``. None means no bracketed unit "
+"was supplied; no unit is inferred."
+msgstr "标题末尾方括号中的字面单位，如 ``\"keV\"`` 或 ``\"deg\"``。None 表示未提供，不推断单位。"
+
+msgid "str or None"
+msgstr "str or None"
+
+msgid "Arithmetic bin centers in the axis unit."
+msgstr "轴单位下的算术 bin 中心。"
+
+msgid "Per-bin widths in the axis unit."
+msgstr "轴单位下的每 bin 宽度。"
+
+msgid "Detached 1D histogram; no files are generated by this result."
+msgstr "脱离 ROOT 的一维直方图结果，不生成文件。"
+
+msgid "Resolved input ROOT filename."
+msgstr "已解析的输入 ROOT 文件名。"
+
+msgid "pathlib.Path"
+msgstr "pathlib.Path"
+
+msgid "Exact source object and axis titles."
+msgstr "精确来源对象与轴标题。"
+
+msgid "ROOTObject"
+msgstr "ROOTObject"
+
+msgid "Energy or other native X axis, including all regular bin edges."
+msgstr "能量或其他原生 X 轴，包含全部常规 bin 边界。"
+
+msgid "HistogramAxis"
+msgstr "HistogramAxis"
+
+msgid "Float64 contents of regular bins, without normalization or rescaling."
+msgstr "常规 bins 的 Float64 内容，不归一化或缩放。"
+
+msgid "Unmodified Y-axis title."
+msgstr "原始 Y 轴标题。"
+
+msgid ""
+"``\"counts/keV\"`` or ``\"counts\"`` for exact recognized count labels; otherwise the bracketed "
+"unit, or None. The raw title is always retained."
+msgstr "已知精确计数标签对应 ``\"counts/keV\"`` 或 ``\"counts\"``，否则返回方括号单位或 None。始终保留原始标题。"
+
+msgid ""
+"Underflow and overflow contents in the original histogram convention. They are excluded from "
+"total_counts; density flow bins have no finite energy width and are not integrated."
+msgstr "原始直方图约定下的 underflow/overflow 内容，不纳入 total_counts；密度 flow bins 无有限能量宽度，不积分。"
+
+msgid "tuple of float"
+msgstr "tuple of float"
+
+msgid "Counts in regular bins, only for verified count conventions."
+msgstr "仅对已验证计数约定计算常规 bins 总计数。"
+
+msgid ""
+"``counts/keV`` with X unit ``keV`` uses sum(values * bin widths). An exact ``counts`` label uses "
+"sum(values). Unknown labels, rates, normalized histograms, profiles and inconsistent units are "
+"never blindly width-integrated."
+msgstr ""
+"``counts/keV`` 且 X 单位 ``keV`` 时 sum(values * bin widths)；精确 ``counts`` 用 "
+"sum(values)。未知标签、rate、归一化谱、profile 或单位不一致绝不盲目乘宽积分。"
+
+msgid "The histogram labels do not establish one of these conventions,     or the values are nonfinite."
+msgstr "标签无法确定上述计数约定，或数值非有限。"
+
+msgid "float"
+msgstr "float"
+
+msgid "Detached 2D histogram with an explicitly defined pixel-maximum position."
+msgstr "脱离 ROOT 的二维直方图，明确以最大像素定义位置。"
+
+msgid "Selected object metadata and original titles."
+msgstr "选定对象元数据及原始标题。"
+
+msgid "Native histogram axes. Their edges are never reversed or projected."
+msgstr "原生直方图轴，边界不反转或投影。"
+
+msgid ""
+"Float64 contents, shape (Nx, Ny): values[ix, iy] follows ROOT X then Y. Flow bins are excluded. "
+"Use values.T for Matplotlib pcolormesh."
+msgstr "Float64 数组，形状 (Nx, Ny)，values[ix, iy] 先 X 后 Y；不含 flow。Matplotlib pcolormesh 使用 values.T。"
+
+msgid "Original Z-axis title, without assuming intensity normalization."
+msgstr "原始 Z 轴标题，不假设强度归一化。"
+
+msgid "Bracketed Z-axis unit, e.g. ``\"a.u.\"``, or None."
+msgstr "Z 轴方括号单位，例如 ``\"a.u.\"``，或 None。"
+
+msgid ""
+"Verified linear TGaxis mapping: longitude = scale * native_x + offset. Includes axis_title, "
+"coordinate_system and projection. Recognized only for an explicit horizontal Galactic Longitude "
+"[deg] TGaxis spanning the histogram and a Galactic Latitude [deg] Y axis. Otherwise None. In "
+"particular, Hammer images are not assumed to have a linear mapping."
+msgstr ""
+"已验证线性 TGaxis：longitude = scale * native_x + offset。含 "
+"axis_title、coordinate_system、projection。仅识别横跨直方图的显式水平 Galactic Longitude [deg] TGaxis 与 Galactic "
+"Latitude [deg] Y 轴，否则 None。尤其不假设 Hammer 为线性。"
+
+msgid "dict or None"
+msgstr "dict or None"
+
+msgid "Zero-based (ix, iy) of a unique finite maximum."
+msgstr "唯一有限最大值的零起始 (ix, iy)。"
+
+msgid ""
+"No finite pixels exist, or several pixels share the maximum.     Plateaus are ambiguous; no "
+"first-pixel or centroid rule is applied."
+msgstr "无有限像素或多个像素并列最大；平台有歧义，不采用首像素或 centroid 规则。"
+
+msgid "tuple of int"
+msgstr "tuple of int"
+
+msgid "Native (x, y) bin center of the maximum pixel."
+msgstr "最大像素在原生 (x, y) 中的 bin 中心。"
+
+msgid ""
+"This is a pixel maximum, not an intensity-weighted centroid or fitted source location. Units are "
+"those of x_axis/y_axis. Unknown axes remain histogram coordinates. See peak_indices for ambiguity"
+" errors and peak_galactic_position for the separately verified sky mapping."
+msgstr ""
+"这是像素峰，不是强度加权 centroid 或拟合源位置。单位随 x_axis/y_axis。未知轴保持直方图坐标。歧义错误见 peak_indices；单独验证的天空映射见 "
+"peak_galactic_position。"
+
+msgid "Return the maximum pixel center as a Galactic SkyCoord, or None."
+msgstr "返回最大像素中心的 Galactic SkyCoord，或 None。"
+
+msgid ""
+"Scalar position with frame=\"galactic\", longitude wrapped into [0, 360) degrees and latitude in "
+"degrees. Access .l.deg/.b.deg for numeric values, or use .separation() with another sky "
+"coordinate. None means no unique explicit rectangular Galactic mapping was verified; no "
+"coordinate frame or longitude sign is guessed."
+msgstr ""
+"标量 frame=\"galactic\"，经度 wrap 到 [0, 360)，纬度为度。用 .l.deg/.b.deg 读值，用 .separation() 求角距。None "
+"表示未验证唯一显式矩形银河映射，不猜坐标系或经度符号。"
+
+msgid ""
+"A verified mapping exists but the peak is ambiguous/nonfinite, or     its latitude is outside the"
+" Galactic coordinate range."
+msgstr "映射已验证但峰歧义/非有限，或纬度超银河坐标范围。"
+
+msgid ""
+"This is the maximum pixel's center, not a centroid or fitted location. peak_position remains the "
+"native (x, y) tuple. This property previously returned an (l, b) tuple; use position.l.deg and "
+"position.b.deg instead of unpacking that old return value. No equatorial transformation or "
+"inverse Hammer projection is performed."
+msgstr ""
+"这是最大像素中心，不是 centroid 或拟合。peak_position 仍是原生 (x, y) 元组。此属性原返回 (l, b) 元组；应改用 position.l.deg 与 "
+"position.b.deg。不做赤道变换或 Hammer 逆投影。"
+
+msgid "``galactic`` for a verified mapping, otherwise ``unknown``."
+msgstr "验证映射时为 ``galactic``，否则 ``unknown``。"
+
+msgid "This describes the optional sky mapping, not the raw peak_position."
+msgstr "描述可选天空映射，不是原生 peak_position。"
+
+msgid "``rectangular`` for a verified mapping, otherwise ``unknown``."
+msgstr "验证映射时为 ``rectangular``，否则 ``unknown``。"
+
+msgid "The ROOT subprocess failed, or histogram selection was ambiguous."
+msgstr "ROOT 子进程失败，或直方图选择歧义。"
+
+msgid ""
+"The exception message contains child diagnostics or candidate object paths. This read operation "
+"does not create an execution record in the manifest."
+msgstr "错误消息包含子进程诊断或候选路径；此只读操作不在 manifest 建立执行记录。"
+
+msgid "Experiment workspace"
+msgstr "实验工作区"
+
+msgid ""
+"See :doc:`../workspaces` for the index layout, legacy directory handling and the distinction "
+"between task identity and execution identity."
+msgstr "索引布局、旧目录处理、task 与 execution 身份区别见 :doc:`../workspaces`。"
+
+msgid "Manage a unique Cosima origin and data/configuration analysis groups."
+msgstr "管理唯一 Cosima origin 与数据/配置分析组。"
+
+msgid ""
+"Experiment root. Construction does not create files. New workspaces use one schema-2 "
+"``manifest.json`` containing groups and execution records."
+msgstr "实验根。构造不创建文件。新 workspace 使用一个 schema-2 manifest.json 保存组和执行记录。"
+
+msgid ""
+"Cosima executes once at ``cosima/``, including failed executions; a rerun requires a new "
+"workspace. Revan/Mimrec use ``stage/attempt-NNN`` data groups. Each command retains an "
+"independent execution ID and logs within that group. Legacy workspaces remain readable; use a new"
+" destination for new executions. Short manifest updates are locked; native processes do not hold "
+"the lock."
+msgstr ""
+"Cosima 在 cosima/ 仅执行一次，包括失败；重跑需新 workspace。Revan/Mimrec 使用 stage/attempt-NNN 数据组，每条命令独立 ID/日志。旧 "
+"workspace 只读；新写入用新目标。manifest 短更新加锁，原生进程不持锁。"
+
+msgid "Root manifest, or a legacy workspace index when present."
+msgstr "根 manifest，或已存在的旧 workspace 索引。"
+
+msgid "Select a unique successful execution, never an implicit latest result."
+msgstr "选择唯一成功执行，绝不隐式取最新。"
+
+msgid "Stage, default ``\"cosima\"``."
+msgstr "stage，默认 ``\"cosima\"``。"
+
+msgid "Exact operation/task label; None considers all labels."
+msgstr "精确 task 标签，None 考虑所有标签。"
+
+msgid ""
+"Workspace-local Revan/Mimrec group name. None selects all groups. Use operation as well when a "
+"Mimrec group has several operations."
+msgstr "workspace 内 Revan/Mimrec 组名，None 考虑全部组。Mimrec 组有多个操作时应同时指定 operation。"
+
+msgid ""
+"Legacy group selector; conflicts with a different analysis_id. Data group basename, e.g. "
+"``\"attempt-001\"``. Default none."
+msgstr "旧组选择器，与不同 analysis_id 冲突。值为数据组 basename，如 ``\"attempt-001\"``，默认 None。"
+
+msgid "Native operation, e.g. ``\"extract_events\"`` or ``\"image\"``. Default none."
+msgstr "原生操作，例如 ``\"extract_events\"`` 或 ``\"image\"``，默认 None。"
+
+msgid "Selected record with workspace context and exact execution ID."
+msgstr "带 workspace 上下文与精确 execution ID 的结果。"
+
+msgid ""
+"No successful execution exists or the choice is ambiguous. Repeated     successful operations "
+"require an explicit saved result/reference."
+msgstr "无成功记录或有歧义。重复成功操作需显式保存结果/引用。"
+
+msgid "Attach one existing successful Cosima result without copying products."
+msgstr "关联一个既有成功 Cosima 结果，不复制产物。"
+
+msgid "Exact successful native simulation result, including legacy records."
+msgstr "精确成功模拟结果，支持旧记录。"
+
+msgid "A different origin is already registered, or the input is not Cosima."
+msgstr "已登记不同 origin，或输入不是 Cosima。"
+
+msgid "Registered external simulation input."
+msgstr "已登记外部模拟输入。"
+
+msgid "Registered external TRA input."
+msgstr "已登记外部 TRA 输入。"
+
+msgid "Register an external simulation origin without copying data."
+msgstr "登记外部模拟 origin，不复制数据。"
+
+msgid "Selected external sim/evta entry file."
+msgstr "选定的外部 sim/evta 入口文件。"
+
+msgid "A different origin is already registered."
+msgstr "已登记不同 origin。"
+
+msgid "Register a TRA origin for an empty workspace, preserving existing origins."
+msgstr "为空 workspace 登记 TRA origin，保留已有 origin。"
+
+msgid "External TRA input; additional component inputs remain step metadata."
+msgstr "外部 TRA 输入；额外成分仅作为步骤元数据。"
+
+msgid "Results and failures"
+msgstr "结果与失败"
+
+msgid ""
+"Successful calls return ``ExecutionResult``. Failed attempts raise ``ExecutionError`` with the "
+"manifest path and the native return code when available. A zero native return code can still "
+"produce an error if expected output files are missing."
+msgstr "成功返回 ``ExecutionResult``，失败抛 ``ExecutionError``，包含 manifest 路径与可获得的原生返回码。即使退出码零，缺少预期产物也会报错。"
+
+msgid "A successful tool execution and paths to its persistent records."
+msgstr "成功的工具执行及其持久记录路径。"
+
+msgid "Absolute execution workspace directory."
+msgstr "执行工作目录的绝对路径。"
+
+msgid ""
+"Product groups containing sorted absolute file paths. Cosima uses the ``\"sim\"`` group, which "
+"may contain multiple files."
+msgstr "产物组对应排序的绝对路径。Cosima 使用 \"sim\" 组，可有多个文件。"
+
+msgid ""
+"Absolute root manifest path for managed executions, or standalone record. Use record to read this"
+" execution's status and metadata by ID."
+msgstr "受管理执行的根 manifest 绝对路径，或独立记录。用 record 按 ID 读取该执行状态/元数据。"
+
+msgid "Stdout log path, or None when empty and removed."
+msgstr "stdout 日志路径，空日志删除后为 None。"
+
+msgid "Absolute path to the stderr log, or None when empty and removed."
+msgstr "stderr 绝对路径，空日志删除后为 None。"
+
+msgid ""
+"Process return code, zero for results returned by the executor. Defaults to zero. Failed attempts"
+" raise ``ExecutionError`` instead."
+msgstr "进程退出码，executor 返回结果时为零，默认零。失败改抛 ExecutionError。"
+
+msgid ""
+"Persistent UUID identifying this execution attempt independently of its directory name. ``None`` "
+"supports manually constructed legacy results. This is not a task ID: reruns receive different "
+"execution IDs."
+msgstr "持久 UUID，独立于目录名标识本次执行；None 支持手工旧结果。不是 task ID，重跑产生新 UUID。"
+
+msgid "Experiment root when managed by ``SimulationWorkspace``; otherwise none."
+msgstr "SimulationWorkspace 管理时的实验根，否则 None。"
+
+msgid "Data group directory with shared inputs/logs and operation products."
+msgstr "共享 inputs/logs 和操作产物的数据组目录。"
+
+msgid "Discovered output files, for example ``result.outputs[\"sim\"]``."
+msgstr "发现的输出，例如 ``result.outputs[\"sim\"]``。"
+
+msgid "dict of str to tuple of pathlib.Path"
+msgstr "dict of str to tuple of pathlib.Path"
+
+msgid "Persistent metadata and validation record."
+msgstr "持久元数据与验证记录。"
+
+msgid "Retained stdout, or None if empty. Capture mode is recorded in logs.capture."
+msgstr "保留 stdout，空则 None；捕获模式在 logs.capture 中。"
+
+msgid "Retained stderr, or None if empty."
+msgstr "保留 stderr，空则 None。"
+
+msgid "Zero when returned after successful execution and output checks."
+msgstr "执行与输出检查成功时返回零。"
+
+msgid "Execution identity stored in the manifest, or ``None`` for legacy objects."
+msgstr "manifest 中的 execution 身份，旧对象可为 None。"
+
+msgid "Experiment root for managed executions; ``None`` for standalone attempts."
+msgstr "受管理执行的实验根；独立执行为 None。"
+
+msgid ""
+"A successful result establishes process success and the documented file checks, not the "
+"scientific validity of the data. It does not load simulation products into memory. Read the files"
+" only when needed for subsequent steps."
+msgstr "成功结果只证明进程与文档所述文件检查，不证明科学有效性。不将模拟产物加载到内存，下游按需读文件。"
+
+msgid "This execution's record, resolved by ID in a central manifest."
+msgstr "从集中 manifest 按 ID 解析本次执行记录。"
+
+msgid ""
+"Returns a newly read dictionary. Other workspace executions do not change this result's identity."
+" Legacy standalone manifests are supported."
+msgstr "返回新读取的字典。追加其他 workspace 执行不改变本结果身份。支持旧独立 manifest。"
+
+msgid "dict"
+msgstr "dict"
+
+msgid "Select a product group for a downstream execution plan."
+msgstr "为下游执行计划选择产物组。"
+
+msgid "Product group present in :attr:`outputs`, for example ``\"sim\"``."
+msgstr ":attr:`outputs` 中的组，例如 ``\"sim\"``。"
+
+msgid ""
+"Explicit subset, checked against the persisted group by the executor. ``None`` selects every file"
+" in the group."
+msgstr "显式文件子集，由 executor 对持久组检查。None 选该组全部文件。"
+
+msgid ""
+"Reference to this manifest and the selected product group. The executor validates the persisted "
+"record when consuming it."
+msgstr "指向此 manifest 及产物组的引用，消费时验证持久记录。"
+
+msgid "The requested group is absent from this result."
+msgstr "该结果中不存在所请求组。"
+
+msgid "A preparation, process, or output-validation failure."
+msgstr "准备、进程或输出校验失败。"
+
+msgid "Human-readable failure description. The exception's display text also includes the manifest path."
+msgstr "可读错误说明，异常显示文本也包含 manifest 路径。"
+
+msgid ""
+"Path to the execution's persistent JSON record. Standard-output and logs are located through the "
+"selected execution record."
+msgstr "持久 JSON 记录路径，stdout 与日志通过选定执行记录定位。"
+
+msgid ""
+"Native process return code, or ``None`` if no process was started. Zero is possible when process "
+"execution succeeded but output validation failed. On POSIX, a negative value indicates "
+"termination by a signal."
+msgstr "原生返回码，未启动则 None。原生成功但输出校验失败可为零。POSIX 负值代表信号终止。"
+
+msgid "Exact failed execution ID in a central workspace manifest; default none."
+msgstr "根 manifest 内精确失败 execution ID，默认 None。"
+
+msgid "Record containing the final status, error description, and available command and input metadata."
+msgstr "含最终状态、错误及可用命令/输入元数据的记录。"
+
+msgid "ID selecting this failure within the root manifest."
+msgstr "用于根 manifest 选择此次失败的 ID。"
+
+msgid "Process outcome as described above. Defaults to ``None``."
+msgstr "上述进程结果，默认 None。"
+
+msgid "int or None"
+msgstr "int or None"
+
+msgid ""
+"The original preparation or subprocess exception is available through ``error.__cause__``. "
+"Argument errors and failures creating the initial workspace may be raised directly before a "
+"manifest exists."
+msgstr "原始准备/子进程异常保存在 ``error.__cause__``。参数错误或初始 workspace 创建失败可能在 manifest 建立前直接抛出。"
+
+msgid "Executor extension interface"
+msgstr "执行器扩展接口"
+
+msgid "This plan model is used by tool adapters. It is not required for ordinary Cosima calls."
+msgstr "工具适配器使用此 plan 模型，普通 Cosima 调用不需要。"
+
+msgid "Describe a command for the shared executor without starting a process."
+msgstr "描述交给共享 executor 的命令，不启动进程。"
+
+msgid ""
+"Nonempty argument sequence beginning with an executable name or path. Each argument is a separate"
+" item; shell redirections are not interpreted."
+msgstr "以可执行名称/路径开始的非空参数序列，每项独立，不解释 shell 重定向。"
+
+msgid ""
+"Working directory for the child process. Tool-specific preparation supplies an absolute path; the"
+" parent working directory is unchanged."
+msgstr "子进程 cwd。工具准备时提供绝对路径，不修改父 cwd。"
+
+#, python-brace-format
+msgid ""
+"Product groups mapped to glob patterns relative to the workspace's ``products/`` directory. Every"
+" group must match at least one nonempty regular file for execution to succeed, for example "
+"``{\"sim\": \"events*.sim.gz\"}``."
+msgstr "产物组到相对 workspace products/ 的 glob 映射。每组至少匹配一个非空普通文件才成功，例如 ``{\"sim\": \"events*.sim.gz\"}``。"
+
+msgid ""
+"JSON-serializable tool-specific fields merged into the manifest. Defaults to an empty dictionary."
+" Reserved execution-record keys such as ``status``, ``execution_id`` and ``upstream`` are "
+"rejected."
+msgstr "合并进 manifest 的 JSON 可序列化工具字段，默认空字典；拒绝 status、execution_id、upstream 等保留键。"
+
+msgid ""
+"Explicit upstream product selections, defaulting to no parents. Multiple inputs and multiple "
+"consumers are allowed; no linear stage order is imposed. Each upstream manifest is validated and "
+"snapshotted."
+msgstr "显式上游产物选择，默认无父节点。允许多输入/多消费者，不强制线性 stage 顺序；各上游记录验证并快照。"
+
+msgid ""
+"Tool-only environment overrides, applied after setup-script execution. Recorded in the manifest; "
+"do not use for secrets. Defaults to none."
+msgstr "工具专属环境覆盖，在 setup 后应用并登记 manifest，不用于秘密信息。默认 None。"
+
+msgid ""
+"This is an executor extension interface. Normal users call ``Cosima`` or ``Revan`` rather than "
+"constructing plans. Frozen dataclasses prevent field rebinding, but do not make nested "
+"dictionaries immutable."
+msgstr "这是 executor 扩展接口；普通用户直接调用 Cosima/Revan。冻结 dataclass 禁止字段重新绑定，但嵌套字典不因此不可变。"
+
+msgid "Select an upstream execution's product group for a tool adapter."
+msgstr "为工具适配器选择上游执行的产物组。"
+
+msgid ""
+"Root workspace manifest, selected by execution_id, or a legacy standalone execution manifest. "
+"Local upstreams use ID links; external selected records are snapshotted before launch."
+msgstr "由 execution_id 选择的根 manifest 或旧独立执行记录。同 workspace 用 ID 链接，外部只快照选定记录。"
+
+msgid "Explicit product group to consume, such as ``\"sim\"`` or ``\"tra\"``."
+msgstr "消费的显式组，例如 sim 或 tra。"
+
+msgid ""
+"Expected upstream identity, mandatory for central workspace manifests. Results supply their ID "
+"automatically; None supports legacy records."
+msgstr "预期上游身份，集中 workspace 必需。结果自动提供 ID；None 支持旧记录。"
+
+msgid ""
+"Explicit subset of the group's files. ``None`` selects the whole group. Relative selections are "
+"resolved against the upstream execution root."
+msgstr "显式文件子集，None 为全组；相对选择按上游执行目录解析。"
+
+msgid "Experiment hint carried by managed results; not part of execution identity."
+msgstr "受管理结果携带的实验提示，不属于执行身份。"
+
+msgid ""
+"This reference records lineage; the tool adapter must also pass these files to the native "
+"command. Products are referenced, not copied or fully hashed. Multiple downstream plans may "
+"reference the same upstream execution."
+msgstr "此引用记录来源链路，适配器仍需把文件传原生命令。产物引用而不复制或完整 hash。多个下游计划可引用同一上游执行。"

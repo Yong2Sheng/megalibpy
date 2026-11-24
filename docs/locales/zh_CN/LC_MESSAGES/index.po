@@ -1,0 +1,40 @@
+# Simplified Chinese documentation for megalibpy.
+# Copyright (C) 2026 Yong Sheng
+# Distributed under the same license as megalibpy.
+msgid ""
+msgstr ""
+"Project-Id-Version: megalibpy 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-23 19:05-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: megalibpy contributors\n"
+"Language: zh_CN\n"
+"Language-Team: Simplified Chinese\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "Contents"
+msgstr "目录"
+
+msgid "megalibpy documentation"
+msgstr "megalibpy 文档"
+
+msgid ""
+"``megalibpy`` reads, inspects, and edits MEGAlib/Cosima ``.source`` files from Python. Use it to "
+"inspect simulation parameters, change a source's Galactic coordinates or flux, and save the "
+"updated configuration for Cosima. The current parser supports one run with one source per file."
+msgstr ""
+"``megalibpy`` 用于在 Python 中读取、检查和编辑 MEGAlib/Cosima 的 ``.source`` 文件。你可以检查模拟参数、修改源的银河坐标或流量，并保存供 "
+"Cosima 使用的新配置。当前解析器支持每个文件包含一个 run 和一个 source。"
+
+msgid ""
+"The online documentation follows the latest successfully checked ``develop`` branch. Changes on "
+"unmerged feature branches are not published to the main site. The Cosima guide describes "
+"execution features separately from the source-file configuration classes."
+msgstr "在线文档跟随通过验证的最新 ``develop`` 分支。未合并功能分支的修改不会发布到主站。Cosima 指南单独介绍执行功能，并区分它与源文件配置类的职责。"
+
+msgid "The source code is available on `GitHub <https://github.com/Yong2Sheng/megalibpy>`_."
+msgstr "源代码托管于 `GitHub <https://github.com/Yong2Sheng/megalibpy>`_。"

@@ -18,10 +18,12 @@ The source code is available on `GitHub <https://github.com/Yong2Sheng/megalibpy
    :caption: Contents
 
    install
+   architecture
    tutorials/index
    cosima
    revan
    mimrec
    workspaces
    commands
+   languages
    api/index

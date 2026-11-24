@@ -1,0 +1,11 @@
+flowchart TB
+    S["原始 source / cfg"] --> M["根 manifest<br/>原始字节与 SHA-256"]
+    S --> T["临时原生输入文件"] --> N["Cosima / Revan / Mimrec"]
+    E["共享 orientation / geometry / spectrum"] -. "引用原位置" .-> N
+    N --> P["持久原生产物"]
+    N --> O["Cosima summary 模式 stdout"]
+    O --> K{"行首 Summary for run？"}
+    K -->|标记之前| D["丢弃之前的 stdout"]
+    K -->|从标记开始| L["完整流式保留至 EOF<br/>无大小上限；最后标记生效"]
+    N --> ERR["完整保留 stderr"]
+    N --> C["清除临时输入与启动文件"]

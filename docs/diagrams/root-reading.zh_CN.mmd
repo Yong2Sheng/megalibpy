@@ -1,0 +1,13 @@
+flowchart TB
+    subgraph A["分析环境，例如 Python 3.12"]
+      U["ExecutionResult 或明确 ROOT 路径"] --> API["extract_spectrum / extract_image"]
+      OUT["SpectrumData / ImageData<br/>数组、bin 边界、单位与元数据"]
+    end
+    API --> RT["MEGAlibRuntime.launch"]
+    subgraph B["独立 ROOT 兼容 Python 环境"]
+      W["_root_worker.py<br/>PyROOT · Python >= 3.10"]
+      F["原始 ROOT 文件<br/>Directory / Canvas / Pad"] --> W
+    end
+    RT --> W
+    W --> TMP["临时结构化传输<br/>调用结束后清除"] --> OUT
+    OUT --> P["计数或已核实的银河峰位置"]

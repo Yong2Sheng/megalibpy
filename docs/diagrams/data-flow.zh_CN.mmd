@@ -1,0 +1,13 @@
+flowchart TB
+    S["source 文件、资源与 seed"] --> C["Cosima 模拟<br/>simulate()"] --> SIM["模拟的探测器事件"]
+    SIM --> R["Revan 事件重建<br/>reconstruct()"] --> TRA["重建后的 TRA 事件"]
+    EXT["已有外部数据"] -. "SIM / EVTA" .-> R
+    EXT -. "TRA" .-> D
+    TRA --> D["Mimrec<br/>主 TRA、cfg 与基准覆盖"]
+    B["准备好的外部 TRA 事件<br/>例如背景事件"] --> D
+    D --> X["extract_events()<br/>一个 IN/END 列表 + 一次原生 -x"]
+    X --> SEL["selected: ExecutionResult<br/>组合并筛选后的 TRA 事件"]
+    SEL --> I["图像重建<br/>image(input_data=selected)"] --> IR["image.root"]
+    SEL --> SP["能谱提取<br/>spectrum(input_data=selected)"] --> SR["spectrum.root"]
+    IR --> IM["extract_image<br/>ImageData · SkyCoord"]
+    SR --> SD["extract_spectrum<br/>SpectrumData · total_counts"]

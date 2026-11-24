@@ -1,0 +1,437 @@
+# Simplified Chinese documentation for megalibpy.
+# Copyright (C) 2026 Yong Sheng
+# Distributed under the same license as megalibpy.
+msgid ""
+msgstr ""
+"Project-Id-Version: megalibpy 0.1\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-23 20:02-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: megalibpy contributors\n"
+"Language: zh_CN\n"
+"Language-Team: Simplified Chinese\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "Architecture and data flow"
+msgstr "架构与数据流"
+
+msgid "On this page"
+msgstr "本页内容"
+
+msgid "Module responsibilities"
+msgstr "模块职责"
+
+msgid ""
+"The source-file classes describe configuration. The tool adapters translate Python calls into "
+"native command plans. The shared executor handles processes, logs, failures and output checks; "
+"the runtime selects how each child environment is initialized. A workspace supplies experiment "
+"identity and records, rather than acting as a pipeline scheduler."
+msgstr ""
+"源文件类描述配置；工具适配器将 Python 调用转成原生命令计划。共享 executor 管理进程、日志、失败和输出检查，runtime 决定如何初始化子环境。workspace "
+"提供实验身份与记录，不承担 pipeline 调度。"
+
+msgid "Module responsibilities and managed command execution."
+msgstr "模块职责与受管理的命令执行。"
+
+msgid "Public building blocks"
+msgstr "公开构件"
+
+msgid "Module"
+msgstr "模块"
+
+msgid "Responsibility"
+msgstr "职责"
+
+msgid "Main interfaces"
+msgstr "主要接口"
+
+msgid "``megalib_source/``"
+msgstr "``megalib_source/``"
+
+msgid "Read and edit one run/source in a Cosima source file."
+msgstr "读取和编辑 Cosima 源文件中的一个 run/source。"
+
+msgid "``MEGAlibSource``, ``RunConfig``, ``Source``"
+msgstr "``MEGAlibSource``、``RunConfig``、``Source``"
+
+msgid "``cosima/``, ``revan/``, ``mimrec/``"
+msgstr "``cosima/``、``revan/``、``mimrec/``"
+
+msgid "Prepare tool-specific flags, inputs and expected outputs."
+msgstr "准备各工具的 flag、输入和预期产物。"
+
+msgid "``Cosima``, ``Revan``, ``Mimrec``"
+msgstr "``Cosima``、``Revan``、``Mimrec``"
+
+msgid "``revan/analysis.py``, ``mimrec/analysis.py``"
+msgstr "``revan/analysis.py``、``mimrec/analysis.py``"
+
+msgid "Bind main configuration; Mimrec also binds primary data and components."
+msgstr "绑定主配置；Mimrec 还绑定主数据及成分。"
+
+msgid "Constructor-bound analysis definitions"
+msgstr "构造时绑定的分析定义"
+
+msgid "``execution/``"
+msgstr "``execution/``"
+
+msgid "Runtime startup, managed execution, workspace records and lineage."
+msgstr "运行环境启动、受管理执行、工作区记录与来源链路。"
+
+msgid "``MEGAlibRuntime``, ``SimulationWorkspace``, ``ExecutionResult``"
+msgstr "``MEGAlibRuntime``、``SimulationWorkspace``、``ExecutionResult``"
+
+msgid "``mimrec/results.py``, ``mimrec/_root_worker.py``"
+msgstr "``mimrec/results.py``、``mimrec/_root_worker.py``"
+
+msgid "Read selected ROOT histograms in a separate compatible Python process."
+msgstr "在独立且兼容的 Python 进程读取选定 ROOT 直方图。"
+
+msgid "``extract_spectrum``, ``extract_image``"
+msgstr "``extract_spectrum``、``extract_image``"
+
+msgid "``mimrec/workflows.py``"
+msgstr "``mimrec/workflows.py``"
+
+msgid "Compose extraction, imaging and spectrum calls for prepared components."
+msgstr "为准备好的成分串联提取、成像与谱计算。"
+
+msgid "``analyze_components``"
+msgstr "``analyze_components``"
+
+msgid ""
+"``RunConfig`` does not execute Cosima. Revan and Mimrec keep native cfg bytes opaque: no XML "
+"parsing, tag repair or resource-path rewriting is performed. Native setting names, file "
+"interpretation and scientific cuts belong to MEGAlib. See :doc:`revan`, :doc:`mimrec` and "
+":doc:`api/index` for the exact interfaces."
+msgstr ""
+"``RunConfig`` 不执行 Cosima。Revan/Mimrec 的原生 cfg 始终作为 opaque 字节输入，不解析 "
+"XML、不修标签、不重写资源路径。参数名、文件解释和科学筛选由 MEGAlib 决定。精确接口见 :doc:`revan`、:doc:`mimrec` 和 :doc:`api/index`。"
+
+msgid "From simulation to a localization result"
+msgstr "从模拟到定位结果"
+
+msgid ""
+"The ordinary localization path is simulation, reconstruction, extraction, then image/spectrum "
+"analysis. Prepared components are declared when constructing Mimrec; one ``extract_events()`` "
+"call combines and selects them together with the primary TRA. No preliminary combination command "
+"or intermediate combined TRA is required. External SIM/EVTA or TRA data can enter at the "
+"appropriate stage."
+msgstr ""
+"通常的定位路径为模拟、重建、事件提取，再进行图像/谱分析。准备好的成分在 Mimrec 构造时声明；一次 ``extract_events()`` 将其与主 TRA "
+"共同组合并筛选。无需预先组合或产生中间 combined TRA。已有 SIM/EVTA 或 TRA 可以从对应阶段接入。"
+
+msgid "Native event products and in-memory scientific results."
+msgstr "原生事件产物与内存中的科学结果。"
+
+msgid ""
+"Every arrow between managed results identifies an exact upstream execution and selected product. "
+"A later operation uses the selected data; it does not inherit the previous command's "
+"temporary configuration overrides. The current command's own baseline and overrides still apply."
+msgstr "受管理结果之间的箭头表示精确上游执行及选定产物。后续操作使用筛选后的事件数据，不继承前一条命令的临时参数覆盖；当前命令自身的基准和覆盖仍然生效。"
+
+msgid ""
+"For example, use ``mimrec.spectrum(input_data=selected)`` to use a particular extraction. "
+"Without an explicit input, the bound group queries its root manifest: unique successful "
+"extraction, otherwise unique successful optional combination, otherwise its registered primary "
+"input. Declared components must first have a successful extraction/materialization. Multiple "
+"candidates raise an ambiguity error; neither a fixed task folder nor the latest file chooses the "
+"input."
+msgstr ""
+"例如用 ``mimrec.spectrum(input_data=selected)`` 使用指定提取结果中的事件数据。省略显式输入时，绑定组查询根 "
+"manifest：优先唯一成功提取，再唯一成功的可选组合，最后登记主输入。声明的成分须先有成功提取/物化。多个候选报歧义，不按固定 task 文件夹或最新文件选择。"
+
+msgid ""
+"The :doc:`localization notebook <tutorials/Localization_workflow>` demonstrates one trial. Its "
+"random background window, direct TRA event count and CSV summary are research-script steps. They "
+"do not introduce a general study scheduler."
+msgstr ""
+":doc:`定位 notebook <tutorials/Localization_workflow>` 展示一个 trial。随机背景窗口、直接 TRA 计数与 CSV summary "
+"属于研究脚本步骤，不构成通用 study 调度器。"
+
+msgid "One origin, multiple analysis branches"
+msgstr "唯一 origin 与多分析分支"
+
+msgid ""
+"Each independent Cosima trial uses its own workspace. Within it, different Revan definitions can "
+"share the simulation, and different Mimrec definitions can share a reconstruction. Image reconstruction and spectrum extraction can "
+"reuse the same selected result."
+msgstr "每个独立 Cosima trial 使用独立 workspace。其内不同 Revan 定义可共享模拟，不同 Mimrec 定义可共享重建；图像重建和能谱提取可以复用同一选定结果。"
+
+msgid "Independent analysis definitions sharing explicit upstream data."
+msgstr "不同分析定义共享明确的上游数据。"
+
+msgid "Three different identifiers"
+msgstr "三种不同标识"
+
+msgid "Identifier"
+msgstr "标识"
+
+msgid "Meaning"
+msgstr "含义"
+
+msgid "Selection behavior"
+msgstr "选择行为"
+
+msgid "``analysis_id``"
+msgstr "``analysis_id``"
+
+msgid "Workspace-local data/configuration group within a stage."
+msgstr "在 workspace 的某个 stage 内标识数据/配置组。"
+
+msgid "Reopening restores and validates its definition."
+msgstr "重开时恢复并校验定义。"
+
+msgid "``task``"
+msgstr "``task``"
+
+msgid "Caller-chosen operation label; for Mimrec, an output directory label."
+msgstr "由调用者命名的操作标签；Mimrec 中也是输出目录标签。"
+
+msgid "It is not an execution ID or a fixed extraction-folder convention."
+msgstr "不是 execution ID，也不是固定提取目录的约定。"
+
+msgid "``execution_id``"
+msgstr "``execution_id``"
+
+msgid "UUID of one command invocation, including failures and reruns."
+msgstr "一次命令调用的 UUID，失败和重跑也有独立身份。"
+
+msgid "Results/references preserve the exact command and upstream products."
+msgstr "结果/引用保留精确命令及上游产物。"
+
+msgid ""
+"Mimrec's ``revan_analysis_id`` identifies the upstream reconstruction; its own ``analysis_id`` "
+"can differ. An explicit ``input_data`` result can identify the parent instead. If both are "
+"supplied, they must agree with recorded lineage. Changed primary data, components or constructor "
+"baseline settings require a different analysis definition, subject to the failed-group recovery "
+"rule below."
+msgstr ""
+"Mimrec 的 ``revan_analysis_id`` 指上游重建，其自身 ``analysis_id`` 可以不同。也可用显式 ``input_data`` "
+"结果精确指定父节点。两者同时提供时必须与真实来源一致。主数据、成分或构造基准改变需另一分析定义，但下文失败组恢复情形例外。"
+
+msgid "Workspace and provenance"
+msgstr "工作区与来源记录"
+
+msgid ""
+"All stages share one root manifest. Analysis directories group data and baseline settings, while "
+"each native invocation keeps its own status, inputs, outputs and logs. Directories are created as"
+" needed; temporary inputs are omitted here."
+msgstr "所有 stage 共用根 manifest。分析目录组织数据和基准设置，每条原生命令独立保存状态、输入、输出和日志。目录按需创建；此处省略临时输入。"
+
+msgid ""
+"``working_space`` means this experiment root. ``result.workspace_dir`` returns the root, whereas "
+"``result.output_dir`` identifies an analysis/stage directory. The root manifest contains "
+"``origin``, ``groups`` and ``executions``; use ``result.record`` to read a particular execution "
+"by ID. Same-workspace parents use ID links; cross-workspace inputs snapshot only the selected "
+"record, leaving event products in place. Output reservations prevent historical names from being "
+"overwritten, even when a previously recorded product was removed."
+msgstr ""
+"``working_space`` 指实验根。``result.workspace_dir`` 返回根目录，``result.output_dir`` 标识分析/stage 目录。根 "
+"manifest 包含 ``origin``、``groups``、``executions``；用 ``result.record`` 按 ID 读取单条执行。同 workspace 父节点按"
+" ID 关联，跨 workspace 只快照选定记录，事件产物留原位。输出预留防止历史文件名被覆盖，即使原实体产物已删除。"
+
+msgid ""
+"Constructors read and validate definitions without creating files or starting native tools. Short"
+" manifest updates are locked and written atomically; native execution does not hold the lock. See"
+" :doc:`workspaces` for reopening, explicit selection, legacy read-only layouts and recovery "
+"conditions."
+msgstr "构造只读取、校验定义，不创建文件或启动工具。manifest 短时更新加锁并原子写入，原生执行不持锁。重开、显式选择、旧只读布局和恢复条件见 :doc:`workspaces`。"
+
+msgid "Runtime and environment separation"
+msgstr "运行环境与进程隔离"
+
+msgid ""
+"The analysis Python environment and MEGAlib installation can use different Python versions. "
+"Direct mode starts a tool in the current environment. Setup-script mode sources the supplied "
+"script and executes the tool in the same Bash child. The caller's environment and working "
+"directory stay unchanged."
+msgstr ""
+"分析 Python 与 MEGAlib 可以使用不同 Python 版本。direct 在当前环境启动工具子进程；setup-script 在同一 Bash 子进程 source "
+"指定脚本并执行工具。调用者环境与工作目录保持不变。"
+
+msgid "Runtime initialization belongs to the child process."
+msgstr "运行环境初始化发生在子进程中。"
+
+msgid ""
+"``MEGAlibRuntime`` owns process initialization, not data, analysis IDs, configuration or log-"
+"capture options. Revan/Mimrec main configuration and baseline overrides belong in their "
+"constructors; method overrides affect only one command. Native settings retain HOME by default, "
+"with explicit isolation available per execution."
+msgstr ""
+"``MEGAlibRuntime`` 负责进程初始化，不持有数据、分析 ID、配置或日志捕获设置。Revan/Mimrec 主配置和基准覆盖属于构造函数；方法覆盖只作用于一条命令。默认保留原生 "
+"HOME，也可逐次显式隔离设置。"
+
+msgid ""
+"``run_command`` reuses runtime startup for small standalone preparation tasks. It returns "
+"``subprocess.CompletedProcess`` and bypasses managed workspace, manifest, output-discovery and "
+"lineage handling. See :doc:`commands`."
+msgstr ""
+"``run_command`` 复用 runtime 启动，用于小型独立准备任务。它返回 ``subprocess.CompletedProcess``，绕过受管理的 "
+"workspace、manifest、产物发现及来源登记。见 :doc:`commands`。"
+
+msgid "Execution lifecycle and failures"
+msgstr "执行生命周期与失败处理"
+
+msgid ""
+"Managed commands keep independent records through preparation, native execution and output "
+"validation. A successful execution requires zero native exit status and nonempty expected "
+"products; this checks operation, not scientific correctness."
+msgstr "受管理命令从准备、原生执行到产物校验全程保留独立记录。成功要求原生零退出且预期产物非空，只验证操作结果，不证明科学正确性。"
+
+msgid "Independent command records preserve success, failure and interruption."
+msgstr "每条命令独立保存成功、失败和中断记录。"
+
+msgid ""
+"``ExecutionError`` exposes the manifest path and execution ID for failures after record creation."
+" Early argument/allocation errors can occur before such a record exists. Keyboard interruption "
+"records ``interrupted`` and propagates the interrupt; hard termination may leave an unfinished "
+"record, which is never a successful input."
+msgstr ""
+"建立记录后的错误通过 ``ExecutionError`` 暴露 manifest 路径和 execution ID。早期参数/分配错误可能发生在记录建立前。键盘中断记录 "
+"``interrupted`` 并继续传播；强制终止可能留下未完成记录，绝不作为成功输入。"
+
+msgid ""
+"Deleting a directory does not erase its manifest history. If a Revan/Mimrec group contains only "
+"failed executions and its entire directory has been removed, the same analysis ID can accept "
+"corrected constructor settings. The next execution rechecks eligibility under the lock, records "
+"recovery history and retains old failures. Existing, successful or in-progress groups cannot "
+"reset their definition this way. Cosima always requires a new workspace for a rerun, including "
+"failure."
+msgstr ""
+"删除目录不会抹掉 manifest 历史。Revan/Mimrec 组只有失败执行，且整个组目录已删除时，可同一 analysis ID 更正构造设置。下次执行在锁内重查条件，记录 "
+"recovery history 并保留旧失败。目录仍在、有成功或在途记录时不能如此重置。Cosima 任何重跑（包括失败）均需新 workspace。"
+
+msgid "Compact inputs and log retention"
+msgstr "精简输入与日志保留"
+
+msgid ""
+"By default source/cfg bytes and hashes live in the root manifest. Native input and launch files "
+"are temporary. External orientation, geometry and spectrum resources remain shared; Cosima's "
+"default zero hash limit records stat metadata without reading or copying nonempty resources. "
+"Explicit archival can retain configuration files; setup scripts are always sourced from their "
+"original path."
+msgstr ""
+"默认 source/cfg 原字节和 hash 保存在根 manifest，原生输入与启动文件临时存在。外部 orientation、geometry、spectrum 共享原文件；Cosima"
+" 默认零 hash 上限只记录 stat，不读取或复制非空资源。显式归档可保留配置实体；setup 脚本始终从原路径 source。"
+
+msgid "Compact configuration records and streaming Cosima summary logs."
+msgstr "精简配置记录与流式 Cosima 摘要日志。"
+
+msgid ""
+"Select ``log_mode`` on the execution method. Cosima supports full or summary stdout capture; "
+"summary retains every byte from the last line starting ``Summary for run`` through EOF, with no "
+"size cap. Missing markers are recorded explicitly, and stderr is retained in full. Empty logs are"
+" removed and their result paths become ``None``. Other tools currently use full capture."
+msgstr ""
+"在执行方法上选择 ``log_mode``。Cosima 支持 full 或 summary stdout；summary 从最后一个行首 ``Summary for run`` 到 EOF "
+"完整保存，无大小上限。缺失标记明确记录，stderr 始终完整。空日志删除，结果路径变为 ``None``。其他工具目前使用 full。"
+
+msgid "ROOT histograms and sky coordinates"
+msgstr "ROOT 直方图与天空坐标"
+
+msgid ""
+"ROOT files remain native products until explicitly read. ``extract_spectrum`` and "
+"``extract_image`` return detached arrays and metadata in memory. PyROOT runs only in a separate "
+"compatible interpreter, never in the analysis Python process."
+msgstr ""
+"ROOT 文件在显式读取前保持原生产物。``extract_spectrum`` 与 ``extract_image`` 返回内存中的独立数组和元数据。PyROOT "
+"仅在兼容的独立解释器加载，不进入分析 Python。"
+
+msgid "Isolated ROOT reading preserves numerical data and environment boundaries."
+msgstr "隔离 ROOT 读取，同时保留数值数据和环境边界。"
+
+msgid ""
+"The reader recursively discovers supported histograms by ROOT type and Directory/Canvas/Pad "
+"hierarchy. Multiple candidates require explicit object selection. Spectrum bin edges and units "
+"are retained. ``total_counts`` integrates only recognized counts/keV densities with keV widths, "
+"or directly sums explicit counts; unknown conventions raise an error rather than silently "
+"assigning counts."
+msgstr ""
+"读取器按 ROOT 类型及 Directory/Canvas/Pad 层级递归发现直方图。多候选需显式选对象。保留谱 bin 边界和单位。``total_counts`` 仅对已识别 "
+"counts/keV 密度乘 keV 宽度积分，或对明确 counts 直接求和；未知约定报错，不静默当作计数。"
+
+msgid ""
+"``peak_position`` is the maximum-intensity pixel center, not a centroid or fit. "
+"``peak_galactic_position`` returns Galactic ``SkyCoord`` only for a verified rectangular Galactic"
+" axis mapping. Unknown/Hammer projections remain unmapped; longitude is determined from the "
+"actual axis mapping, not a hardcoded sign rule. See :doc:`mimrec` for numerical contracts, "
+"supported mappings and verification scope."
+msgstr ""
+"``peak_position`` 是最大强度像素中心，不是 centroid 或拟合位置。``peak_galactic_position`` 仅在验证矩形银河轴映射后返回 Galactic "
+"``SkyCoord``。未知/Hammer 投影不映射；经度根据真实轴映射确定，不硬编码变号。数值契约、映射和验证范围见 :doc:`mimrec`。"
+
+msgid "Implemented behavior and future extensions"
+msgstr "已实现功能与后续扩展"
+
+msgid "Scope of the current implementation"
+msgstr "当前实现范围"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Capability"
+msgstr "能力"
+
+msgid "Implemented"
+msgstr "已实现"
+
+msgid ""
+"Managed Cosima/Revan/Mimrec commands, named analysis definitions, exact result references, "
+"component-aware extraction and root-manifest lineage."
+msgstr "受管理的 Cosima/Revan/Mimrec 执行、命名分析定义、精确结果引用、包含外部成分的提取，以及根 manifest 来源链路。"
+
+msgid ""
+"Standalone native commands, prepared-component function composition, isolated ROOT extraction and"
+" a configurable single-trial tutorial."
+msgstr "独立原生命令、准备好成分的函数组合、隔离 ROOT 提取和可配置的单 trial 教程。"
+
+msgid "Script responsibility"
+msgstr "研究脚本负责"
+
+msgid ""
+"Research-specific background sampling, CSV study summaries and deciding the scientific validity "
+"of inputs, selections and results."
+msgstr "研究特有的背景抽样、CSV study 汇总，以及判断输入、筛选和结果的科学有效性。"
+
+msgid "Future extensions"
+msgstr "后续扩展"
+
+msgid ""
+"Study scheduling, a general workflow framework, execution-graph export and interactive lineage "
+"browsing are not provided by the current package."
+msgstr "当前包不提供 study 调度、通用 workflow 框架、执行图导出或交互式来源链路浏览。"
+
+msgid "Limited mapping support"
+msgstr "映射支持有限"
+
+msgid ""
+"General projection inversion, fitted localization positions and localization-uncertainty "
+"estimation are not supplied by the image reader."
+msgstr "图像读取器不提供通用投影逆变换、拟合定位或定位不确定度估计。"
+
+msgid ""
+"Native availability and scientific validation depend on the user's installation and data. Refer "
+"to the operation guides and :doc:`api/index` for complete parameters and exceptions; the diagrams"
+" explain responsibilities and data flow, not exhaustive validation of every native configuration "
+"or projection."
+msgstr "原生可用性与科学验证取决于用户安装及数据。完整参数和异常见各操作指南与 :doc:`api/index`。图示说明职责和数据流，不代表验证所有原生配置或投影。"
+
+msgid ""
+"``megalibpy`` connects source-file configuration, external MEGAlib commands and numerical "
+"analysis through explicit data products. One experiment has one primary origin; a simulated "
+"experiment contains one Cosima execution. Reconstruction and analysis can branch without "
+"overwriting earlier results. This guide describes implemented behavior in the current development"
+" documentation. Planned extensions are listed separately below."
+msgstr ""
+"``megalibpy`` 通过明确的数据产物连接源文件配置、外部 MEGAlib 命令和数值分析。一个实验有唯一主 origin；从模拟开始的实验包含一次 Cosima "
+"执行。重建和分析可分支，且不覆盖已有结果。本页介绍当前开发文档对应的已实现行为，后续扩展在文末单独列出。"
+
+msgid ""
+"These diagrams explain the implemented design. They are not execution graphs automatically "
+"generated from a workspace manifest."
+msgstr "这些图说明已实现的设计，不是从 workspace manifest 自动生成的执行图。"

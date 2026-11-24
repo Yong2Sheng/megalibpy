@@ -1,0 +1,13 @@
+flowchart TB
+    U["用户脚本 / notebook"] --> S["megalib_source/<br/>MEGAlibSource · RunConfig · Source"]
+    U --> T["cosima/ · revan/ · mimrec/<br/>各工具执行适配器"]
+    U --> W["SimulationWorkspace<br/>模拟与分析记录"]
+    F["mimrec/workflows.py<br/>包含外部成分的<br/>事件筛选与分析"] --> T
+    T --> D["revan/analysis.py · mimrec/analysis.py<br/>绑定配置 / 数据定义"]
+    W -. "分配与记录" .-> T
+    T --> P["ExecutionPlan<br/>参数、输入、预期产物"]
+    P --> E["Executor<br/>进程、日志、超时、输出检查"]
+    E --> RT["MEGAlibRuntime<br/>Direct / Setup script"]
+    RT --> N["外部 MEGAlib 程序<br/>cosima · revan · mimrec"]
+    E --> O["ExecutionResult / ExecutionError<br/>精确产物与执行记录"]
+    E -. "保存状态与来源链路" .-> W
